@@ -490,3 +490,16 @@ class RolTest(StroomTest):
         self.assertEqual(self.c.get(f"/wedstrijd/{self.w.pk}/instellingen/").status_code, 200)
         self.c.post("/gebruikers/", {"user": self.tr.pk, "rol": "beheerder"})
         self.assertEqual(User.objects.get(pk=self.tr.pk).profiel.rol, Profiel.BEHEERDER)
+
+
+class DemoTest(TestCase):
+    def test_demo_wedstrijden(self):
+        import tempfile
+        from django.core.management import call_command
+        with tempfile.TemporaryDirectory() as d, self.settings(MEDIA_ROOT=d):
+            call_command("demo_wedstrijden", stdout=io.StringIO())
+            self.assertEqual(Wedstrijd.objects.count(), 5)
+            self.assertTrue(Inschrijving.objects.exists())
+            self.assertTrue(BesteTijd.objects.filter(bron="uitslagen").exists())
+            call_command("demo_wedstrijden", "--verwijder", stdout=io.StringIO())
+            self.assertEqual(Wedstrijd.objects.count(), 0)

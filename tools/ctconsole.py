@@ -65,7 +65,8 @@ merk = "__KLAAR__"
 buf = ""
 stuur(f"{sys.argv[1]}; echo {merk}\r")
 eind = time.time() + float(os.environ.get("WACHT", "60"))
-while merk + "\r" not in buf.split(sys.argv[1], 1)[-1] and time.time() < eind:
+# Wachten op de merker op een eigen regel (de echo van het commando kan over regels heen lopen).
+while not re.search(r"\n" + merk + r"\r?\n", buf) and time.time() < eind:
     lees(1)
 uit = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]|\x1b[()][A-Z0-9]|\r", "", buf)
 print(uit[-int(os.environ.get("MAX", "6000")):])

@@ -43,6 +43,7 @@ class Command(BaseCommand):
                                         inschrijftijd=timedelta(seconds=sec), inschrijfbaan=baan)
         Melding.objects.create(zwemmer=lien, wedstrijd=w, door=trainer,
                                tekst="goedgekeurd: #2 100 m schoolslag\ninschrijftijd #6 50 m rugslag: NT → 37.80")
+        call_command("demo_wedstrijden", stdout=self.stdout)
         from inschrijvingen import backup
         backup.maak("automatisch")
         self.stdout.write(self.style.SUCCESS("Demo-wedstrijd klaar."))

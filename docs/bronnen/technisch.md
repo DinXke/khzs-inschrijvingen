@@ -47,6 +47,9 @@ Het script start de app met demodata, maakt alle screenshots opnieuw (gsm + pc, 
 | `sportsec1`, `sportsec2` | Sportsecretaris | `demo` |
 | `trainer1`, `trainer2` | Trainer | `demo` |
 | `zwemmer1` (ouder Ann, kinderen Lien 2013 en Noor 2015), `zwemmer2` (Bram, 2011) | Zwemmer | `demo` |
+| `zwemmer3` … `zwemmer6` (gezinnen Vermeulen, Claes, Maes, Wouters) | Zwemmer | `demo` |
+
+**Demo-wedstrijden** (`manage.py demo_wedstrijden`): twee voorbije wedstrijden met doorgestuurde inschrijvingen en verwerkte uitslagen, twee open wedstrijden en één die nog niet open is. De programma's zijn gebaseerd op voorprogramma's van zwemfed.be (Regiocup Bree, Sprintcup KLSVZ, Kerstprijs ZCT). Verwijderen: `manage.py demo_wedstrijden --verwijder`.
 
 Het beheerdersaccount **`admin`** is geen demo-account: het heeft een sterk wachtwoord (`manage.py beheerder` maakt of herstelt het).
 
