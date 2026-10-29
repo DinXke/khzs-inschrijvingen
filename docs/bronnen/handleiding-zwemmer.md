@@ -9,18 +9,21 @@ Ouders beheren alle zwemmers van het gezin vanuit één account.
 2. **iPhone:** tik op Delen ⬆ → *Zet op beginscherm*. **Android:** tik op *Installeer als app* (of ⋮ → *App installeren*).
 3. Open voortaan de app via het HZS-icoon op je beginscherm.
 
-## 2. Profiel aanmaken
+## 2. Profiel aanmaken (één account per gezin)
 
 1. Tik op **Maak een profiel aan**.
-2. Vul je e-mailadres en een wachtwoord in. Schrijf je je kind in? Gebruik het e-mailadres van de ouder.
-3. Vul de gegevens van de zwemmer in: voornaam, naam, geboortedatum, geslacht en (als je die hebt) het licentienummer.
-4. Broers of zussen voeg je nadien toe via **Profiel → + Zwemmer**.
+2. **Account:** vul je e-mailadres, je eigen voornaam en naam en een wachtwoord in. Als ouder gebruik je je eigen gegevens.
+3. **Zwemmer(s):** vul per kind voornaam, naam, geboortedatum en geslacht in. Licentienummer en Swimrankings-ID zijn optioneel.
+4. Meerdere kinderen? Tik op **+ Nog een zwemmer (broer/zus)**. Zwem je zelf? Voeg jezelf ook toe als zwemmer.
+5. Later nog iemand toevoegen kan via **Profiel → + Zwemmer**.
+
+Bij elke wedstrijd kies je bovenaan met de knoppen per kind voor wie je inschrijft. Meldingen komen op het ene account toe.
 
 <div class="naast" markdown="1">
 
 ![gsm aanmelden](../screenshots/aanmelden.png)
 
-![gsm registreren](../screenshots/registreren.png)
+![gsm registreren](../screenshots/zwemmer-registreren-gezin.png)
 
 </div>
 

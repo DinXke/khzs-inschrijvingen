@@ -33,6 +33,7 @@ SCREENSHOTS = [
     ("registreren", None, "/registreren/", GSM, "light", None),
     ("zwemmer-wedstrijden", "zwemmer1", "/wedstrijden/", GSM, "light", None),
     ("zwemmer-wedstrijd", "zwemmer1", "/wedstrijd/1/?zwemmer=1", GSM, "light", None),
+    ("zwemmer-registreren-gezin", None, "/registreren/", GSM, "light", "tweede-zwemmer"),
     ("zwemmer-programma", "zwemmer1", "/wedstrijd/1/?zwemmer=1", GSM, "light", "programma"),
     ("zwemmer-profiel", "zwemmer1", "/zwemmers/1/", GSM, "light", None),
     ("zwemmer-meldingen", "zwemmer1", "/meldingen/", GSM, "light", None),
@@ -99,6 +100,10 @@ def maak_screenshots(browser):
         page.goto(URL + pad)
         page.evaluate(f"document.documentElement.dataset.theme = '{thema}'")
         page.evaluate("document.querySelectorAll('.melding.success, .melding.info').forEach(e => e.remove())")
+        if actie == "tweede-zwemmer":
+            page.fill("#id_naam", "Peeters")
+            page.click("#nog-zwemmer")
+            page.evaluate("document.querySelector('#zwemmers').scrollIntoView({block: 'start'}); window.scrollBy(0, -70)")
         if actie == "programma":
             page.evaluate("document.querySelector('h2')?.scrollIntoView({block: 'start'}); window.scrollBy(0, -80)")
         page.wait_for_timeout(150)

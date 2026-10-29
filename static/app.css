@@ -190,3 +190,11 @@ th { color: var(--zacht); font-weight: 600; font-size: .82rem; }
 .info-wedstrijd { border-left: 4px solid var(--primair); background: color-mix(in srgb, var(--primair) 8%, var(--kaart)); }
 .info-kort { margin-top: .3rem; color: var(--tekst); }
 textarea { min-height: 80px; }
+
+/* Kind kiezen (account met meerdere zwemmers) */
+.kind-keuze { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 10px; margin-bottom: 4px; }
+.kind { flex: none; display: flex; flex-direction: column; align-items: center; min-width: 88px; padding: .5rem .9rem;
+  border-radius: 14px; border: 1px solid var(--lijn); background: var(--kaart); color: var(--tekst); text-decoration: none; font-weight: 700; }
+.kind span { font-size: .75rem; font-weight: 400; color: var(--zacht); }
+.kind.actief { background: var(--primair); border-color: var(--primair); color: var(--primair-tekst); }
+.kind.actief span { color: inherit; opacity: .85; }

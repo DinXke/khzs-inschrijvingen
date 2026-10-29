@@ -31,7 +31,7 @@ class Command(BaseCommand):
         w.limietlijsten.set(w.alle_limietlijsten.filter(naam__startswith="Haai"))
         w.info = "Deze wedstrijd is enkel voor zwemmers die een Haai-limiet hebben. Busvervoer vertrekt om 6u30 aan het zwembad."
 
-        lien = Zwemmer.objects.get(account__username="zwemmer1")
+        lien = Zwemmer.objects.get(account__username="zwemmer1", voornaam="Lien")
         bram = Zwemmer.objects.get(account__username="zwemmer2")
         trainer = User.objects.get(username="trainer1")
         Deelname.objects.create(zwemmer=lien, wedstrijd=w, keuze=Deelname.DOET_MEE)

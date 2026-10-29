@@ -10,7 +10,7 @@
 {% if w.info %}<div class="kaart info-wedstrijd">ℹ️ {{ w.info|linebreaksbr }}</div>{% endif %}
 {% if staf %}<p><a href="{% url 'nakijken' w.pk %}">← Terug naar overzicht inschrijvingen</a></p>{% endif %}
 
-{% if zwemmers|length > 1 or staf %}
+{% if staf %}
 <form method="get" class="kaart">
   <label for="zw">Zwemmer</label>
   <select id="zw" name="zwemmer" onchange="this.form.submit()">
@@ -18,6 +18,11 @@
     {% for z in zwemmers %}<option value="{{ z.pk }}" {% if z == gekozen %}selected{% endif %}>{{ z.naam }} {{ z.voornaam }} ({{ z.geboortedatum|date:"Y" }})</option>{% endfor %}
   </select>
 </form>
+{% elif zwemmers|length > 1 %}
+<div class="kind-keuze">
+  {% for z in zwemmers %}<a class="kind{% if z == gekozen %} actief{% endif %}" href="?zwemmer={{ z.pk }}">{{ z.voornaam }}<span>{{ z.geboortedatum|date:"Y" }}</span></a>{% endfor %}
+</div>
+{% if not gekozen %}<p class="klein">Kies hierboven voor welke zwemmer je wil inschrijven.</p>{% endif %}
 {% endif %}
 
 {% if gekozen %}

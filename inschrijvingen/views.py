@@ -22,7 +22,7 @@ from django.urls import reverse
 
 from . import lenex, push
 from .export import excel_overzicht
-from .forms import (BesteTijdForm, MeldingenForm, RegistratieForm, RolForm, SecretarisInstellingenForm,
+from .forms import (BesteTijdForm, MeldingenForm, ZwemmerFormSet, RegistratieForm, RolForm, SecretarisInstellingenForm,
                     TrainerInstellingenForm, UploadForm, ZwemmerForm)
 from .models import BesteTijd, Deelname, Inschrijving, Melding, Nummer, Profiel, PushAbonnement, Wedstrijd, Zwemmer
 from .regels import (vandaag, beoordeel, leeftijd, mag_wijzigen, parse_invoer_tijd, past_in_nummer, programma_voor, rol,
@@ -67,12 +67,19 @@ def registreren(request):
     if request.user.is_authenticated:
         return redirect("start")
     form = RegistratieForm(request.POST or None)
-    if request.method == "POST" and form.is_valid():
+    zwemmers = ZwemmerFormSet(request.POST or None, prefix="zw")
+    if request.method == "POST" and form.is_valid() and zwemmers.is_valid():
         user = form.save()
-        login(request, user)
-        messages.success(request, "Account aangemaakt. Vul je beste tijden in om te kunnen inschrijven.")
-        return redirect("zwemmer", pk=user.zwemmers.first().pk)
-    return render(request, "registration/registreren.html", {"form": form})
+        for zf in zwemmers:
+            if zf.has_changed():
+                z = zf.save(commit=False)
+                z.account = user
+                z.save()
+        login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+        n = user.zwemmers.count()
+        messages.success(request, f"Account aangemaakt met {n} zwemmer{'s' if n != 1 else ''}. Kies een wedstrijd om in te schrijven.")
+        return redirect("wedstrijden")
+    return render(request, "registration/registreren.html", {"form": form, "zwemmers": zwemmers})
 
 
 @login_required

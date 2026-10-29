@@ -104,7 +104,9 @@ class StroomTest(TestCase):
         self.c.logout()
         r = self.c.post("/registreren/", {
             "email": "ouder@test.be", "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!",
-            "voornaam": "Lien", "naam": "Peeters", "geboortedatum": "2013-03-02", "geslacht": "F",
+            "voornaam": "Ann", "naam": "Peeters",
+            "zw-TOTAL_FORMS": 1, "zw-INITIAL_FORMS": 0, "zw-MIN_NUM_FORMS": 1, "zw-MAX_NUM_FORMS": 10,
+            "zw-0-voornaam": "Lien", "zw-0-naam": "Peeters", "zw-0-geboortedatum": "2013-03-02", "zw-0-geslacht": "F",
         })
         self.assertEqual(r.status_code, 302, r.content[:2000])
         z = Zwemmer.objects.get(voornaam="Lien")
@@ -436,3 +438,27 @@ class BackupTest(StroomTest):
             self.assertEqual(User.objects.get(username="tr@khzs.be").profiel.rol, Profiel.TRAINER)
             self.assertEqual(len(list(Path(d).glob("hzs-backup-*voor-herstel.zip"))), 1)
             self.assertEqual(self.c.get("/backup/..%2Fsettings.py").status_code, 404)
+
+
+class GezinTest(TestCase):
+    def test_ouder_registreert_twee_kinderen(self):
+        r = self.client.post("/registreren/", {
+            "email": "gezin@test.be", "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!",
+            "voornaam": "Ann", "naam": "Peeters",
+            "zw-TOTAL_FORMS": 2, "zw-INITIAL_FORMS": 0, "zw-MIN_NUM_FORMS": 1, "zw-MAX_NUM_FORMS": 10,
+            "zw-0-voornaam": "Lien", "zw-0-naam": "Peeters", "zw-0-geboortedatum": "2013-03-02", "zw-0-geslacht": "F",
+            "zw-1-voornaam": "Bram", "zw-1-naam": "Peeters", "zw-1-geboortedatum": "2011-07-14", "zw-1-geslacht": "M",
+        })
+        self.assertEqual(r.status_code, 302)
+        u = User.objects.get(username="gezin@test.be")
+        self.assertEqual(u.first_name, "Ann")
+        self.assertEqual(sorted(u.zwemmers.values_list("voornaam", flat=True)), ["Bram", "Lien"])
+
+    def test_minstens_een_zwemmer(self):
+        r = self.client.post("/registreren/", {
+            "email": "leeg@test.be", "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!",
+            "voornaam": "Ann", "naam": "P",
+            "zw-TOTAL_FORMS": 1, "zw-INITIAL_FORMS": 0, "zw-MIN_NUM_FORMS": 1, "zw-MAX_NUM_FORMS": 10,
+        })
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(User.objects.filter(username="leeg@test.be").exists())

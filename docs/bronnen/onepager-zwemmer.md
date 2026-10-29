@@ -3,7 +3,7 @@
 ## In 6 stappen ingeschreven
 
 1. Surf naar **inschrijvingen.khzs.be** en zet de app op je beginscherm.
-2. **Maak een profiel aan** met je e-mail, naam, geboortedatum en geslacht.
+2. **Maak een profiel aan**: één account per gezin, met daaronder al je zwemmende kinderen (**+ Nog een zwemmer**).
 3. **Profiel**: controleer je beste tijden (de club houdt ze bij via de uitslagen) en vul je Swimrankings-ID in.
 4. **Wedstrijden** → kies een wedstrijd → lees de info → **Interesse**, **Ik doe mee** of **Ik doe niet mee**.
 5. Vink je nummers aan (groen = limiet gehaald) en tik **Bewaren**.

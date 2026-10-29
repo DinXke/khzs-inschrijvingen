@@ -47,7 +47,7 @@ Het script start de app met demodata, maakt alle screenshots opnieuw (gsm + pc, 
 | `beheerder` | Sportsecretaris + beheer (`/beheer/`) | `demo` |
 | `sportsec1`, `sportsec2` | Sportsecretaris | `demo` |
 | `trainer1`, `trainer2` | Trainer | `demo` |
-| `zwemmer1` (Lien, 2013), `zwemmer2` (Bram, 2011) | Zwemmer | `demo` |
+| `zwemmer1` (ouder Ann, kinderen Lien 2013 en Noor 2015), `zwemmer2` (Bram, 2011) | Zwemmer | `demo` |
 
 > **Verwijder of wijzig deze accounts voor er echte zwemmersgegevens in komen**:
 > `manage.py demo_accounts --verwijder`. Het beheer-paneel staat op `/beheer/`.

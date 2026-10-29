@@ -14,12 +14,11 @@ class DatumInput(forms.DateInput):
 
 
 class RegistratieForm(UserCreationForm):
+    """Account (bv. van een ouder). De zwemmers komen uit een aparte formset (ZwemmerFormSet)."""
+
     email = forms.EmailField(label="E-mail")
-    voornaam = forms.CharField(max_length=60)
-    naam = forms.CharField(max_length=80)
-    geboortedatum = forms.DateField(widget=DatumInput())
-    geslacht = forms.ChoiceField(choices=[("M", "Man"), ("F", "Vrouw")], widget=forms.RadioSelect)
-    licentie = forms.CharField(label="Licentienummer (optioneel)", max_length=30, required=False)
+    voornaam = forms.CharField(label="Jouw voornaam", max_length=60)
+    naam = forms.CharField(label="Jouw naam", max_length=80)
 
     class Meta:
         model = User
@@ -37,18 +36,20 @@ class RegistratieForm(UserCreationForm):
         user.first_name = self.cleaned_data["voornaam"]
         user.last_name = self.cleaned_data["naam"]
         user.save()
-        Zwemmer.objects.create(
-            account=user,
-            **{k: self.cleaned_data[k] for k in ("voornaam", "naam", "geboortedatum", "geslacht", "licentie")},
-        )
         return user
 
 
 class ZwemmerForm(forms.ModelForm):
+    geslacht = forms.ChoiceField(choices=[("M", "Man"), ("F", "Vrouw")], widget=forms.RadioSelect)
+
     class Meta:
         model = Zwemmer
         fields = ["voornaam", "naam", "geboortedatum", "geslacht", "licentie", "swimrankings_id"]
-        widgets = {"geboortedatum": DatumInput(), "geslacht": forms.RadioSelect}
+        widgets = {"geboortedatum": DatumInput()}
+        labels = {"licentie": "Licentienummer (optioneel)", "swimrankings_id": "Swimrankings-ID (optioneel)"}
+
+
+ZwemmerFormSet = forms.formset_factory(ZwemmerForm, extra=0, min_num=1, validate_min=True, max_num=10)
 
 
 class TijdVeld(forms.CharField):

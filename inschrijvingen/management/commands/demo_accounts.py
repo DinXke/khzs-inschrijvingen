@@ -15,12 +15,17 @@ ACCOUNTS = [
     ("sportsec2", "Stijn", "Sportsecretaris", Profiel.SECRETARIS, False),
     ("trainer1", "Tom", "Trainer", Profiel.TRAINER, False),
     ("trainer2", "Tine", "Trainer", Profiel.TRAINER, False),
-    ("zwemmer1", "Lien", "Peeters", Profiel.ZWEMMER, False),
+    ("zwemmer1", "Ann", "Peeters", Profiel.ZWEMMER, False),  # ouder met twee kinderen
     ("zwemmer2", "Bram", "Janssens", Profiel.ZWEMMER, False),
 ]
 ZWEMMERS = {
-    "zwemmer1": (date(2013, 3, 2), "F", [(100, "BREAST", "LCM", 79.5), (50, "FREE", "SCM", 31.2), (200, "MEDLEY", "SCM", 170.0)]),
-    "zwemmer2": (date(2011, 7, 14), "M", [(100, "FREE", "SCM", 58.9), (50, "FLY", "SCM", 29.4), (200, "BACK", "LCM", 141.3)]),
+    "zwemmer1": [
+        ("Lien", "Peeters", date(2013, 3, 2), "F", [(100, "BREAST", "LCM", 79.5), (50, "FREE", "SCM", 31.2), (200, "MEDLEY", "SCM", 170.0)]),
+        ("Noor", "Peeters", date(2015, 9, 21), "F", [(50, "BACK", "SCM", 38.4), (100, "FREE", "SCM", 72.1)]),
+    ],
+    "zwemmer2": [
+        ("Bram", "Janssens", date(2011, 7, 14), "M", [(100, "FREE", "SCM", 58.9), (50, "FLY", "SCM", 29.4), (200, "BACK", "LCM", 141.3)]),
+    ],
 }
 
 
@@ -43,9 +48,8 @@ class Command(BaseCommand):
             u.set_password(WACHTWOORD)
             u.save()
             Profiel.objects.update_or_create(user=u, defaults={"rol": rol})
-            if naam in ZWEMMERS:
-                gd, gs, tijden = ZWEMMERS[naam]
-                z, _ = Zwemmer.objects.get_or_create(account=u, voornaam=vn, naam=nm,
+            for zvn, znm, gd, gs, tijden in ZWEMMERS.get(naam, []):
+                z, _ = Zwemmer.objects.get_or_create(account=u, voornaam=zvn, naam=znm,
                                                      defaults={"geboortedatum": gd, "geslacht": gs})
                 for afstand, slag, baan, sec in tijden:
                     BesteTijd.objects.get_or_create(zwemmer=z, afstand=afstand, slag=slag, baan=baan, defaults={
