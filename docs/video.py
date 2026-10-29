@@ -439,10 +439,8 @@ def main():
                 for naam in gekozen:
                     script, toestel = ROLLEN[naam]
                     vid = Path(tmp) / naam
-                    schaal = 2 if toestel is GSM else 1.5
-                    groot = {k: int(v * schaal) for k, v in toestel.items()}
-                    ctx = browser.new_context(viewport=toestel, device_scale_factor=schaal, record_video_dir=str(vid),
-                                              record_video_size=groot,
+                    # Opnamegrootte = schermgrootte: Playwright neemt op in CSS-pixels; een groter frame geeft grijze randen.
+                    ctx = browser.new_context(viewport=toestel, record_video_dir=str(vid), record_video_size=toestel,
                                               color_scheme="light", service_workers="block", locale="nl-BE")
                     ctx.add_init_script(INIT)
                     page = ctx.new_page()
