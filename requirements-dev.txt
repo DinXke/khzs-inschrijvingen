@@ -1,0 +1,8 @@
+# Ontwikkeling: documentatie (docs/build.py), filmpjes (docs/video.py) en beheer (tools/ctconsole.py)
+-r requirements.txt
+playwright
+markdown
+pymupdf
+imageio-ffmpeg
+pillow
+websocket-client

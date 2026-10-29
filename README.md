@@ -30,7 +30,8 @@ Opnieuw bouwen: `.venv/bin/python docs/build.py` (screenshots + PDF's) en `.venv
 ## Lokaal draaien
 
 ```bash
-uv venv --python 3.12 .venv && uv pip install --python .venv -r requirements.txt
+uv venv --python 3.12 .venv && uv pip install --python .venv -r requirements-dev.txt
+.venv/bin/python -m playwright install chromium   # enkel voor docs en filmpjes
 .venv/bin/python manage.py migrate
 .venv/bin/python manage.py demodata      # demo-accounts, zie inschrijvingen/management/commands/demodata.py
 .venv/bin/python manage.py runserver
