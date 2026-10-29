@@ -38,7 +38,10 @@ SCREENSHOTS = [
     ("zwemmer-profiel", "zwemmer1", "/zwemmers/1/", GSM, "light", None),
     ("zwemmer-meldingen", "zwemmer1", "/meldingen/", GSM, "light", None),
     ("zwemmer-donker", "zwemmer1", "/wedstrijd/1/?zwemmer=1", GSM, "dark", None),
-    ("trainer-nakijken", "trainer1", "/wedstrijd/1/nakijken/", PC, "light", None),
+    ("trainer-nakijken", "trainer1", "/wedstrijd/4/nakijken/", PC, "light", None),
+    ("trainer-overzicht", "trainer1", "/wedstrijd/4/overzicht/", PC, "light", None),
+    ("trainer-overzicht-nummer", "trainer1", "/wedstrijd/4/overzicht/?weergave=nummer", PC, "light", None),
+    ("secretaris-finaliseren", "sportsec1", "/wedstrijd/4/nakijken/?status=goedgekeurd", PC, "light", "finaal"),
     ("trainer-wijzigen", "trainer1", "/wedstrijd/1/?zwemmer=1", PC, "light", "programma"),
     ("trainer-gsm", "trainer1", "/wedstrijd/1/nakijken/", GSM, "dark", None),
     ("secretaris-wedstrijden", "sportsec1", "/wedstrijden/", PC, "light", None),
@@ -105,6 +108,8 @@ def maak_screenshots(browser):
             page.fill("#id_naam", "Peeters")
             page.click("#nog-zwemmer")
             page.evaluate("document.querySelector('#zwemmers').scrollIntoView({block: 'start'}); window.scrollBy(0, -70)")
+        if actie == "finaal":
+            page.evaluate("document.querySelector('.finaal').scrollIntoView({block: 'start'}); window.scrollBy(0, -80)")
         if actie == "programma":
             page.evaluate("document.querySelector('h2')?.scrollIntoView({block: 'start'}); window.scrollBy(0, -80)")
         page.wait_for_timeout(150)

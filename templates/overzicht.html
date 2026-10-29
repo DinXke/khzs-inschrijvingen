@@ -1,0 +1,132 @@
+{% load static zwem %}<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overzicht {{ w.naam }} · HZS</title>
+<link rel="icon" href="{% static 'img/favicon-32.png' %}">
+<style>
+  @page { size: A4; margin: 12mm 12mm 14mm; }
+  :root { --petrol: #0e6b73; --petrol-donker: #0a4f55; --amber: #e8962e; --inkt: #14232c; --zacht: #5d6d77; --lijn: #e0e7ea; --bg: #f4f6f7;
+    --ok: #157a46; --ok-bg: #dff4e8; --fout: #b42318; --fout-bg: #fde8e6; --wacht: #8a5a00; --wacht-bg: #fff1cc; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--inkt); font: 10.5pt/1.45 -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .blad { max-width: 210mm; margin: 0 auto; padding: 14px; }
+  .balk { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .balk a, .balk button { font: inherit; font-weight: 600; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--lijn);
+    background: #fff; color: var(--petrol); text-decoration: none; cursor: pointer; }
+  .balk a.aan { background: var(--petrol); color: #fff; border-color: var(--petrol); }
+  .balk .druk { background: var(--amber); border-color: var(--amber); color: #1c1200; margin-left: auto; }
+  header { position: relative; display: flex; gap: 14px; align-items: center; padding: 14px 18px 18px; border-radius: 14px; color: #fff;
+    background: linear-gradient(135deg, var(--petrol), var(--petrol-donker)); overflow: hidden; }
+  header::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 5px;
+    background: repeating-linear-gradient(90deg, var(--amber) 0 22px, #fff 22px 30px); }
+  header .logo { background: #fff; border-radius: 10px; padding: 4px 8px; display: flex; }
+  header .logo img { height: 40px; display: block; }
+  header h1 { margin: 0; font-size: 17pt; font-style: italic; font-weight: 800; line-height: 1.15; }
+  header .sub { opacity: .9; font-size: 9.5pt; }
+  .feiten { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0; }
+  .feit { background: #fff; border: 1px solid var(--lijn); border-top: 3px solid var(--amber); border-radius: 10px; padding: 6px 10px; font-size: 8.5pt; color: var(--zacht); }
+  .feit b { display: block; font-size: 11pt; color: var(--petrol); }
+  .info { background: #fff6e8; border: 1px solid #f6d7a8; border-radius: 10px; padding: 7px 12px; margin-bottom: 10px; }
+  .kaart { background: #fff; border: 1px solid var(--lijn); border-radius: 12px; margin: 0 0 10px; break-inside: avoid; overflow: hidden; }
+  .kaart .kop { display: flex; align-items: baseline; gap: 10px; padding: 8px 12px; background: #eef5f5; border-bottom: 1px solid var(--lijn); }
+  .kaart .kop .naam { font-weight: 800; font-size: 11.5pt; }
+  .kaart .kop .meta { color: var(--zacht); font-size: 9pt; }
+  .kaart .kop .rechts { margin-left: auto; font-size: 9pt; color: var(--zacht); }
+  table { width: 100%; border-collapse: collapse; font-size: 9.8pt; }
+  th { text-align: left; font-size: 8pt; color: var(--zacht); font-weight: 600; padding: 4px 10px; }
+  td { padding: 5px 10px; border-top: 1px solid var(--lijn); vertical-align: middle; }
+  td.nr { width: 42px; color: var(--petrol); font-weight: 800; }
+  td.tijd { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+  td.vak { width: 26px; } .vakje { display: inline-block; width: 14px; height: 14px; border: 1.6px solid var(--inkt); border-radius: 3px; }
+  td.notitie { width: 30%; } .lijn { border-bottom: 1px dotted #9aa8b0; height: 14px; }
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 8pt; font-weight: 700; white-space: nowrap; }
+  .goedgekeurd, .doet_mee { background: var(--ok-bg); color: var(--ok); }
+  .ingediend, .interesse { background: var(--wacht-bg); color: var(--wacht); }
+  .afgekeurd, .geweigerd { background: var(--fout-bg); color: var(--fout); }
+  .doet_niet_mee { background: var(--lijn); color: var(--zacht); }
+  h2 { font-style: italic; color: var(--petrol); font-size: 12.5pt; margin: 16px 0 8px; padding-left: 9px; border-left: 5px solid var(--amber); }
+  .voet { display: flex; justify-content: space-between; color: var(--zacht); font-size: 8pt; margin-top: 12px; }
+  .leeg { color: var(--zacht); padding: 18px; text-align: center; }
+  @media (max-width: 640px) { .feiten { grid-template-columns: 1fr 1fr; } td.notitie { display: none; } }
+  @media print {
+    body { background: #fff; } .blad { padding: 0; max-width: none; } .balk { display: none; }
+    .kaart { box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+<div class="blad">
+  <nav class="balk">
+    <a href="{% url 'nakijken' w.pk %}">← Terug</a>
+    <a href="?weergave=zwemmer&filter={{ filter }}" class="{% if weergave == 'zwemmer' %}aan{% endif %}">Per zwemmer</a>
+    <a href="?weergave=nummer&filter={{ filter }}" class="{% if weergave == 'nummer' %}aan{% endif %}">Per nummer</a>
+    <a href="?weergave={{ weergave }}&filter=actief" class="{% if filter == 'actief' %}aan{% endif %}">Zonder afgekeurde</a>
+    <a href="?weergave={{ weergave }}&filter=goedgekeurd" class="{% if filter == 'goedgekeurd' %}aan{% endif %}">Enkel goedgekeurd</a>
+    <a href="?weergave={{ weergave }}&filter=alle" class="{% if filter == 'alle' %}aan{% endif %}">Alle</a>
+    <button class="druk" onclick="window.print()">🖨 Afdrukken / PDF</button>
+  </nav>
+
+  <header>
+    <span class="logo"><img src="{% static 'img/logo.png' %}" alt="HZS"></span>
+    <div><h1>{{ w.naam }}</h1>
+      <div class="sub">{{ w.zwembad }}, {{ w.stad }} · {{ w.get_baan_display }} · {{ w.startdatum|date:"l j F Y" }}</div></div>
+  </header>
+
+  <div class="feiten">
+    <div class="feit">Zwemmers<b>{{ zwemmers|length }}</b></div>
+    <div class="feit">Starts<b>{{ aantal }}</b></div>
+    <div class="feit">Deadline organisator<b>{{ w.deadline|date:"D j M" }}</b></div>
+    <div class="feit">Inschrijfgeld<b>{{ totaal|euro }}</b></div>
+  </div>
+  {% if w.info %}<div class="info">ℹ️ {{ w.info|linebreaksbr }}</div>{% endif %}
+
+  {% if weergave == 'nummer' %}
+    {% for n, lijst in nummers %}
+    <div class="kaart">
+      <div class="kop"><span class="naam">#{{ n.nummer }} {{ n.omschrijving }}</span>
+        <span class="meta">{{ n.get_geslacht_display }} · sessie {{ n.sessie.nummer }}{% if n.sessie.starttijd %} ({{ n.sessie.starttijd|time:"H:i" }}){% endif %}</span>
+        <span class="rechts">{{ lijst|length }} zwemmer{{ lijst|length|pluralize:"s" }}</span></div>
+      <table>
+        {% for i in lijst %}<tr><td class="vak"><span class="vakje"></span></td>
+          <td><b>{{ i.zwemmer.naam }} {{ i.zwemmer.voornaam }}</b> <span class="meta" style="color:var(--zacht)">({{ i.zwemmer.geboortedatum|date:"Y" }})</span></td>
+          <td class="tijd">{{ i.inschrijftijd|tijd }} <small>{% if i.inschrijfbaan == 'LCM' %}50m{% elif i.inschrijfbaan %}25m{% endif %}</small></td>
+          <td><span class="badge {{ i.status }}">{{ i.get_status_display }}</span></td></tr>{% endfor %}
+      </table>
+    </div>
+    {% empty %}<div class="kaart leeg">Geen inschrijvingen.</div>{% endfor %}
+  {% else %}
+    {% for x in zwemmers %}
+    <div class="kaart">
+      <div class="kop"><span class="naam">{{ x.z.naam }} {{ x.z.voornaam }}</span>
+        <span class="meta">{{ x.z.geboortedatum|date:"Y" }} · {{ x.jaren }} jaar{% if x.z.licentie %} · lic. {{ x.z.licentie }}{% endif %}</span>
+        {% if x.deelname %}<span class="badge {% if x.deelname.geweigerd %}geweigerd{% else %}{{ x.deelname.keuze }}{% endif %}">{% if x.deelname.geweigerd %}geweigerd{% else %}{{ x.deelname.get_keuze_display }}{% endif %}</span>
+          {% if x.deelname.gefinaliseerd %}<span class="badge goedgekeurd">🔒 gefinaliseerd</span>{% endif %}{% if x.deelname.ingegeven %}<span class="badge doet_niet_mee">✓ ingegeven</span>{% endif %}{% endif %}
+        <span class="rechts">{{ x.lijst|length }} start{{ x.lijst|length|pluralize:"s" }} · {{ x.kost|euro }}</span></div>
+      <table>
+        <tr><th></th><th>Nr</th><th>Nummer</th><th>Sessie</th><th>Inschrijftijd</th><th>Status</th><th>Notitie</th></tr>
+        {% for i in x.lijst %}<tr>
+          <td class="vak"><span class="vakje"></span></td>
+          <td class="nr">#{{ i.nummer.nummer }}</td>
+          <td>{{ i.nummer.omschrijving }}</td>
+          <td>{{ i.nummer.sessie.nummer }}{% if i.nummer.sessie.starttijd %} · {{ i.nummer.sessie.starttijd|time:"H:i" }}{% endif %}</td>
+          <td class="tijd">{{ i.inschrijftijd|tijd }} <small>{% if i.inschrijfbaan == 'LCM' %}50m{% elif i.inschrijfbaan %}25m{% endif %}</small></td>
+          <td><span class="badge {{ i.status }}">{{ i.get_status_display }}</span>{% if i.opmerking %}<div style="font-size:8pt;color:var(--zacht)">{{ i.opmerking }}</div>{% endif %}</td>
+          <td class="notitie"><div class="lijn"></div></td>
+        </tr>{% endfor %}
+      </table>
+    </div>
+    {% empty %}<div class="kaart leeg">Geen inschrijvingen.</div>{% endfor %}
+  {% endif %}
+
+  {% if zonder %}
+  <h2>Interesse of ‘doe mee’, maar nog geen nummers</h2>
+  <div class="kaart"><table>{% for z in zonder %}<tr><td class="vak"><span class="vakje"></span></td><td><b>{{ z.naam }} {{ z.voornaam }}</b> ({{ z.geboortedatum|date:"Y" }})</td><td class="notitie"><div class="lijn"></div></td></tr>{% endfor %}</table></div>
+  {% endif %}
+
+  <div class="voet"><span><b style="color:var(--petrol)">Hasseltse Zwemvereniging Spartacus</b> · inschrijvingen.khzs.be</span><span>afgedrukt {{ nu|date:"j/m/Y H:i" }}</span></div>
+</div>
+</body>
+</html>

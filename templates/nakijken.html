@@ -2,6 +2,7 @@
 {% block inhoud %}
 <div class="rij tussen"><h1>{{ w.naam }}</h1>
   <div class="rij">{% if is_secretaris %}<a class="knop secundair" href="{% url 'instellingen' w.pk %}">Instellingen & export</a>{% endif %}
+  <a class="knop secundair" href="{% url 'overzicht' w.pk %}">📄 Overzicht / afdrukken</a>
   <a class="knop" href="{% url 'wedstrijd' w.pk %}">+ Inschrijving toevoegen</a></div></div>
 <div class="stappen">
   <div class="stap">Zwemmers tot<b>{{ w.deadline_zwemmer|date:"D j M" }}</b></div>
@@ -10,6 +11,21 @@
   <div class="stap">Status<b>{{ w.get_status_display }}</b></div>
 </div>
 {% if w.info %}<div class="kaart info-wedstrijd">ℹ️ {{ w.info|linebreaksbr }}</div>{% endif %}
+<div class="kaart finaal">
+  <div class="rij tussen">
+    <div><strong>Finaliseren</strong>
+      <div class="klein">{{ finaal.gefinaliseerd }} van {{ finaal.zwemmers }} zwemmers gefinaliseerd · {{ finaal.ingegeven }} ingegeven door het secretariaat
+      {% if finaal.gewijzigd %} · <span class="badge afgekeurd">⚠ {{ finaal.gewijzigd }} gewijzigd na ingave</span>{% endif %}</div>
+      <div class="voortgang"><span style="width:{% widthratio finaal.gefinaliseerd finaal.zwemmers|default:1 100 %}%"></span></div>
+    </div>
+    <form method="post" action="{% url 'finaliseren' w.pk %}" class="rij">{% csrf_token %}
+      <input type="hidden" name="zwemmer" value="alle"><input type="hidden" name="terug" value="{{ request.get_full_path }}">
+      <button name="finaliseer" value="finaliseer" class="mini" onclick="return confirm('Alle zwemmers met inschrijvingen finaliseren? Openstaande inschrijvingen worden goedgekeurd.')">🔒 Alles finaliseren</button>
+    </form>
+  </div>
+  {% if is_secretaris %}<p class="klein" style="margin:.5rem 0 0">Gefinaliseerde zwemmers kan je al ingeven. Export van enkel de gefinaliseerde:
+    <a href="{% url 'export_lxf' w.pk %}?enkel=gefinaliseerd">Lenex</a> · <a href="{% url 'export_xlsx' w.pk %}?enkel=gefinaliseerd">Excel</a></p>{% endif %}
+</div>
 <div class="kaart">
   <strong>Deelname</strong>
   <div class="grid drie" style="margin-top:.5rem">
@@ -34,10 +50,21 @@
 
 <form method="post" action="{% url 'beoordelen' w.pk %}" id="beoordeel">{% csrf_token %}
 <input type="hidden" name="terug" value="{{ request.get_full_path }}">
-{% for z, lijst in per_zwemmer.items %}
-<div class="kaart">
+{% for z, lijst in per_zwemmer.items %}{% with d=deelname_van|get:z.pk %}
+<div class="kaart{% if d.gefinaliseerd %} gefinaliseerd{% endif %}">
   <div class="rij tussen"><label style="margin:0"><input type="checkbox" onclick="this.closest('.kaart').querySelectorAll('input[name=inschrijving]').forEach(c=>c.checked=this.checked)"> {{ z.naam }} {{ z.voornaam }} <span class="klein">({{ z.geboortedatum|date:"Y" }})</span></label>
-    <a class="klein" href="{% url 'wedstrijd' w.pk %}?zwemmer={{ z.pk }}">wijzigen</a></div>
+    <span class="rij" style="gap:.4rem">
+      {% if d.gefinaliseerd %}<span class="badge goedgekeurd" title="door {{ d.gefinaliseerd_door.first_name|default:d.gefinaliseerd_door.username }} {{ d.gefinaliseerd_op|date:'j M H:i' }}">🔒 Gefinaliseerd</span>{% endif %}
+      {% if d.ingegeven %}<span class="badge doorgestuurd">✓ Ingegeven</span>{% endif %}
+      {% if d.gewijzigd_na_ingave %}<span class="badge afgekeurd">⚠ Gewijzigd na ingave</span>{% endif %}
+      {% if d.gefinaliseerd %}
+        <button class="mini secundair" formaction="{% url 'finaliseren' w.pk %}?actie=heropen" name="zwemmer" value="{{ z.pk }}">Heropenen</button>
+        {% if is_secretaris %}{% if d.ingegeven %}<button class="mini secundair" formaction="{% url 'finaliseren' w.pk %}?actie=niet_ingegeven" name="zwemmer" value="{{ z.pk }}">Niet ingegeven</button>
+        {% else %}<button class="mini ok" formaction="{% url 'finaliseren' w.pk %}?actie=ingegeven" name="zwemmer" value="{{ z.pk }}">✓ Ingegeven</button>{% endif %}{% endif %}
+      {% else %}
+        <button class="mini" formaction="{% url 'finaliseren' w.pk %}?actie=finaliseer" name="zwemmer" value="{{ z.pk }}">🔒 Finaliseren</button>
+      {% endif %}
+      <a class="klein" href="{% url 'wedstrijd' w.pk %}?zwemmer={{ z.pk }}">wijzigen</a></span></div>
   <div class="tabelwrap"><table>
     {% for i in lijst %}<tr>
       <td style="width:32px"><input type="checkbox" name="inschrijving" value="{{ i.pk }}"></td>
@@ -46,7 +73,7 @@
       <td><span class="badge {{ i.status }}">{{ i.get_status_display }}</span>{% if i.opmerking %}<div class="klein">{{ i.opmerking }}</div>{% endif %}</td>
     </tr>{% endfor %}
   </table></div>
-</div>
+</div>{% endwith %}
 {% empty %}<div class="leeg">Geen inschrijvingen{% if status %} met deze status{% endif %}.</div>
 {% endfor %}
 {% if per_zwemmer %}

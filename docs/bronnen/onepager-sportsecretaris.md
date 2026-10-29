@@ -5,9 +5,10 @@
 1. **Wedstrijden → + Lenex uploaden** → kies de `.lxf` van de organisator → **Inlezen**.
 2. Controleer de **laatste inschrijfdatum**, vul **Dagen secretaris** in en vink de **selectiecriteria** (limietlijsten) aan.
 3. Status **Open** → zwemmers schrijven in, trainers kijken na.
-4. Na de trainersdeadline: status **Gesloten**.
-5. **⬇ Lenex (.lxf)** + **⬇ Excel** → doorsturen naar de organisator.
-6. Status **Doorgestuurd**.
+4. Gefinaliseerde zwemmers al ingeven → **✓ Ingegeven**. Let op **⚠ Gewijzigd na ingave**.
+5. Na de trainersdeadline: status **Gesloten**.
+6. **⬇ Lenex (.lxf)** + **⬇ Excel** → doorsturen naar de organisator.
+7. Status **Doorgestuurd**.
 
 ## Deadlines
 

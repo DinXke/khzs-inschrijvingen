@@ -18,7 +18,7 @@
   <div class="kaart">
     <h2 style="margin-top:0">Doorsturen</h2>
     <p class="klein">Enkel <b>goedgekeurde</b> inschrijvingen worden geëxporteerd.</p>
-    <p class="rij"><a class="knop" href="{% url 'export_lxf' w.pk %}">⬇ Lenex (.lxf)</a><a class="knop secundair" href="{% url 'export_xlsx' w.pk %}">⬇ Excel</a></p>
+    <p class="rij"><a class="knop" href="{% url 'export_lxf' w.pk %}">⬇ Lenex (.lxf)</a><a class="knop secundair" href="{% url 'export_xlsx' w.pk %}">⬇ Excel</a><a class="knop secundair" href="{% url 'overzicht' w.pk %}">📄 Overzicht</a></p>
     <p class="klein">Na het doorsturen: zet de status op ‘Doorgestuurd’.</p>
     <h3>Nieuwe versie van de uitnodiging?</h3>
     <p><a class="knop secundair" href="{% url 'herupload' w.pk %}">Lenex opnieuw uploaden</a></p>

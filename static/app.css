@@ -198,3 +198,8 @@ textarea { min-height: 80px; }
 .kind span { font-size: .75rem; font-weight: 400; color: var(--zacht); }
 .kind.actief { background: var(--primair); border-color: var(--primair); color: var(--primair-tekst); }
 .kind.actief span { color: inherit; opacity: .85; }
+
+/* Finaliseren */
+.kaart.gefinaliseerd { border-left: 4px solid var(--ok); }
+.voortgang { height: 8px; background: var(--lijn); border-radius: 999px; margin-top: .4rem; overflow: hidden; max-width: 320px; }
+.voortgang span { display: block; height: 100%; background: var(--ok); border-radius: 999px; }

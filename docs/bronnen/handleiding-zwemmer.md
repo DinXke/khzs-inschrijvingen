@@ -66,6 +66,7 @@ Trainers en sportsecretariaat zien jouw keuze. Met *Interesse* of *Ik doe mee* k
 3. Tik op **Bewaren**. Je inschrijving staat op **Ingediend** tot een trainer ze nakijkt.
 
 Tot je deadline kan je alles nog **wijzigen**: nummers bijvoegen of schrappen, ook als ze al goedgekeurd zijn.
+Heeft je trainer je inschrijving **gefinaliseerd** (🔒)? Dan ligt ze vast en kan je enkel nog via je trainer iets laten aanpassen.
 
 ![gsm programma](../screenshots/zwemmer-programma.png)
 

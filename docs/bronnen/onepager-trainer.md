@@ -7,8 +7,10 @@
 3. Bekijk bij **Deelname** wie interesse heeft of meedoet.
 4. Filter op **Na te kijken**, vink inschrijvingen aan → **Goedkeuren** of **Afkeuren** (met opmerking).
 5. Aanpassen: **wijzigen** bij een zwemmer → nummers of inschrijftijd wijzigen → **Bewaren**.
-6. Deelname niet ok? Open de zwemmer → reden → **Weigeren**.
-7. Na een wedstrijd: **Zwemmers → Uitslagen importeren** om de beste tijden bij te werken.
+6. Alles nagekeken? **🔒 Finaliseren** per zwemmer of **Alles finaliseren**: het secretariaat kan dan ingeven.
+7. **📄 Overzicht / afdrukken** voor de laatste controle op training.
+8. Deelname niet ok? Open de zwemmer → reden → **Weigeren**.
+9. Na een wedstrijd: **Zwemmers → Uitslagen importeren** om de beste tijden bij te werken.
 
 ## Goed om te weten
 

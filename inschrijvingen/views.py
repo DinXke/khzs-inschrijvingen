@@ -9,6 +9,7 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Min, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 import json
@@ -53,6 +54,12 @@ def meld(zwemmer, wedstrijd, door, regels):
         push.stuur([zwemmer.account], f"Inschrijving {zwemmer.voornaam} gewijzigd",
                    f"{wedstrijd.naam}: " + "; ".join(regels)[:180],
                    f"{reverse('wedstrijd', args=[wedstrijd.pk])}?zwemmer={zwemmer.pk}")
+
+
+def markeer_gewijzigd(zwemmer, wedstrijd):
+    """Na een wijziging: was de zwemmer al ingegeven door het secretariaat, dan moet die het opnieuw nakijken."""
+    Deelname.objects.filter(zwemmer=zwemmer, wedstrijd=wedstrijd, ingegeven=True).update(
+        ingegeven=False, gewijzigd_na_ingave=True)
 
 
 def zwemmer_voor(request, pk):
@@ -220,6 +227,9 @@ def inschrijven(request, pk):
     if not staf and Deelname.objects.filter(zwemmer=z, wedstrijd=w, geweigerd=True).exists():
         messages.error(request, "Je deelname aan deze wedstrijd werd geweigerd door de club.")
         return redirect(f"/wedstrijd/{w.pk}/?zwemmer={z.pk}")
+    if not staf and Deelname.objects.filter(zwemmer=z, wedstrijd=w, gefinaliseerd=True).exists():
+        messages.error(request, "Je trainer heeft je inschrijving gefinaliseerd. Wijzigen kan enkel nog via je trainer.")
+        return redirect(f"/wedstrijd/{w.pk}/?zwemmer={z.pk}")
     jaren = leeftijd(z, w)
     lijsten = list(w.limietlijsten.prefetch_related("limieten"))
     gevraagd = set(map(int, request.POST.getlist("nummer")))
@@ -274,6 +284,8 @@ def inschrijven(request, pk):
 
     if toegevoegd:
         Deelname.objects.update_or_create(zwemmer=z, wedstrijd=w, defaults={"keuze": Deelname.DOET_MEE})
+    if log:
+        markeer_gewijzigd(z, w)
     if staf and log:
         meld(z, w, request.user, log)
     if not staf and toegevoegd:
@@ -293,8 +305,9 @@ def deelname(request, pk):
     keuze = request.POST.get("keuze")
     if keuze not in dict(Deelname.KEUZES):
         return redirect(f"/wedstrijd/{w.pk}/?zwemmer={z.pk}")
-    if not is_staf(request.user) and Deelname.objects.filter(zwemmer=z, wedstrijd=w, geweigerd=True).exists():
-        messages.error(request, "Je deelname aan deze wedstrijd werd geweigerd door de club.")
+    if not is_staf(request.user) and Deelname.objects.filter(zwemmer=z, wedstrijd=w).filter(
+            Q(geweigerd=True) | Q(gefinaliseerd=True)).exists():
+        messages.error(request, "Je deelname is vastgelegd door de club. Wijzigen kan enkel nog via je trainer.")
         return redirect(f"/wedstrijd/{w.pk}/?zwemmer={z.pk}")
     Deelname.objects.update_or_create(zwemmer=z, wedstrijd=w, defaults={"keuze": keuze})
     messages.success(request, f"{z.voornaam}: {dict(Deelname.KEUZES)[keuze].lower()} – bewaard.")
@@ -317,6 +330,7 @@ def deelname_beoordelen(request, pk):
              .update(status=Inschrijving.AFGEKEURD, opmerking=reden or "deelname geweigerd"))
         meld(z, w, request.user, ["deelname geweigerd" + (f": {reden}" if reden else "")]
              + ([f"{n} inschrijving(en) afgekeurd"] if n else []))
+        markeer_gewijzigd(z, w)
         messages.success(request, f"Deelname van {z} geweigerd; {z.voornaam} kreeg een melding.")
     else:
         d.geweigerd, d.weigerreden = False, ""
@@ -351,8 +365,95 @@ def nakijken(request, pk):
     for d in w.deelnames.select_related("zwemmer").order_by("zwemmer__naam", "zwemmer__voornaam"):
         deelnames["geweigerd" if d.geweigerd else d.keuze].append(d.zwemmer)
     overzicht = [(k, label, deelnames.get(k, [])) for k, label in Deelname.KEUZES + [("geweigerd", "Geweigerd")]]
+    status_deelname = {d.zwemmer_id: d for d in w.deelnames.select_related("gefinaliseerd_door")}
+    met_inschrijving = {z.pk for z in Zwemmer.objects.filter(inschrijvingen__nummer__sessie__wedstrijd=w)}
+    finaal = {
+        "zwemmers": len(met_inschrijving),
+        "gefinaliseerd": sum(1 for zid in met_inschrijving if getattr(status_deelname.get(zid), "gefinaliseerd", False)),
+        "ingegeven": sum(1 for zid in met_inschrijving if getattr(status_deelname.get(zid), "ingegeven", False)),
+        "gewijzigd": sum(1 for d in status_deelname.values() if d.gewijzigd_na_ingave),
+    }
     return render(request, "nakijken.html", {"w": w, "per_zwemmer": dict(per_zwemmer), "instform": instform,
-                                             "status": status, "tellers": tellers, "overzicht": overzicht})
+                                             "status": status, "tellers": tellers, "overzicht": overzicht,
+                                             "deelname_van": status_deelname, "finaal": finaal})
+
+
+@vereist_rol(*STAF)
+@require_POST
+def finaliseren(request, pk):
+    """Trainer: inschrijving van een zwemmer vastzetten (of heropenen). Secretariaat: als 'ingegeven' markeren."""
+    w = get_object_or_404(Wedstrijd, pk=pk)
+    actie = request.POST.get("finaliseer") or request.GET.get("actie")
+    secretariaat = rol(request.user) in Profiel.SECRETARIAAT
+    if request.POST.get("zwemmer") == "alle":
+        zwemmers = Zwemmer.objects.filter(inschrijvingen__nummer__sessie__wedstrijd=w).distinct()
+        zwemmers = zwemmers.exclude(deelnames__wedstrijd=w, deelnames__geweigerd=True)
+        if actie == "finaliseer":
+            zwemmers = zwemmers.exclude(deelnames__wedstrijd=w, deelnames__gefinaliseerd=True)
+    else:
+        zwemmers = [zwemmer_voor(request, request.POST.get("zwemmer"))]
+    n = 0
+    for z in zwemmers:
+        d, _ = Deelname.objects.get_or_create(zwemmer=z, wedstrijd=w, defaults={"keuze": Deelname.DOET_MEE})
+        if actie == "finaliseer":
+            open_ = Inschrijving.objects.filter(zwemmer=z, nummer__sessie__wedstrijd=w, status=Inschrijving.INGEDIEND)
+            goedgekeurd = open_.update(status=Inschrijving.GOEDGEKEURD)
+            d.gefinaliseerd, d.gefinaliseerd_door, d.gefinaliseerd_op = True, request.user, timezone.now()
+            d.save()
+            aantal = Inschrijving.objects.filter(zwemmer=z, nummer__sessie__wedstrijd=w,
+                                                 status=Inschrijving.GOEDGEKEURD).count()
+            meld(z, w, request.user, [f"inschrijving gefinaliseerd: {aantal} nummer(s)"]
+                 + ([f"{goedgekeurd} openstaande inschrijving(en) goedgekeurd"] if goedgekeurd else []))
+        elif actie == "heropen":
+            d.gefinaliseerd = False
+            d.save()
+            meld(z, w, request.user, ["inschrijving heropend: je kan opnieuw wijzigen tot je deadline"])
+            markeer_gewijzigd(z, w)
+        elif actie in ("ingegeven", "niet_ingegeven") and secretariaat:
+            d.ingegeven, d.gewijzigd_na_ingave = actie == "ingegeven", False
+            d.save()
+        else:
+            continue
+        n += 1
+    labels = {"finaliseer": "gefinaliseerd", "heropen": "heropend", "ingegeven": "als ingegeven gemarkeerd",
+              "niet_ingegeven": "niet meer als ingegeven gemarkeerd"}
+    if n:
+        messages.success(request, f"{n} zwemmer(s) {labels.get(actie, '')}.")
+    return redirect(request.POST.get("terug") or f"/wedstrijd/{w.pk}/nakijken/")
+
+
+@vereist_rol(*STAF)
+def overzicht(request, pk):
+    """Afdrukbaar overzicht (A4 / PDF via de browser) per zwemmer of per nummer, voor een laatste controle."""
+    w = get_object_or_404(Wedstrijd, pk=pk)
+    filter_ = request.GET.get("filter", "actief")  # actief = zonder afgekeurde, goedgekeurd, alle
+    weergave = request.GET.get("weergave", "zwemmer")
+    qs = (Inschrijving.objects.filter(nummer__sessie__wedstrijd=w)
+          .select_related("zwemmer", "nummer__sessie").order_by("nummer__sessie__nummer", "nummer__volgorde"))
+    if filter_ == "goedgekeurd":
+        qs = qs.filter(status=Inschrijving.GOEDGEKEURD)
+    elif filter_ == "actief":
+        qs = qs.exclude(status=Inschrijving.AFGEKEURD)
+    keuzes = {d.zwemmer_id: d for d in w.deelnames.select_related("zwemmer")}
+
+    per_zwemmer = defaultdict(list)
+    per_nummer = defaultdict(list)
+    for i in qs:
+        per_zwemmer[i.zwemmer].append(i)
+        per_nummer[i.nummer].append(i)
+    zwemmers = []
+    for z, lijst in sorted(per_zwemmer.items(), key=lambda kv: (kv[0].naam, kv[0].voornaam)):
+        zwemmers.append({"z": z, "lijst": lijst, "jaren": leeftijd(z, w), "deelname": keuzes.get(z.pk),
+                         "kost": sum(i.nummer.kost for i in lijst)})
+    nummers = [(n, sorted(l, key=lambda i: (i.inschrijftijd is None, i.inschrijftijd or 0)))
+               for n, l in sorted(per_nummer.items(), key=lambda kv: (kv[0].sessie.nummer, kv[0].volgorde))]
+    zonder = sorted((d.zwemmer for d in keuzes.values()
+                     if d.keuze in Deelname.ACTIEF and not d.geweigerd and d.zwemmer not in per_zwemmer),
+                    key=lambda z: (z.naam, z.voornaam))
+    return render(request, "overzicht.html", {
+        "w": w, "zwemmers": zwemmers, "nummers": nummers, "zonder": zonder, "filter": filter_, "weergave": weergave,
+        "aantal": qs.count(), "totaal": sum(x["kost"] for x in zwemmers), "nu": timezone.localtime(),
+    })
 
 
 @vereist_rol(*STAF)
@@ -373,6 +474,7 @@ def beoordelen(request, pk):
         n = qs.update(status=actie, opmerking=opmerking)
         for z, regels in per_zwemmer.items():
             meld(z, w, request.user, regels)
+            markeer_gewijzigd(z, w)
         messages.success(request, f"{n} inschrijving(en) {label}.")
     return redirect(request.POST.get("terug") or f"/wedstrijd/{w.pk}/nakijken/")
 
@@ -451,15 +553,18 @@ def verwijderen(request, pk):
     return redirect("wedstrijden")
 
 
-def _goedgekeurd(w):
-    return (Inschrijving.objects.filter(nummer__sessie__wedstrijd=w, status=Inschrijving.GOEDGEKEURD)
-            .select_related("zwemmer", "nummer__sessie"))
+def _goedgekeurd(w, request=None):
+    qs = (Inschrijving.objects.filter(nummer__sessie__wedstrijd=w, status=Inschrijving.GOEDGEKEURD)
+          .select_related("zwemmer", "nummer__sessie"))
+    if request is not None and request.GET.get("enkel") == "gefinaliseerd":
+        qs = qs.filter(zwemmer__deelnames__wedstrijd=w, zwemmer__deelnames__gefinaliseerd=True)
+    return qs
 
 
 @vereist_rol(*Profiel.SECRETARIAAT)
 def export_lxf(request, pk):
     w = get_object_or_404(Wedstrijd, pk=pk)
-    resp = HttpResponse(lenex.bouw_inschrijvingen(w, _goedgekeurd(w)), content_type="application/zip")
+    resp = HttpResponse(lenex.bouw_inschrijvingen(w, _goedgekeurd(w, request)), content_type="application/zip")
     resp["Content-Disposition"] = f'attachment; filename="{lenex.bestandsnaam(w, "lxf")}"'
     return resp
 
@@ -467,7 +572,7 @@ def export_lxf(request, pk):
 @vereist_rol(*Profiel.SECRETARIAAT)
 def export_xlsx(request, pk):
     w = get_object_or_404(Wedstrijd, pk=pk)
-    resp = HttpResponse(excel_overzicht(w, _goedgekeurd(w)),
+    resp = HttpResponse(excel_overzicht(w, _goedgekeurd(w, request)),
                         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     resp["Content-Disposition"] = f'attachment; filename="{lenex.bestandsnaam(w, "xlsx")}"'
     return resp

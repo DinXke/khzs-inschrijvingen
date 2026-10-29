@@ -157,8 +157,19 @@ class Command(BaseCommand):
                 if not verleden and rnd.random() < .15:
                     d.geweigerd, d.weigerreden = True, "Nog niet in de wedstrijdgroep"
                     d.save()
+                    Inschrijving.objects.filter(zwemmer=z, nummer__sessie__wedstrijd=w).update(
+                        status=Inschrijving.AFGEKEURD, opmerking="deelname geweigerd")
                     Melding.objects.create(zwemmer=z, wedstrijd=w, door=trainer,
                                            tekst="deelname geweigerd: Nog niet in de wedstrijdgroep")
+
+            if verleden:
+                w.deelnames.filter(keuze=Deelname.DOET_MEE).update(gefinaliseerd=True, ingegeven=True)
+            elif status == Wedstrijd.OPEN:  # een paar zwemmers al gefinaliseerd, één ervan al ingegeven
+                for i, d in enumerate(w.deelnames.filter(keuze=Deelname.DOET_MEE, geweigerd=False)[:3]):
+                    d.gefinaliseerd, d.gefinaliseerd_door, d.ingegeven = True, trainer, i == 0
+                    d.save()
+                    Inschrijving.objects.filter(zwemmer=d.zwemmer, nummer__sessie__wedstrijd=w,
+                                                status=Inschrijving.INGEDIEND).update(status=Inschrijving.GOEDGEKEURD)
 
             if verleden:  # uitslagen verwerken → beste tijden
                 resultaten = []

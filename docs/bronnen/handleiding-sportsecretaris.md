@@ -42,7 +42,19 @@ Zet de status op **Open** om de inschrijvingen te openen. Zwemmers met *Interess
 
 Stuurt de organisator een aangepaste Lenex? Klik bij de instellingen op **Lenex opnieuw uploaden**. Bestaande inschrijvingen en je gekozen limieten blijven behouden.
 
-## 5. Doorsturen
+## 5. Al ingeven tijdens de inschrijfperiode
+
+Je hoeft niet te wachten tot de deadline. Op **Inschrijvingen nakijken** zie je bovenaan hoeveel zwemmers de trainer al **gefinaliseerd** heeft:
+
+1. Geef een gefinaliseerde zwemmer in (bv. in SPLASH) en klik **✓ Ingegeven** bij die zwemmer.
+2. Wijzigt de trainer daarna nog iets? Dan verschijnt **⚠ Gewijzigd na ingave** en verdwijnt het vinkje *Ingegeven*, zodat je weet wat je nog moet aanpassen.
+3. Exporteer enkel de gefinaliseerde zwemmers met de links *Lenex* / *Excel* in het blok *Finaliseren*.
+
+![pc finaliseren](../screenshots/secretaris-finaliseren.png)
+
+Het **📄 Overzicht** (per zwemmer of per nummer) is ook handig om na te kijken of af te drukken.
+
+## 6. Doorsturen
 
 1. Zet na de trainersdeadline de status op **Gesloten**.
 2. Klik **⬇ Lenex (.lxf)**: een inschrijvingsbestand met enkel de **goedgekeurde** inschrijvingen (zwemmers, licenties, inschrijftijden). Dat bestand importeert de organisator rechtstreeks in SPLASH.
@@ -51,18 +63,18 @@ Stuurt de organisator een aangepaste Lenex? Klik bij de instellingen op **Lenex 
 
 ![pc wedstrijden](../screenshots/secretaris-wedstrijden.png)
 
-## 6. Beste tijden bijhouden
+## 7. Beste tijden bijhouden
 
 Na elke wedstrijd: **Zwemmers → Uitslagen importeren** met de uitslagen-Lenex. Zo kloppen de beste tijden en de limietcontrole. Zwemmers kunnen zelf geen tijden invoeren.
 
-## 7. Kosten
+## 8. Kosten
 
 Inschrijfgelden zie je als sportsecretaris (en trainer) bij elk nummer en in de Excel-export. **Zwemmers en ouders zien geen bedragen.**
 
-## 8. Backups
+## 9. Backups
 
 Backups en technisch beheer horen bij de aparte rol **Beheerder** (zie *Handleiding beheerder*), niet bij het sportsecretariaat.
 
-## 9. Donker thema
+## 10. Donker thema
 
 ![pc donker](../screenshots/secretaris-donker.png)

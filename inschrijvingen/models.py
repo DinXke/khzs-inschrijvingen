@@ -292,6 +292,13 @@ class Deelname(models.Model):
     keuze = models.CharField(max_length=20, choices=KEUZES)
     geweigerd = models.BooleanField(default=False)
     weigerreden = models.CharField(max_length=200, blank=True)
+    # Trainer zet de inschrijving vast; het secretariaat kan ze dan al ingeven (bv. in SPLASH).
+    gefinaliseerd = models.BooleanField(default=False)
+    gefinaliseerd_door = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                                           related_name="+")
+    gefinaliseerd_op = models.DateTimeField(null=True, blank=True)
+    ingegeven = models.BooleanField(default=False)
+    gewijzigd_na_ingave = models.BooleanField(default=False)
     gewijzigd = models.DateTimeField(auto_now=True)
 
     class Meta:

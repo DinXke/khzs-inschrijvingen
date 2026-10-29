@@ -43,7 +43,30 @@ De zwemmer krijgt een melding *“Trainer … heeft je inschrijving gewijzigd”
 
 ![pc wijzigen](../screenshots/trainer-wijzigen.png)
 
-## 5. Deelname weigeren
+## 5. Finaliseren
+
+Is de inschrijving van een zwemmer volledig nagekeken? Klik bij die zwemmer op **🔒 Finaliseren** (of bovenaan **Alles finaliseren**):
+
+- openstaande inschrijvingen worden goedgekeurd;
+- de zwemmer kan niets meer wijzigen, ook niet vóór de deadline, en krijgt een melding;
+- het sportsecretariaat ziet dat de zwemmer klaar is en kan hem of haar al ingeven.
+
+Met **Heropenen** kan de zwemmer opnieuw wijzigen tot de deadline. Pas je na het ingeven nog iets aan, dan ziet het secretariaat **⚠ Gewijzigd na ingave**.
+
+## 6. Overzicht afdrukken
+
+**📄 Overzicht / afdrukken** opent een overzicht van de wedstrijd, ideaal om mee te nemen naar de training voor een laatste controle:
+
+- **Per zwemmer**: elk nummer met sessie, inschrijftijd en status, een vakje om af te vinken en een notitieregel;
+- **Per nummer**: per nummer de zwemmers, gesorteerd op inschrijftijd;
+- filters: *zonder afgekeurde*, *enkel goedgekeurd* of *alle*;
+- onderaan de zwemmers met interesse die nog geen nummers hebben.
+
+Met **🖨 Afdrukken / PDF** druk je het af of bewaar je het als PDF.
+
+![pc overzicht](../screenshots/trainer-overzicht.png)
+
+## 7. Deelname weigeren
 
 Mag een zwemmer niet deelnemen? Open de zwemmer (klik op de naam bij **Deelname**). Vul een **reden** in en klik **Weigeren**:
 
@@ -53,7 +76,7 @@ Mag een zwemmer niet deelnemen? Open de zwemmer (klik op de naam bij **Deelname*
 
 Met **Opnieuw toestaan** draai je dit terug.
 
-## 6. Beste tijden en uitslagen
+## 8. Beste tijden en uitslagen
 
 Zwemmers vullen hun tijden niet zelf in. Je werkt ze bij op twee manieren:
 
@@ -62,7 +85,7 @@ Zwemmers vullen hun tijden niet zelf in. Je werkt ze bij op twee manieren:
 
 ![pc uitslagen](../screenshots/trainer-uitslagen.png)
 
-## 7. Onderweg
+## 9. Onderweg
 
 Alles werkt ook op je gsm, in licht of donker thema. Zet onder **Meldingen** eventueel *Nieuwe inschrijving om na te kijken* aan.
 

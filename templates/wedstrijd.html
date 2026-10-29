@@ -30,8 +30,9 @@
     <input type="hidden" name="zwemmer" value="{{ gekozen.pk }}">
     <strong>{% if staf %}Keuze van {{ gekozen.voornaam }}{% else %}Doe je mee?{% endif %}</strong>
     <div class="segment">
-      {% for k, label in keuzes %}<button name="keuze" value="{{ k }}" class="{% if deelname.keuze == k %}gekozen{% endif %} k-{{ k }}" {% if deelname.geweigerd and not staf %}disabled{% endif %}>{{ label }}</button>{% endfor %}
+      {% for k, label in keuzes %}<button name="keuze" value="{{ k }}" class="{% if deelname.keuze == k %}gekozen{% endif %} k-{{ k }}" {% if deelname.geweigerd and not staf or deelname.gefinaliseerd and not staf %}disabled{% endif %}>{{ label }}</button>{% endfor %}
     </div>
+    {% if deelname.gefinaliseerd and not deelname.geweigerd %}<div class="melding success" style="margin:.6rem 0 0">🔒 Je inschrijving is gefinaliseerd door je trainer{% if not staf %}. Wijzigen kan enkel nog via je trainer{% endif %}.</div>{% endif %}
     {% if deelname.geweigerd %}<div class="melding error" style="margin:.6rem 0 0">⛔ Deelname geweigerd door de club{% if deelname.weigerreden %}: {{ deelname.weigerreden }}{% endif %}</div>{% endif %}
     {% if w.status == 'concept' %}<p class="help">Inschrijven op nummers kan zodra het sportsecretariaat de inschrijvingen opent. Met ‘Interesse’ of ‘Ik doe mee’ krijg je dan een melding.</p>{% endif %}
   </form>
@@ -71,7 +72,7 @@
       {% for b in rijen %}{% with n=b.nummer i=bestaande|get:b.nummer.pk %}
       <label class="nummer {% if not b.mag_inschrijven and not staf and not i %}uit{% endif %}">
         <input type="checkbox" name="nummer" value="{{ n.pk }}" {% if i %}checked{% endif %}
-          {% if not mag_wijzigen %}disabled{% elif not b.mag_inschrijven and not staf and not i %}disabled{% endif %}>
+          {% if not mag_wijzigen %}disabled{% elif deelname.gefinaliseerd and not staf %}disabled{% elif not b.mag_inschrijven and not staf and not i %}disabled{% endif %}>
         <span class="info">
           <span class="titel">#{{ n.nummer }} {{ n.omschrijving }}</span>
           <span class="klein">{% if n.ronde == 'PRE' %}reeksen + finale{% else %}tijdfinale{% endif %}{% if staf %} · {{ n.kost|euro }}{% endif %}
@@ -88,7 +89,7 @@
     {% empty %}
     <div class="leeg">Geen nummers voor deze leeftijd/geslacht in deze wedstrijd.</div>
     {% endfor %}
-    {% if mag_wijzigen and programma %}
+    {% if mag_wijzigen and programma and not deelname.gefinaliseerd or mag_wijzigen and programma and staf %}
     <div class="vaste-actie"><span class="klein" style="flex:1">Huidig: {{ bestaande|length }} nummer(s){% if staf %} · {{ totaal|euro }}{% endif %}</span><button>Bewaren</button></div>
     {% endif %}
   </form>

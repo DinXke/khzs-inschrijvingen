@@ -503,3 +503,55 @@ class DemoTest(TestCase):
             self.assertTrue(BesteTijd.objects.filter(bron="uitslagen").exists())
             call_command("demo_wedstrijden", "--verwijder", stdout=io.StringIO())
             self.assertEqual(Wedstrijd.objects.count(), 0)
+
+
+class FinaliseerTest(StroomTest):
+    def test_finaliseren_ingeven_en_wijziging(self):
+        from unittest import mock
+        from inschrijvingen.models import Deelname, Melding
+        ouder = User.objects.create_user("o@o.be", "o@o.be", "geheim123!")
+        z = Zwemmer.objects.create(account=ouder, voornaam="L", naam="P", geboortedatum=date(2013, 3, 2), geslacht="F")
+        n6 = Nummer.objects.get(sessie__wedstrijd=self.w, nummer=6)
+        n22 = Nummer.objects.get(sessie__wedstrijd=self.w, nummer=22)
+        Inschrijving.objects.create(zwemmer=z, nummer=n6)
+        # trainer finaliseert → goedgekeurd + melding
+        self.c.force_login(self.tr)
+        self.c.post(f"/wedstrijd/{self.w.pk}/finaliseren/?actie=finaliseer", {"zwemmer": z.pk})
+        d = Deelname.objects.get()
+        self.assertTrue(d.gefinaliseerd)
+        self.assertEqual(Inschrijving.objects.get().status, Inschrijving.GOEDGEKEURD)
+        self.assertIn("gefinaliseerd", Melding.objects.get().tekst)
+        self.assertContains(self.c.get(f"/wedstrijd/{self.w.pk}/nakijken/"), "1 van 1 zwemmers gefinaliseerd")
+        # trainer kan niet 'ingegeven' markeren, secretaris wel
+        self.c.post(f"/wedstrijd/{self.w.pk}/finaliseren/?actie=ingegeven", {"zwemmer": z.pk})
+        self.assertFalse(Deelname.objects.get().ingegeven)
+        self.c.force_login(self.sec)
+        self.c.post(f"/wedstrijd/{self.w.pk}/finaliseren/?actie=ingegeven", {"zwemmer": z.pk})
+        self.assertTrue(Deelname.objects.get().ingegeven)
+        # zwemmer kan niets meer wijzigen
+        self.c.force_login(ouder)
+        with mock.patch("inschrijvingen.regels.vandaag", return_value=date(2026, 10, 1)):
+            self.c.post(f"/wedstrijd/{self.w.pk}/inschrijven/", {"zwemmer": z.pk, "nummer": [n6.pk, n22.pk]})
+        self.assertEqual(Inschrijving.objects.count(), 1)
+        # trainer wijzigt na ingave → waarschuwing voor secretariaat
+        self.c.force_login(self.tr)
+        with mock.patch("inschrijvingen.regels.vandaag", return_value=date(2026, 10, 1)):
+            self.c.post(f"/wedstrijd/{self.w.pk}/inschrijven/", {"zwemmer": z.pk, "nummer": [n6.pk, n22.pk]})
+        d = Deelname.objects.get()
+        self.assertFalse(d.ingegeven)
+        self.assertTrue(d.gewijzigd_na_ingave)
+        self.assertContains(self.c.get(f"/wedstrijd/{self.w.pk}/nakijken/"), "Gewijzigd na ingave")
+        # export enkel gefinaliseerd
+        self.c.force_login(self.sec)
+        r = self.c.get(f"/wedstrijd/{self.w.pk}/export.lxf?enkel=gefinaliseerd")
+        self.assertEqual(r.status_code, 200)
+        # heropenen → zwemmer kan weer wijzigen
+        self.c.force_login(self.tr)
+        self.c.post(f"/wedstrijd/{self.w.pk}/finaliseren/?actie=heropen", {"zwemmer": z.pk})
+        self.assertFalse(Deelname.objects.get().gefinaliseerd)
+
+    def test_overzicht(self):
+        self.c.force_login(self.tr)
+        r = self.c.get(f"/wedstrijd/{self.w.pk}/overzicht/?weergave=nummer&filter=alle")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Afdrukken")
