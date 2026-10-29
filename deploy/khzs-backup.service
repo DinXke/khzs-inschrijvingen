@@ -1,0 +1,9 @@
+[Unit]
+Description=HZS inschrijvingen – nachtelijke backup
+
+[Service]
+Type=oneshot
+User=khzs
+WorkingDirectory=/opt/khzs/app
+EnvironmentFile=/etc/khzs.env
+ExecStart=/opt/khzs/venv/bin/python manage.py backup --automatisch --bewaar 30

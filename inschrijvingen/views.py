@@ -12,6 +12,10 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 import json
+import zipfile
+from datetime import datetime
+
+from django.http import FileResponse, Http404
 
 from django.http import JsonResponse
 from django.urls import reverse
@@ -135,7 +139,7 @@ def zwemmer(request, pk):
             form.save()
             messages.success(request, "Gegevens bewaard.")
             return redirect("zwemmer", pk=z.pk)
-        if "t-tijd" in request.POST:
+        if "t-tijd" in request.POST and is_staf(request.user):
             tijdform = BesteTijdForm(request.POST, prefix="t")
             if tijdform.is_valid():
                 t = tijdform.save(commit=False)
@@ -153,7 +157,8 @@ def zwemmer(request, pk):
 @require_POST
 def tijd_verwijderen(request, pk):
     t = get_object_or_404(BesteTijd, pk=pk)
-    zwemmer_voor(request, t.zwemmer_id)
+    if not is_staf(request.user):
+        raise PermissionDenied
     t.delete()
     messages.success(request, "Tijd verwijderd.")
     return redirect("zwemmer", pk=t.zwemmer_id)
@@ -200,6 +205,9 @@ def inschrijven(request, pk):
         return redirect(f"/wedstrijd/{w.pk}/?zwemmer={z.pk}")
 
     staf = is_staf(request.user)
+    if not staf and Deelname.objects.filter(zwemmer=z, wedstrijd=w, geweigerd=True).exists():
+        messages.error(request, "Je deelname aan deze wedstrijd werd geweigerd door de club.")
+        return redirect(f"/wedstrijd/{w.pk}/?zwemmer={z.pk}")
     jaren = leeftijd(z, w)
     lijsten = list(w.limietlijsten.prefetch_related("limieten"))
     gevraagd = set(map(int, request.POST.getlist("nummer")))
@@ -273,8 +281,36 @@ def deelname(request, pk):
     keuze = request.POST.get("keuze")
     if keuze not in dict(Deelname.KEUZES):
         return redirect(f"/wedstrijd/{w.pk}/?zwemmer={z.pk}")
+    if not is_staf(request.user) and Deelname.objects.filter(zwemmer=z, wedstrijd=w, geweigerd=True).exists():
+        messages.error(request, "Je deelname aan deze wedstrijd werd geweigerd door de club.")
+        return redirect(f"/wedstrijd/{w.pk}/?zwemmer={z.pk}")
     Deelname.objects.update_or_create(zwemmer=z, wedstrijd=w, defaults={"keuze": keuze})
     messages.success(request, f"{z.voornaam}: {dict(Deelname.KEUZES)[keuze].lower()} – bewaard.")
+    return redirect(f"/wedstrijd/{w.pk}/?zwemmer={z.pk}")
+
+
+@vereist_rol(*STAF)
+@require_POST
+def deelname_beoordelen(request, pk):
+    """Staf weigert de deelname van een zwemmer (met reden) of staat ze opnieuw toe."""
+    w = get_object_or_404(Wedstrijd, pk=pk)
+    z = zwemmer_voor(request, request.POST.get("zwemmer"))
+    reden = request.POST.get("reden", "").strip()[:200]
+    d, _ = Deelname.objects.get_or_create(zwemmer=z, wedstrijd=w, defaults={"keuze": Deelname.INTERESSE})
+    if request.POST.get("actie") == "weigeren":
+        d.geweigerd, d.weigerreden = True, reden
+        d.save()
+        n = (Inschrijving.objects.filter(zwemmer=z, nummer__sessie__wedstrijd=w)
+             .exclude(status=Inschrijving.AFGEKEURD)
+             .update(status=Inschrijving.AFGEKEURD, opmerking=reden or "deelname geweigerd"))
+        meld(z, w, request.user, ["deelname geweigerd" + (f": {reden}" if reden else "")]
+             + ([f"{n} inschrijving(en) afgekeurd"] if n else []))
+        messages.success(request, f"Deelname van {z} geweigerd; {z.voornaam} kreeg een melding.")
+    else:
+        d.geweigerd, d.weigerreden = False, ""
+        d.save()
+        meld(z, w, request.user, ["deelname opnieuw toegestaan"])
+        messages.success(request, f"Deelname van {z} opnieuw toegestaan.")
     return redirect(f"/wedstrijd/{w.pk}/?zwemmer={z.pk}")
 
 
@@ -286,7 +322,7 @@ def nakijken(request, pk):
     instform = TrainerInstellingenForm(request.POST or None, instance=w)
     if request.method == "POST" and "dagen_trainer" in request.POST and instform.is_valid():
         instform.save()
-        messages.success(request, f"Deadline zwemmers is nu {w.deadline_zwemmer:%d/%m/%Y}.")
+        messages.success(request, f"Bewaard. Deadline zwemmers is nu {w.deadline_zwemmer:%d/%m/%Y}.")
         return redirect("nakijken", pk=w.pk)
 
     status = request.GET.get("status", "")
@@ -301,8 +337,8 @@ def nakijken(request, pk):
                    .values_list("status").annotate(c=Count("id")))
     deelnames = defaultdict(list)
     for d in w.deelnames.select_related("zwemmer").order_by("zwemmer__naam", "zwemmer__voornaam"):
-        deelnames[d.keuze].append(d.zwemmer)
-    overzicht = [(k, label, deelnames.get(k, [])) for k, label in Deelname.KEUZES]
+        deelnames["geweigerd" if d.geweigerd else d.keuze].append(d.zwemmer)
+    overzicht = [(k, label, deelnames.get(k, [])) for k, label in Deelname.KEUZES + [("geweigerd", "Geweigerd")]]
     return render(request, "nakijken.html", {"w": w, "per_zwemmer": dict(per_zwemmer), "instform": instform,
                                              "status": status, "tellers": tellers, "overzicht": overzicht})
 
@@ -354,6 +390,26 @@ def upload(request, pk=None):
                 messages.info(request, wtekst)
             return redirect("instellingen", pk=w.pk)
     return render(request, "upload.html", {"form": form, "bestaand": bestaand})
+
+
+@vereist_rol(*STAF)
+def uitslagen(request):
+    form = UploadForm(request.POST or None, request.FILES or None)
+    stats = None
+    if request.method == "POST" and form.is_valid():
+        try:
+            resultaten = lenex.parse_uitslagen(lenex.lees_xml(form.cleaned_data["bestand"].read()))
+        except lenex.LenexFout as e:
+            form.add_error("bestand", str(e))
+        else:
+            if not resultaten:
+                form.add_error("bestand", "Geen individuele uitslagen gevonden in dit bestand.")
+            else:
+                stats = lenex.importeer_uitslagen(resultaten)
+                stats["onbekend"] = sorted(stats["onbekend"])
+                messages.success(request, f"{stats['gekoppeld']} resultaten van clubzwemmers verwerkt: "
+                                          f"{stats['nieuw']} nieuwe en {stats['verbeterd']} verbeterde beste tijden.")
+    return render(request, "uitslagen.html", {"form": form, "stats": stats})
 
 
 @vereist_rol(Profiel.SECRETARIS)
@@ -420,6 +476,55 @@ def gebruikers(request):
     if q:
         users = users.filter(Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q))
     return render(request, "gebruikers.html", {"users": users, "q": q, "rollen": Profiel.ROLLEN})
+
+
+# ---------- backup (beheerder) ----------
+
+def vereist_beheerder(view):
+    @wraps(view)
+    @login_required
+    def inner(request, *a, **kw):
+        if not request.user.is_superuser:
+            raise PermissionDenied
+        return view(request, *a, **kw)
+    return inner
+
+
+@vereist_beheerder
+def backups(request):
+    from . import backup
+    if request.method == "POST":
+        actie = request.POST.get("actie")
+        try:
+            if actie == "maak":
+                pad = backup.maak()
+                messages.success(request, f"Backup gemaakt: {pad.name}")
+            elif actie == "herstel":
+                if request.POST.get("bevestig") != "HERSTEL":
+                    messages.error(request, "Typ HERSTEL om te bevestigen.")
+                    return redirect("backups")
+                bron = request.FILES.get("bestand") or backup.zoek(request.POST.get("naam", ""))
+                n, veilig = backup.herstel(bron)
+                messages.success(request, f"Backup teruggezet ({n} objecten). Veiligheidsbackup van daarvoor: {veilig.name}")
+                return redirect("login")
+            elif actie == "verwijder":
+                backup.zoek(request.POST.get("naam", "")).unlink()
+                messages.success(request, "Backup verwijderd.")
+        except (FileNotFoundError, ValueError, zipfile.BadZipFile) as e:
+            messages.error(request, f"Mislukt: {e}")
+        return redirect("backups")
+    bestanden = [(f.name, f.stat().st_size, datetime.fromtimestamp(f.stat().st_mtime)) for f in backup.lijst()]
+    return render(request, "backups.html", {"bestanden": bestanden})
+
+
+@vereist_beheerder
+def backup_download(request, naam):
+    from . import backup
+    try:
+        pad = backup.zoek(naam)
+    except FileNotFoundError:
+        raise Http404
+    return FileResponse(pad.open("rb"), as_attachment=True, filename=pad.name)
 
 
 # ---------- meldingen ----------

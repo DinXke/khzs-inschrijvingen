@@ -6,8 +6,8 @@ from .models import Profiel
 
 
 @receiver(post_save, sender=User)
-def maak_profiel(sender, instance, created, **kwargs):
-    if created:
+def maak_profiel(sender, instance, created, raw=False, **kwargs):
+    if created and not raw:  # raw = terugzetten van een backup: profiel zit in de backup
         # Het allereerste account op een lege installatie wordt sportsecretaris.
         eerste = not Profiel.objects.filter(rol=Profiel.SECRETARIS).exists() and not User.objects.exclude(pk=instance.pk).exists()
         Profiel.objects.get_or_create(

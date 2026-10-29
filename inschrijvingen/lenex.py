@@ -231,6 +231,67 @@ def parse_meet(root: ET.Element) -> dict:
     }
 
 
+def parse_uitslagen(root: ET.Element) -> list[dict]:
+    """Alle individuele resultaten uit een uitslagen-lenex: [{voornaam, naam, geboortedatum, licentie,
+    geslacht, afstand, slag, baan, tijd, datum, wedstrijd}]."""
+    resultaten = []
+    for meet in root.findall("MEETS/MEET"):
+        baan = _baan(meet.get("course"))
+        stijlen, data = {}, {}
+        for s in meet.findall("SESSIONS/SESSION"):
+            for e in s.findall("EVENTS/EVENT"):
+                st = e.find("SWIMSTYLE")
+                if st is not None and _int(st.get("relaycount"), 1) <= 1:
+                    stijlen[e.get("eventid")] = (_int(st.get("distance")), (st.get("stroke") or "").upper())
+                    data[e.get("eventid")] = _datum(s.get("date"))
+        for a in meet.findall("CLUBS/CLUB/ATHLETES/ATHLETE"):
+            for r in a.findall("RESULTS/RESULT"):
+                tijd = parse_tijd(r.get("swimtime"))
+                if not tijd or r.get("status") or r.get("eventid") not in stijlen:
+                    continue  # DSQ/DNS/DNF of aflossing
+                afstand, slag = stijlen[r.get("eventid")]
+                if slag not in SLAGEN:
+                    continue
+                resultaten.append({
+                    "voornaam": a.get("firstname", ""), "naam": a.get("lastname", ""),
+                    "geboortedatum": _datum(a.get("birthdate")), "licentie": a.get("license", ""),
+                    "geslacht": a.get("gender", ""), "afstand": afstand, "slag": slag, "baan": baan,
+                    "tijd": tijd, "datum": data[r.get("eventid")] or date.today(),
+                    "wedstrijd": meet.get("name", "")[:120],
+                })
+    return resultaten
+
+
+@transaction.atomic
+def importeer_uitslagen(resultaten) -> dict:
+    """Bewaart per clubzwemmer de beste tijd per afstand/slag/baan. Koppeling via licentie,
+    anders via naam + geboortedatum."""
+    from .models import BesteTijd, Zwemmer
+
+    zwemmers = list(Zwemmer.objects.all())
+    op_licentie = {z.licentie.strip(): z for z in zwemmers if z.licentie.strip()}
+    op_naam = {(z.voornaam.lower().strip(), z.naam.lower().strip(), z.geboortedatum): z for z in zwemmers}
+    stats = {"resultaten": len(resultaten), "gekoppeld": 0, "nieuw": 0, "verbeterd": 0, "onbekend": set()}
+    for r in resultaten:
+        z = op_licentie.get(r["licentie"].strip()) or op_naam.get(
+            (r["voornaam"].lower().strip(), r["naam"].lower().strip(), r["geboortedatum"]))
+        if not z:
+            stats["onbekend"].add(f"{r['voornaam']} {r['naam']}")
+            continue
+        stats["gekoppeld"] += 1
+        bestaande = BesteTijd.objects.filter(zwemmer=z, afstand=r["afstand"], slag=r["slag"], baan=r["baan"]).order_by("tijd").first()
+        velden = {"tijd": r["tijd"], "datum": r["datum"], "wedstrijd": r["wedstrijd"], "bron": "uitslagen"}
+        if bestaande is None:
+            BesteTijd.objects.create(zwemmer=z, afstand=r["afstand"], slag=r["slag"], baan=r["baan"], **velden)
+            stats["nieuw"] += 1
+        elif r["tijd"] < bestaande.tijd:
+            for k, v in velden.items():
+                setattr(bestaande, k, v)
+            bestaande.save()
+            stats["verbeterd"] += 1
+    return stats
+
+
 @transaction.atomic
 def importeer(meet: dict, bestand, wedstrijd=None):
     """Schrijft een geparste meet naar de database. Bij een nieuwe versie van dezelfde

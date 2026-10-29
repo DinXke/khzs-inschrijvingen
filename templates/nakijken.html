@@ -9,6 +9,7 @@
   <div class="stap">Organisator<b>{{ w.deadline|date:"D j M" }}</b></div>
   <div class="stap">Status<b>{{ w.get_status_display }}</b></div>
 </div>
+{% if w.info %}<div class="kaart info-wedstrijd">ℹ️ {{ w.info|linebreaksbr }}</div>{% endif %}
 <div class="kaart">
   <strong>Deelname</strong>
   <div class="grid drie" style="margin-top:.5rem">
@@ -17,9 +18,9 @@
   </div>
 </div>
 <details class="kaart">
-  <summary><strong>Deadline voor zwemmers instellen</strong></summary>
+  <summary><strong>Deadline zwemmers & info voor zwemmers</strong></summary>
   <form method="post" class="rij" style="align-items:end">{% csrf_token %}
-    <div style="flex:1">{% for field in instform %}{% include "_veld.html" %}{% endfor %}</div>
+    <div style="flex:1;min-width:240px">{% for field in instform %}{% include "_veld.html" %}{% endfor %}</div>
     <button>Bewaren</button>
   </form>
 </details>

@@ -104,6 +104,7 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 
+BACKUP_DIR = os.environ.get("BACKUP_DIR", str(BASE_DIR / "backups"))
 VAPID_FILE = os.environ.get("VAPID_FILE", str(BASE_DIR / "vapid.pem"))
 PUSH_SYNCHROON = False
 

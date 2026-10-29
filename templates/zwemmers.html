@@ -1,6 +1,7 @@
 {% extends "base.html" %}{% block titel %}Zwemmers{% endblock %}
 {% block inhoud %}
-<div class="rij tussen"><h1>{% if alle %}Zwemmers{% else %}Mijn zwemmers{% endif %}</h1><a class="knop secundair" href="{% url 'zwemmer_nieuw' %}">+ Zwemmer</a></div>
+<div class="rij tussen"><h1>{% if alle %}Zwemmers{% else %}Mijn zwemmers{% endif %}</h1>
+  <div class="rij">{% if is_staf %}<a class="knop" href="{% url 'uitslagen' %}">Uitslagen importeren</a>{% endif %}<a class="knop secundair" href="{% url 'zwemmer_nieuw' %}">+ Zwemmer</a></div></div>
 {% if alle %}<form method="get" class="kaart"><input type="search" name="q" value="{{ q }}" placeholder="Zoek op naam…"></form>{% endif %}
 {% for z in zwemmers %}
 <a class="kaart" href="{% url 'zwemmer' z.pk %}"><div class="rij tussen"><strong>{{ z.voornaam }} {{ z.naam }}</strong><span class="klein">{{ z.geboortedatum|date:"j/m/Y" }} · {{ z.get_geslacht_display }}</span></div>

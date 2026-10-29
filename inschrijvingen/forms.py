@@ -47,7 +47,7 @@ class RegistratieForm(UserCreationForm):
 class ZwemmerForm(forms.ModelForm):
     class Meta:
         model = Zwemmer
-        fields = ["voornaam", "naam", "geboortedatum", "geslacht", "licentie"]
+        fields = ["voornaam", "naam", "geboortedatum", "geslacht", "licentie", "swimrankings_id"]
         widgets = {"geboortedatum": DatumInput(), "geslacht": forms.RadioSelect}
 
 
@@ -96,8 +96,8 @@ class SecretarisInstellingenForm(forms.ModelForm):
 
     class Meta:
         model = Wedstrijd
-        fields = ["naam", "deadline", "dagen_secretaris", "status"]
-        widgets = {"deadline": DatumInput()}
+        fields = ["naam", "deadline", "dagen_secretaris", "status", "info"]
+        widgets = {"deadline": DatumInput(), "info": forms.Textarea(attrs={"rows": 3})}
 
     def __init__(self, *a, **kw):
         super().__init__(*a, **kw)
@@ -118,7 +118,8 @@ class SecretarisInstellingenForm(forms.ModelForm):
 class TrainerInstellingenForm(forms.ModelForm):
     class Meta:
         model = Wedstrijd
-        fields = ["dagen_trainer"]
+        fields = ["dagen_trainer", "info"]
+        widgets = {"info": forms.Textarea(attrs={"rows": 3})}
         help_texts = {"dagen_trainer": "Extra dagen vóór de deadline van het sportsecretariaat dat zwemmers moeten ingeschreven zijn."}
 
 

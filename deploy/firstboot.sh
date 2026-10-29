@@ -7,7 +7,7 @@ echo "== start $(date)"
 for i in $(seq 1 90); do getent hosts deb.debian.org >/dev/null && break; sleep 2; done
 
 set -e
-source /etc/khzs-firstboot.env
+set -a; source /etc/khzs-firstboot.env; set +a
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y curl ca-certificates gnupg git
 [ -d /opt/khzs/app/.git ] || git clone --branch main "$REPO" /opt/khzs/app

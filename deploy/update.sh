@@ -8,5 +8,4 @@ set -a; source /etc/khzs.env; set +a
 /opt/khzs/venv/bin/python manage.py migrate --noinput
 /opt/khzs/venv/bin/python manage.py collectstatic --noinput -v0
 chown -R khzs:khzs /opt/khzs/media
-chown postgres:postgres /opt/khzs/backups
 systemctl restart khzs 2>/dev/null || true

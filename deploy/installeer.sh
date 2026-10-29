@@ -5,8 +5,9 @@ apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y python3 python3-venv postgresql nginx curl ca-certificates git
 
 id khzs >/dev/null 2>&1 || useradd --system --home /opt/khzs --shell /usr/sbin/nologin khzs
-mkdir -p /opt/khzs/media /opt/khzs/backups /opt/khzs/data
-chown khzs:khzs /opt/khzs/data && chmod 700 /opt/khzs/data
+mkdir -p /opt/khzs/media /opt/khzs/backups/pg /opt/khzs/backups/app /opt/khzs/data
+chown khzs:khzs /opt/khzs/data /opt/khzs/backups/app && chmod 700 /opt/khzs/data /opt/khzs/backups/app
+chown postgres:postgres /opt/khzs/backups/pg
 
 if [ ! -f /etc/khzs.env ]; then
   DBPW=$(python3 -c 'import secrets;print(secrets.token_urlsafe(24))')
@@ -30,6 +31,7 @@ DEFAULT_FROM_EMAIL=inschrijvingen@khzs.be
 CLUB_NAAM=HZS Spartacus
 CLUB_CODE=KHZS
 VAPID_FILE=/opt/khzs/data/vapid.pem
+BACKUP_DIR=/opt/khzs/backups/app
 ENV
   chmod 640 /etc/khzs.env; chgrp khzs /etc/khzs.env
 fi
@@ -40,8 +42,11 @@ rm -f /etc/nginx/sites-enabled/default
 cp /opt/khzs/app/deploy/backup.cron /etc/cron.d/khzs-backup
 cp /opt/khzs/app/deploy/*.service /opt/khzs/app/deploy/*.timer /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable --now khzs-herinneringen.timer khzs-update.timer
+systemctl enable --now khzs-herinneringen.timer khzs-update.timer khzs-backup.timer
 
 bash /opt/khzs/app/deploy/update.sh
+if [ "${DEMO_ACCOUNTS:-0}" = "1" ]; then
+  (set -a; source /etc/khzs.env; set +a; cd /opt/khzs/app && /opt/khzs/venv/bin/python manage.py demo_accounts)
+fi
 systemctl enable --now khzs
 nginx -t && systemctl reload nginx

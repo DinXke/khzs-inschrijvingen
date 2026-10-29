@@ -7,6 +7,7 @@
   {% if staf %}<div class="stap">Trainers tot<b>{{ w.deadline_trainer|date:"D j M" }}</b></div>
   <div class="stap">Organisator<b>{{ w.deadline|date:"D j M" }}</b></div>{% endif %}
 </div>
+{% if w.info %}<div class="kaart info-wedstrijd">ℹ️ {{ w.info|linebreaksbr }}</div>{% endif %}
 {% if staf %}<p><a href="{% url 'nakijken' w.pk %}">← Terug naar overzicht inschrijvingen</a></p>{% endif %}
 
 {% if zwemmers|length > 1 or staf %}
@@ -24,10 +25,24 @@
     <input type="hidden" name="zwemmer" value="{{ gekozen.pk }}">
     <strong>{% if staf %}Keuze van {{ gekozen.voornaam }}{% else %}Doe je mee?{% endif %}</strong>
     <div class="segment">
-      {% for k, label in keuzes %}<button name="keuze" value="{{ k }}" class="{% if deelname.keuze == k %}gekozen{% endif %} k-{{ k }}">{{ label }}</button>{% endfor %}
+      {% for k, label in keuzes %}<button name="keuze" value="{{ k }}" class="{% if deelname.keuze == k %}gekozen{% endif %} k-{{ k }}" {% if deelname.geweigerd and not staf %}disabled{% endif %}>{{ label }}</button>{% endfor %}
     </div>
+    {% if deelname.geweigerd %}<div class="melding error" style="margin:.6rem 0 0">⛔ Deelname geweigerd door de club{% if deelname.weigerreden %}: {{ deelname.weigerreden }}{% endif %}</div>{% endif %}
     {% if w.status == 'concept' %}<p class="help">Inschrijven op nummers kan zodra het sportsecretariaat de inschrijvingen opent. Met ‘Interesse’ of ‘Ik doe mee’ krijg je dan een melding.</p>{% endif %}
   </form>
+  {% if staf %}
+  <form method="post" action="{% url 'deelname_beoordelen' w.pk %}" class="kaart rij" style="align-items:end">{% csrf_token %}
+    <input type="hidden" name="zwemmer" value="{{ gekozen.pk }}">
+    {% if deelname.geweigerd %}
+      <span style="flex:1">Deelname van {{ gekozen.voornaam }} is <b>geweigerd</b>.</span>
+      <button name="actie" value="toestaan" class="ok">Opnieuw toestaan</button>
+    {% else %}
+      <div style="flex:1;min-width:200px"><label for="reden">Deelname weigeren</label>
+        <input id="reden" type="text" name="reden" placeholder="Reden (zichtbaar voor de zwemmer)"></div>
+      <button name="actie" value="weigeren" class="gevaar" onclick="return confirm('Deelname van {{ gekozen.voornaam|escapejs }} weigeren? Openstaande inschrijvingen worden afgekeurd.')">Weigeren</button>
+    {% endif %}
+  </form>
+  {% endif %}
   {% if meldingen %}
   <div class="kaart melding-lijst">
     <strong>{% if ongelezen and not staf %}🔔 Nieuw: {% endif %}Wijzigingen door de club</strong>
@@ -42,7 +57,7 @@
   {% if not mag_wijzigen %}<div class="melding info">{% if w.status == 'concept' %}De inschrijvingen zijn nog niet open. Je ziet hieronder al het programma.{% else %}De inschrijvingen zijn afgesloten.{% endif %}</div>{% endif %}
   {% if staf %}<p class="klein">Als trainer kan je nummers aan- of uitvinken en de inschrijftijd aanpassen. De zwemmer krijgt hiervan een melding.</p>{% endif %}
   <p class="klein">{{ gekozen }} – categorie <b>{{ jaren }} jaar</b>. Je ziet enkel de nummers waarvoor je in aanmerking komt.</p>
-  {% if not gekozen.tijden.exists %}<div class="melding info">Nog geen beste tijden ingevuld. <a href="{% url 'zwemmer' gekozen.pk %}">Vul ze in</a> om limieten te kunnen controleren.</div>{% endif %}
+  {% if not gekozen.tijden.exists %}<div class="melding info">Nog geen beste tijden gekend voor deze zwemmer. De club werkt ze bij op basis van de wedstrijduitslagen.</div>{% endif %}
   <form method="post" action="{% url 'inschrijven' w.pk %}" autocomplete="off">{% csrf_token %}
     <input type="hidden" name="zwemmer" value="{{ gekozen.pk }}">
     {% for sessie, rijen in programma %}

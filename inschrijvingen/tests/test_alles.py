@@ -342,3 +342,97 @@ class DeelnameTest(TestCase):
             call_command("herinneringen", stdout=io.StringIO())
         self.assertEqual(wp.call_count, 1)
         self.assertIn(f"/{self.ouder.pk}", wp.call_args.kwargs["subscription_info"]["endpoint"])
+
+
+UITSLAG = b"""<?xml version="1.0" encoding="UTF-8"?>
+<LENEX version="3.0"><MEETS><MEET name="Kerstcriterium" course="LCM"><SESSIONS>
+<SESSION number="1" date="2026-12-20"><EVENTS>
+<EVENT eventid="10" number="1" gender="F"><SWIMSTYLE distance="100" stroke="BREAST" relaycount="1"/></EVENT>
+<EVENT eventid="11" number="2" gender="F"><SWIMSTYLE distance="50" stroke="FREE" relaycount="1"/></EVENT>
+</EVENTS></SESSION></SESSIONS>
+<CLUBS><CLUB name="HZS"><ATHLETES>
+<ATHLETE firstname="Lien" lastname="Peeters" birthdate="2013-03-02" gender="F"><RESULTS>
+<RESULT eventid="10" swimtime="00:01:18.20"/><RESULT eventid="11" swimtime="00:00:33.00" status="DSQ"/>
+</RESULTS></ATHLETE>
+<ATHLETE firstname="Iemand" lastname="Anders" birthdate="2012-01-01" gender="F"><RESULTS><RESULT eventid="11" swimtime="00:00:30.00"/></RESULTS></ATHLETE>
+</ATHLETES></CLUB></CLUBS></MEET></MEETS></LENEX>"""
+
+
+class TijdenEnWeigerTest(StroomTest):
+    def _lien(self):
+        ouder = User.objects.create_user("o@o.be", "o@o.be", "geheim123!")
+        z = Zwemmer.objects.create(account=ouder, voornaam="Lien", naam="Peeters", geboortedatum=date(2013, 3, 2), geslacht="F")
+        return ouder, z
+
+    def test_zwemmer_kan_geen_tijden_invoeren(self):
+        ouder, z = self._lien()
+        self.c.force_login(ouder)
+        self.c.post(f"/zwemmers/{z.pk}/", {"t-slag": "FREE", "t-afstand": 50, "t-baan": "SCM", "t-tijd": "20.00", "t-datum": "2026-01-01"})
+        self.assertFalse(z.tijden.exists())
+        t = BesteTijd.objects.create(zwemmer=z, afstand=50, slag="FREE", baan="SCM", tijd=timedelta(seconds=40), datum=date(2026, 1, 1))
+        self.assertEqual(self.c.post(f"/tijd/{t.pk}/verwijderen/").status_code, 403)
+
+    def test_uitslagen_import(self):
+        ouder, z = self._lien()
+        BesteTijd.objects.create(zwemmer=z, afstand=100, slag="BREAST", baan="LCM", tijd=timedelta(seconds=80), datum=date(2026, 1, 1))
+        self.c.force_login(self.tr)
+        r = self.c.post("/zwemmers/uitslagen/", {"bestand": upload(UITSLAG, "uitslag.lef")})
+        self.assertContains(r, "1 verbeterde")
+        self.assertEqual(z.tijden.get().tijd, timedelta(seconds=78.2))
+        self.assertEqual(z.tijden.get().bron, "uitslagen")
+        self.assertContains(r, "Iemand Anders")
+
+    def test_deelname_weigeren(self):
+        from unittest import mock
+        from inschrijvingen.models import Deelname, Melding
+        ouder, z = self._lien()
+        n = Nummer.objects.get(sessie__wedstrijd=self.w, nummer=6)
+        Deelname.objects.create(zwemmer=z, wedstrijd=self.w, keuze="doet_mee")
+        Inschrijving.objects.create(zwemmer=z, nummer=n)
+        self.c.force_login(self.tr)
+        self.c.post(f"/wedstrijd/{self.w.pk}/deelname/beoordelen/", {"zwemmer": z.pk, "actie": "weigeren", "reden": "nog niet klaar"})
+        self.assertTrue(Deelname.objects.get().geweigerd)
+        self.assertEqual(Inschrijving.objects.get().status, Inschrijving.AFGEKEURD)
+        self.assertIn("nog niet klaar", Melding.objects.get().tekst)
+        self.c.force_login(ouder)
+        r = self.c.get(f"/wedstrijd/{self.w.pk}/?zwemmer={z.pk}")
+        self.assertContains(r, "Deelname geweigerd door de club: nog niet klaar")
+        n2 = Nummer.objects.get(sessie__wedstrijd=self.w, nummer=22)
+        with mock.patch("inschrijvingen.regels.vandaag", return_value=date(2026, 10, 1)):
+            self.c.post(f"/wedstrijd/{self.w.pk}/inschrijven/", {"zwemmer": z.pk, "nummer": [n.pk, n2.pk]})
+        self.assertFalse(Inschrijving.objects.filter(nummer=n2).exists())
+        self.c.post(f"/wedstrijd/{self.w.pk}/deelname/", {"zwemmer": z.pk, "keuze": "interesse"})
+        self.assertEqual(Deelname.objects.get().keuze, "doet_mee")
+
+
+class InfoTest(StroomTest):
+    def test_trainer_zet_info_zwemmer_ziet_ze(self):
+        self.c.force_login(self.tr)
+        self.c.post(f"/wedstrijd/{self.w.pk}/nakijken/", {"dagen_trainer": 2, "info": "Enkel voor de A-groep"})
+        ouder = User.objects.create_user("o@o.be", "o@o.be", "geheim123!")
+        self.c.force_login(ouder)
+        self.assertContains(self.c.get(f"/wedstrijd/{self.w.pk}/"), "Enkel voor de A-groep")
+
+
+class BackupTest(StroomTest):
+    def test_backup_en_terugzetten(self):
+        import tempfile
+        from inschrijvingen.models import Deelname
+        baas = User.objects.create_superuser("beheerder", "b@b.be", "geheim123!")
+        z = Zwemmer.objects.create(account=self.tr, voornaam="A", naam="B", geboortedatum=date(2013, 1, 1), geslacht="M")
+        Deelname.objects.create(zwemmer=z, wedstrijd=self.w, keuze="interesse")
+        with tempfile.TemporaryDirectory() as d, self.settings(BACKUP_DIR=d, MEDIA_ROOT=f"{d}/media"):
+            self.assertEqual(self.c.get("/backup/").status_code, 403)  # secretaris is geen beheerder
+            self.c.force_login(baas)
+            self.c.post("/backup/", {"actie": "maak"})
+            naam = next(Path(d).glob("hzs-backup-*.zip")).name
+            self.assertEqual(self.c.get(f"/backup/{naam}").status_code, 200)
+            z.delete()
+            self.w.delete()
+            self.c.post("/backup/", {"actie": "herstel", "naam": naam, "bevestig": "HERSTEL"})
+            self.assertTrue(Zwemmer.objects.filter(voornaam="A").exists())
+            self.assertEqual(Wedstrijd.objects.count(), 1)
+            self.assertEqual(Deelname.objects.get().keuze, "interesse")
+            self.assertEqual(User.objects.get(username="tr@khzs.be").profiel.rol, Profiel.TRAINER)
+            self.assertEqual(len(list(Path(d).glob("hzs-backup-*voor-herstel.zip"))), 1)
+            self.assertEqual(self.c.get("/backup/..%2Fsettings.py").status_code, 404)

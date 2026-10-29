@@ -5,6 +5,7 @@
 <a class="kaart" href="{% if is_staf %}{% if is_secretaris %}{% url 'instellingen' w.pk %}{% else %}{% url 'nakijken' w.pk %}{% endif %}{% else %}{% url 'wedstrijd' w.pk %}{% endif %}">
   <div class="rij tussen"><strong>{{ w.naam }}</strong>{% if is_staf %}<span class="badge {{ w.status }}">{{ w.get_status_display }}</span>{% endif %}</div>
   <div class="klein">{{ w.stad }} · {{ w.startdatum|date:"j M Y" }} · {{ w.get_baan_display }}</div>
+  {% if w.info %}<div class="klein info-kort">ℹ️ {{ w.info|truncatechars:110 }}</div>{% endif %}
   <div class="rij klein" style="margin-top:.4rem">
     {% if is_staf %}
       <span>Zwemmers tot <b>{{ w.deadline_zwemmer|date:"j/m" }}</b></span>
@@ -13,7 +14,7 @@
       <span>{{ w.aantal }} inschrijvingen{% if w.te_keuren %} · <span class="badge wacht">{{ w.te_keuren }} na te kijken</span>{% endif %}</span>
     {% else %}
       {% if w.status == 'concept' %}<span class="badge concept">Nog niet open</span>{% elif w.status == 'open' %}<span>Inschrijven tot <b>{{ w.deadline_zwemmer|date:"l j F" }}</b></span>{% else %}<span class="badge gesloten">Inschrijvingen gesloten</span>{% endif %}
-      {% for d in keuzes %}<span class="badge k-{{ d.keuze }}">{% if keuzes|length > 1 %}{{ d.zwemmer.voornaam }}: {% endif %}{{ d.get_keuze_display }}</span>{% empty %}<span class="badge">Nog geen keuze</span>{% endfor %}
+      {% for d in keuzes %}<span class="badge k-{% if d.geweigerd %}geweigerd{% else %}{{ d.keuze }}{% endif %}">{% if keuzes|length > 1 %}{{ d.zwemmer.voornaam }}: {% endif %}{% if d.geweigerd %}geweigerd{% else %}{{ d.get_keuze_display }}{% endif %}</span>{% empty %}<span class="badge">Nog geen keuze</span>{% endfor %}
       {% if eigen %}<span class="badge ok">{{ eigen }} ingeschreven</span>{% endif %}
       {% if nieuw %}<span class="badge wacht">🔔 gewijzigd door de club</span>{% endif %}
     {% endif %}

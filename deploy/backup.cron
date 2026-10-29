@@ -1,2 +1,2 @@
 # Dagelijkse databasebackup om 03:15, 30 dagen bewaard.
-15 3 * * * postgres pg_dump khzs | gzip > /opt/khzs/backups/khzs-$(date +\%F).sql.gz && find /opt/khzs/backups -name '*.sql.gz' -mtime +30 -delete
+15 3 * * * postgres pg_dump khzs | gzip > /opt/khzs/backups/pg/khzs-$(date +\%F).sql.gz && find /opt/khzs/backups/pg -name '*.sql.gz' -mtime +30 -delete

@@ -9,13 +9,15 @@
         <tr><th>Nummer</th><th>Tijd</th><th>Datum</th><th></th></tr>
         {% for t in tijden %}<tr><td>{{ t.afstand }} m {{ t.get_slag_display|lower }} <span class="klein">{{ t.get_baan_display }}</span></td>
           <td><b>{{ t.tijd|tijd }}</b></td><td class="klein">{{ t.datum|date:"j/m/y" }}</td>
-          <td><form method="post" action="{% url 'tijd_verwijderen' t.pk %}">{% csrf_token %}<button class="mini secundair" title="Verwijderen">✕</button></form></td></tr>{% endfor %}
-      </table></div>{% else %}<p class="klein">Nog geen tijden. Voeg je beste tijden toe: die worden gebruikt als inschrijftijd en om limieten te controleren.</p>{% endif %}
+          <td>{% if is_staf %}<form method="post" action="{% url 'tijd_verwijderen' t.pk %}">{% csrf_token %}<button class="mini secundair" title="Verwijderen">✕</button></form>{% endif %}</td></tr>{% endfor %}
+      </table></div>{% else %}<p class="klein">Nog geen tijden. Je beste tijden worden door de club bijgehouden op basis van de wedstrijduitslagen.</p>{% endif %}
+      {% if z.swimrankings_url %}<p><a class="knop secundair mini" href="{{ z.swimrankings_url }}" target="_blank" rel="noopener">Bekijk op Swimrankings ↗</a></p>
+      {% else %}<p class="help">Vul je Swimrankings-ID in bij je gegevens voor een directe link naar je tijden.</p>{% endif %}
     </div>
-    <details class="kaart" {% if tijdform.errors or not tijden %}open{% endif %}>
-      <summary><strong>+ Tijd toevoegen</strong></summary>
+    {% if is_staf %}<details class="kaart" {% if tijdform.errors %}open{% endif %}>
+      <summary><strong>+ Tijd toevoegen (staf)</strong></summary>
       <form method="post">{% csrf_token %}{% with form=tijdform %}{% include "_form.html" %}{% endwith %}<p><button class="vol">Toevoegen</button></p></form>
-    </details>
+    </details>{% endif %}
   </div>
   <div>
     {% if meldingen %}<h2>Wijzigingen door de club</h2>

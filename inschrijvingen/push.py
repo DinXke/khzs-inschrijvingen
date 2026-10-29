@@ -77,5 +77,6 @@ def users_met(voorkeur, rollen=None, deelname_aan=None):
     if rollen:
         qs = qs.filter(profiel__rol__in=rollen)
     if deelname_aan is not None:
-        qs = qs.filter(zwemmers__deelnames__wedstrijd=deelname_aan, zwemmers__deelnames__keuze__in=Deelname.ACTIEF)
+        qs = qs.filter(zwemmers__deelnames__wedstrijd=deelname_aan, zwemmers__deelnames__keuze__in=Deelname.ACTIEF,
+                       zwemmers__deelnames__geweigerd=False)
     return qs.distinct()

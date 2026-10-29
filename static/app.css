@@ -185,3 +185,8 @@ th { color: var(--zacht); font-weight: 600; font-size: .82rem; }
 .badge.k-doet_niet_mee { background: var(--lijn); color: var(--zacht); }
 .badge:not([class*=" "]) { background: var(--lijn); color: var(--zacht); }
 @media (min-width: 700px) { .grid.drie { grid-template-columns: repeat(3, 1fr); } }
+.badge.k-geweigerd { background: var(--fout-bg); color: var(--fout); }
+.segment button:disabled { opacity: .5; cursor: not-allowed; }
+.info-wedstrijd { border-left: 4px solid var(--primair); background: color-mix(in srgb, var(--primair) 8%, var(--kaart)); }
+.info-kort { margin-top: .3rem; color: var(--tekst); }
+textarea { min-height: 80px; }

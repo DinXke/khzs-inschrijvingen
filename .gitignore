@@ -5,3 +5,5 @@ staticfiles/
 __pycache__/
 vapid.pem
 .claude/
+backups/
+docs/.*.html

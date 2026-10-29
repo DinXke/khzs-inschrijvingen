@@ -1,0 +1,19 @@
+{% extends "base.html" %}{% block titel %}Uitslagen importeren{% endblock %}{% block mainklasse %}smal{% endblock %}
+{% block inhoud %}
+<h1>Uitslagen importeren</h1>
+<form method="post" enctype="multipart/form-data" class="kaart">{% csrf_token %}
+  {% include "_form.html" %}
+  <p class="klein">Upload de uitslagen-Lenex van een wedstrijd (bv. van de organisator of uit SPLASH). Voor elke clubzwemmer
+  wordt per nummer en badlengte de beste tijd bijgehouden. Koppeling via licentienummer, anders via naam + geboortedatum.</p>
+  <p><button class="vol">Importeren</button></p>
+</form>
+{% if stats %}
+<div class="kaart">
+  <strong>Resultaat</strong>
+  <ul><li>{{ stats.resultaten }} individuele resultaten in het bestand</li>
+  <li>{{ stats.gekoppeld }} van onze zwemmers · {{ stats.nieuw }} nieuwe · {{ stats.verbeterd }} verbeterde beste tijden</li></ul>
+  {% if stats.onbekend %}<details><summary class="klein">{{ stats.onbekend|length }} zwemmers niet gekend in de app</summary>
+  <p class="klein">{{ stats.onbekend|join:", " }}</p></details>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

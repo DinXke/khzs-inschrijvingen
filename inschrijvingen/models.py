@@ -40,6 +40,8 @@ class Zwemmer(models.Model):
     geboortedatum = models.DateField()
     geslacht = models.CharField(max_length=1, choices=GESLACHT)
     licentie = models.CharField("licentienummer", max_length=30, blank=True)
+    swimrankings_id = models.CharField("Swimrankings-ID", max_length=20, blank=True,
+                                       help_text="Het getal achter athleteId= in de link van je Swimrankings-pagina")
 
     class Meta:
         ordering = ["naam", "voornaam"]
@@ -47,6 +49,12 @@ class Zwemmer(models.Model):
 
     def __str__(self):
         return f"{self.voornaam} {self.naam}"
+
+    @property
+    def swimrankings_url(self):
+        if self.swimrankings_id.isdigit():
+            return f"https://www.swimrankings.net/index.php?page=athleteDetail&athleteId={self.swimrankings_id}"
+        return ""
 
 
 class BesteTijd(models.Model):
@@ -57,6 +65,7 @@ class BesteTijd(models.Model):
     tijd = models.DurationField()
     datum = models.DateField()
     wedstrijd = models.CharField(max_length=120, blank=True)
+    bron = models.CharField(max_length=20, default="manueel")  # manueel / uitslagen
 
     class Meta:
         ordering = ["slag", "afstand", "baan", "tijd"]
@@ -83,6 +92,8 @@ class Wedstrijd(models.Model):
     dagen_secretaris = models.PositiveIntegerField(default=3)
     dagen_trainer = models.PositiveIntegerField(default=2)
     status = models.CharField(max_length=20, choices=STATUS, default=CONCEPT)
+    info = models.TextField("info voor zwemmers", blank=True,
+                            help_text="Bv. ‘Deze wedstrijd is enkel voor zwemmers van de A-groep.’ Zichtbaar voor iedereen.")
     limietlijsten = models.ManyToManyField("Limietlijst", blank=True, related_name="+",
                                            help_text="Limieten die gehaald moeten zijn om in te schrijven")
     aangemaakt = models.DateTimeField(auto_now_add=True)
@@ -276,6 +287,8 @@ class Deelname(models.Model):
     zwemmer = models.ForeignKey(Zwemmer, on_delete=models.CASCADE, related_name="deelnames")
     wedstrijd = models.ForeignKey(Wedstrijd, on_delete=models.CASCADE, related_name="deelnames")
     keuze = models.CharField(max_length=20, choices=KEUZES)
+    geweigerd = models.BooleanField(default=False)
+    weigerreden = models.CharField(max_length=200, blank=True)
     gewijzigd = models.DateTimeField(auto_now=True)
 
     class Meta:

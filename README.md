@@ -6,8 +6,24 @@ Inschrijfsysteem (PWA) voor zwemwedstrijden van HZS Spartacus.
 - **Trainers**: extra dagen instellen, inschrijvingen nakijken, goed-/afkeuren en aanpassen.
 - **Zwemmers**: profiel + beste tijden, interesse/ik doe mee/ik doe niet mee, inschrijven op nummers waarvoor ze in aanmerking komen.
 - Pushmeldingen (instelbaar): nieuwe wedstrijd, inschrijvingen open, 1 dag voor de deadline, wijziging door de club.
+- Beste tijden via import van uitslagen-Lenexen; deelname weigeren met melding; info per wedstrijd; backup & terugzetten.
 
 Deadline zwemmers = deadline organisator − dagen secretariaat − dagen trainer.
+
+## Documentatie
+
+PDF's met screenshots, altijd bijgewerkt bij elke versie:
+
+- [Volledige documentatie](docs/pdf/HZS-inschrijvingen-documentatie.pdf)
+- Handleidingen: [zwemmers & ouders](docs/pdf/handleiding-zwemmer.pdf) · [trainers](docs/pdf/handleiding-trainer.pdf) · [sportsecretaris](docs/pdf/handleiding-sportsecretaris.pdf)
+- Onepagers: [zwemmers](docs/pdf/onepager-zwemmer.pdf) · [trainers](docs/pdf/onepager-trainer.pdf) · [sportsecretaris](docs/pdf/onepager-sportsecretaris.pdf)
+- [Technische documentatie](docs/pdf/technisch.pdf)
+
+Opnieuw bouwen (screenshots + PDF's): `.venv/bin/python docs/build.py`
+
+| | |
+|---|---|
+| ![](docs/screenshots/zwemmer-wedstrijd.png) | ![](docs/screenshots/trainer-nakijken.png) |
 
 ## Lokaal draaien
 
