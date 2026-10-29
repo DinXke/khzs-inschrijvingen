@@ -31,13 +31,15 @@ SMTP_PORT=587
 SMTP_USER=
 SMTP_PASSWORD=
 DEFAULT_FROM_EMAIL=inschrijvingen@khzs.be
-CLUB_NAAM=HZS Spartacus
+CLUB_NAAM="HZS Spartacus"
 CLUB_CODE=KHZS
 VAPID_FILE=/opt/khzs/data/vapid.pem
 BACKUP_DIR=/opt/khzs/backups/app
 ENV
   chmod 640 /etc/khzs.env; chgrp khzs /etc/khzs.env
 fi
+# Waarden met spaties tussen aanhalingstekens (anders faalt 'source'); herstelt ook oudere bestanden.
+sed -i -E 's/^([A-Z_]+)=([^"].* .*)$/\1="\2"/' /etc/khzs.env
 
 cp /opt/khzs/app/deploy/nginx.conf /etc/nginx/sites-available/khzs
 ln -sf /etc/nginx/sites-available/khzs /etc/nginx/sites-enabled/khzs
