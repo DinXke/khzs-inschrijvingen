@@ -20,7 +20,7 @@ class Command(BaseCommand):
                 ("zwemmer", w.deadline_zwemmer, [Profiel.ZWEMMER],
                  f"Morgen ({datum_str(w.deadline_zwemmer)}) is de laatste dag om in te schrijven.",
                  reverse("wedstrijd", args=[w.pk])),
-                ("trainer", w.deadline_trainer, [Profiel.TRAINER, Profiel.SECRETARIS],
+                ("trainer", w.deadline_trainer, list(Profiel.STAF),
                  f"Morgen ({datum_str(w.deadline_trainer)}) moeten de inschrijvingen nagekeken zijn.",
                  reverse("nakijken", args=[w.pk])),
             ):

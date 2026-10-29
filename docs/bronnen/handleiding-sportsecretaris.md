@@ -5,7 +5,7 @@ Als sportsecretaris laad je wedstrijden op, bepaal je de deadlines en selectiecr
 ## 1. Eerste keer
 
 Het **eerste account** dat op een nieuwe installatie wordt aangemaakt, krijgt automatisch de rol *Sportsecretaris*.
-Andere rollen ken je toe onder **Gebruikers**.
+Andere rollen (zwemmer, trainer, sportsecretaris) ken je toe onder **Gebruikers**. Beheerders kan enkel een beheerder aanstellen.
 
 ![pc gebruikers](../screenshots/secretaris-gebruikers.png)
 
@@ -55,17 +55,14 @@ Stuurt de organisator een aangepaste Lenex? Klik bij de instellingen op **Lenex 
 
 Na elke wedstrijd: **Zwemmers → Uitslagen importeren** met de uitslagen-Lenex. Zo kloppen de beste tijden en de limietcontrole. Zwemmers kunnen zelf geen tijden invoeren.
 
-## 7. Backup (beheerder)
+## 7. Kosten
 
-Het account **beheerder** ziet een extra menu **Backup**:
+Inschrijfgelden zie je als sportsecretaris (en trainer) bij elk nummer en in de Excel-export. **Zwemmers en ouders zien geen bedragen.**
 
-- **Nu backup maken**: een zip met alle gegevens en opgeladen Lenex-bestanden.
-- Elke nacht om 02:30 volgt automatisch een backup (30 dagen bewaard), plus een aparte databasedump om 03:15.
-- **Downloaden**: klik op de bestandsnaam.
-- **Terugzetten**: kies een bewaarde backup of upload een zip, en typ `HERSTEL`. Alle huidige gegevens worden vervangen. Daarvoor maakt de app eerst nog een veiligheidsbackup.
+## 8. Backups
 
-![pc backup](../screenshots/beheerder-backup.png)
+Backups en technisch beheer horen bij de aparte rol **Beheerder** (zie *Handleiding beheerder*), niet bij het sportsecretariaat.
 
-## 8. Donker thema
+## 9. Donker thema
 
 ![pc donker](../screenshots/secretaris-donker.png)

@@ -1,4 +1,5 @@
-"""Demo-accounts voor de testfase: sportsec1/2, trainer1/2, zwemmer1/2 en beheerder, wachtwoord 'demo'.
+"""Demo-accounts voor de testfase: sportsec1/2, trainer1/2, zwemmer1/2, wachtwoord 'demo'.
+De beheerder (admin) is geen demo-account: zie manage.py beheerder.
 Idempotent; zet bestaande wachtwoorden terug op 'demo'. Verwijderen: manage.py demo_accounts --verwijder"""
 from datetime import date, timedelta
 
@@ -10,7 +11,6 @@ from inschrijvingen.models import BesteTijd, Profiel, Zwemmer
 WACHTWOORD = "demo"
 ACCOUNTS = [
     # gebruikersnaam, voornaam, naam, rol, superuser
-    ("beheerder", "Beheerder", "HZS", Profiel.SECRETARIS, True),
     ("sportsec1", "Sofie", "Sportsecretaris", Profiel.SECRETARIS, False),
     ("sportsec2", "Stijn", "Sportsecretaris", Profiel.SECRETARIS, False),
     ("trainer1", "Tom", "Trainer", Profiel.TRAINER, False),
@@ -37,6 +37,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, verwijder=False, **opts):
         namen = [a[0] for a in ACCOUNTS]
+        User.objects.filter(username="beheerder", email="beheerder@demo.khzs.be").delete()  # oud demo-account
         if verwijder:
             n, _ = User.objects.filter(username__in=namen).delete()
             self.stdout.write(f"Demo-accounts verwijderd ({n} objecten).")

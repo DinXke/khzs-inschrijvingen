@@ -93,7 +93,7 @@ def rol(user):
     if not user.is_authenticated:
         return None
     if user.is_superuser:
-        return Profiel.SECRETARIS
+        return Profiel.BEHEERDER
     p = getattr(user, "profiel", None)
     return p.rol if p else Profiel.ZWEMMER
 
@@ -102,7 +102,7 @@ def mag_wijzigen(user, wedstrijd, dag: date | None = None) -> bool:
     """Mag deze gebruiker nu nog inschrijvingen toevoegen/schrappen voor deze wedstrijd?"""
     dag = dag or vandaag()
     r = rol(user)
-    if r == Profiel.SECRETARIS:
+    if r in Profiel.SECRETARIAAT:
         return wedstrijd.status in (Wedstrijd.OPEN, Wedstrijd.GESLOTEN)
     if wedstrijd.status != Wedstrijd.OPEN:
         return False

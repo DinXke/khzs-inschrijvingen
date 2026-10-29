@@ -15,7 +15,7 @@ Deadline zwemmers = deadline organisator − dagen secretariaat − dagen traine
 PDF's met screenshots, altijd bijgewerkt bij elke versie:
 
 - [Volledige documentatie](docs/pdf/HZS-inschrijvingen-documentatie.pdf)
-- Handleidingen: [zwemmers & ouders](docs/pdf/handleiding-zwemmer.pdf) · [trainers](docs/pdf/handleiding-trainer.pdf) · [sportsecretaris](docs/pdf/handleiding-sportsecretaris.pdf)
+- Handleidingen: [zwemmers & ouders](docs/pdf/handleiding-zwemmer.pdf) · [trainers](docs/pdf/handleiding-trainer.pdf) · [sportsecretaris](docs/pdf/handleiding-sportsecretaris.pdf) · [beheerder](docs/pdf/handleiding-beheerder.pdf)
 - Onepagers: [zwemmers](docs/pdf/onepager-zwemmer.pdf) · [trainers](docs/pdf/onepager-trainer.pdf) · [sportsecretaris](docs/pdf/onepager-sportsecretaris.pdf)
 - [Technische documentatie](docs/pdf/technisch.pdf)
 

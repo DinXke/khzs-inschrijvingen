@@ -21,7 +21,8 @@
 
 - Rollen toekennen: **Gebruikers**.
 - Beste tijden: **Zwemmers → Uitslagen importeren** na elke wedstrijd.
-- Backup (beheerder): menu **Backup** → maken, downloaden, terugzetten.
+- Kosten zie jij en de trainer; zwemmers en ouders niet.
+- Backups: dat doet de beheerder.
 - Nieuwe versie van de uitnodiging: **Lenex opnieuw uploaden** (inschrijvingen blijven behouden).
 
 ![pc instellingen](../screenshots/secretaris-instellingen.png)

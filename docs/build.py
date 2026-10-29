@@ -47,13 +47,14 @@ SCREENSHOTS = [
     ("secretaris-gebruikers", "sportsec1", "/gebruikers/", PC, "light", None),
     ("secretaris-donker", "sportsec1", "/wedstrijd/1/instellingen/", PC, "dark", None),
     ("trainer-uitslagen", "trainer1", "/zwemmers/uitslagen/", PC, "light", None),
-    ("beheerder-backup", "beheerder", "/backup/", PC, "light", None),
+    ("beheerder-backup", "admin", "/backup/", PC, "light", None),
 ]
 
 DOCUMENTEN = [
     ("handleiding-zwemmer", "Handleiding zwemmers & ouders"),
     ("handleiding-trainer", "Handleiding trainers"),
     ("handleiding-sportsecretaris", "Handleiding sportsecretaris"),
+    ("handleiding-beheerder", "Handleiding beheerder"),
     ("onepager-zwemmer", "Onepager zwemmers"),
     ("onepager-trainer", "Onepager trainers"),
     ("onepager-sportsecretaris", "Onepager sportsecretaris"),

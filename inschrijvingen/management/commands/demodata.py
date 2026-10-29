@@ -19,6 +19,7 @@ class Command(BaseCommand):
         if not settings.DEBUG:
             raise CommandError("Enkel voor lokale ontwikkeling (DJANGO_DEBUG=1).")
         call_command("demo_accounts", stdout=self.stdout)
+        call_command("beheerder", gebruiker="admin", wachtwoord="demo", stdout=self.stdout)  # enkel lokaal (DEBUG)
         if Wedstrijd.objects.exists():
             return
         pad = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "vk_kb_jeugd.lxf"

@@ -62,8 +62,7 @@ Trainers en sportsecretariaat zien jouw keuze. Met *Interesse* of *Ik doe mee* k
 1. Kies (als ouder) de zwemmer.
 2. Vink de nummers aan die je wil zwemmen. Bij elk nummer zie je:
    - je beste tijd en de limiet;
-   - **limiet ✓** (groen) of **geen limiet** (rood): zonder limiet kan je dat nummer niet aanvinken;
-   - de kost per nummer.
+   - **limiet ✓** (groen) of **geen limiet** (rood): zonder limiet kan je dat nummer niet aanvinken.
 3. Tik op **Bewaren**. Je inschrijving staat op **Ingediend** tot een trainer ze nakijkt.
 
 Tot je deadline kan je alles nog **wijzigen**: nummers bijvoegen of schrappen, ook als ze al goedgekeurd zijn.

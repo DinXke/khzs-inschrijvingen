@@ -18,8 +18,11 @@ SLAG_NAAM = dict(SLAG)
 class Profiel(models.Model):
     """Rol van een account. Elk nieuw account is een zwemmer(-ouder)."""
 
-    ZWEMMER, TRAINER, SECRETARIS = "zwemmer", "trainer", "secretaris"
-    ROLLEN = [(ZWEMMER, "Zwemmer"), (TRAINER, "Trainer"), (SECRETARIS, "Sportsecretaris")]
+    ZWEMMER, TRAINER, SECRETARIS, BEHEERDER = "zwemmer", "trainer", "secretaris", "beheerder"
+    ROLLEN = [(ZWEMMER, "Zwemmer"), (TRAINER, "Trainer"), (SECRETARIS, "Sportsecretaris"), (BEHEERDER, "Beheerder")]
+    # Rollen met de rechten van het sportsecretariaat; de beheerder kan daarnaast backups en beheer.
+    SECRETARIAAT = (SECRETARIS, BEHEERDER)
+    STAF = (TRAINER, SECRETARIS, BEHEERDER)
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profiel")
     rol = models.CharField(max_length=20, choices=ROLLEN, default=ZWEMMER)

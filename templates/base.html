@@ -25,7 +25,7 @@
     <a href="{% url 'wedstrijden' %}" class="{% if p in 'wedstrijden wedstrijd nakijken instellingen upload' %}actief{% endif %}">Wedstrijden</a>
     <a href="{% url 'zwemmers' %}" class="{% if p in 'zwemmers zwemmer zwemmer_nieuw' %}actief{% endif %}">{% if is_staf %}Zwemmers{% else %}Mijn zwemmers{% endif %}</a>
     {% if is_secretaris %}<a href="{% url 'gebruikers' %}" class="{% if p == 'gebruikers' %}actief{% endif %}">Gebruikers</a>{% endif %}
-    {% if is_beheerder %}<a href="{% url 'backups' %}" class="{% if p == 'backups' %}actief{% endif %}">Backup</a>{% endif %}
+    {% if is_beheerder %}<a href="{% url 'backups' %}" class="{% if p == 'backups' %}actief{% endif %}">Backup</a><a href="/beheer/">Beheer</a>{% endif %}
     <a href="{% url 'meldingen' %}" class="{% if p == 'meldingen' %}actief{% endif %}" title="Meldingen">🔔</a>
     <form method="post" action="{% url 'logout' %}" style="display:inline">{% csrf_token %}<button class="mini secundair">Afmelden</button></form>
   </nav>

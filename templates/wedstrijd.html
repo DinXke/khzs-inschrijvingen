@@ -74,7 +74,7 @@
           {% if not mag_wijzigen %}disabled{% elif not b.mag_inschrijven and not staf and not i %}disabled{% endif %}>
         <span class="info">
           <span class="titel">#{{ n.nummer }} {{ n.omschrijving }}</span>
-          <span class="klein">{% if n.ronde == 'PRE' %}reeksen + finale{% else %}tijdfinale{% endif %} · {{ n.kost|euro }}
+          <span class="klein">{% if n.ronde == 'PRE' %}reeksen + finale{% else %}tijdfinale{% endif %}{% if staf %} · {{ n.kost|euro }}{% endif %}
             {% if b.beste %} · beste {{ b.beste.tijd|tijd }} ({{ b.beste.get_baan_display }}){% endif %}</span>
           {% if b.limiet_nodig %}<span class="klein" style="display:block">Limiet: {% for naam, baan, t, minimum in b.limieten %}{% if minimum %}trager dan {% endif %}{{ t|tijd }} ({% if baan == 'SCM' %}25 m{% else %}50 m{% endif %}){% if not forloop.last %} of {% endif %}{% endfor %}</span>{% endif %}
         </span>
@@ -89,7 +89,7 @@
     <div class="leeg">Geen nummers voor deze leeftijd/geslacht in deze wedstrijd.</div>
     {% endfor %}
     {% if mag_wijzigen and programma %}
-    <div class="vaste-actie"><span class="klein" style="flex:1">Huidig: {{ bestaande|length }} nummer(s) · {{ totaal|euro }}</span><button>Bewaren</button></div>
+    <div class="vaste-actie"><span class="klein" style="flex:1">Huidig: {{ bestaande|length }} nummer(s){% if staf %} · {{ totaal|euro }}{% endif %}</span><button>Bewaren</button></div>
     {% endif %}
   </form>
 {% elif not zwemmers %}

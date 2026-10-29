@@ -12,5 +12,5 @@ def maak_profiel(sender, instance, created, raw=False, **kwargs):
         eerste = not Profiel.objects.filter(rol=Profiel.SECRETARIS).exists() and not User.objects.exclude(pk=instance.pk).exists()
         Profiel.objects.get_or_create(
             user=instance,
-            defaults={"rol": Profiel.SECRETARIS if instance.is_superuser or eerste else Profiel.ZWEMMER},
+            defaults={"rol": Profiel.BEHEERDER if instance.is_superuser else Profiel.SECRETARIS if eerste else Profiel.ZWEMMER},
         )

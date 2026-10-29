@@ -23,7 +23,7 @@
 - De container installeert zichzelf bij de eerste start (`deploy/firstboot.sh`): code van GitHub, Postgres, nginx, cloudflared.
 - `khzs-update.timer` haalt elke 10 minuten nieuwe commits op `main` op en installeert ze (`deploy/auto_update.sh`). Mislukt de update, dan gaat de vorige versie terug online.
 - `khzs-herinneringen.timer`: elke dag om 18:00 de deadline-herinneringen.
-- Backup: `khzs-backup.timer` maakt elke nacht om 02:30 een volledige app-backup (zip: `dumpdata` + media) in `/opt/khzs/backups/app` (30 dagen). Daarnaast om 03:15 een `pg_dump` in `/opt/khzs/backups/pg`. Beheer via `/backup/` (enkel superuser) of `manage.py backup`.
+- Backup: `khzs-backup.timer` maakt elke nacht om 02:30 een volledige app-backup (zip: `dumpdata` + media) in `/opt/khzs/backups/app` (30 dagen). Daarnaast om 03:15 een `pg_dump` in `/opt/khzs/backups/pg`. Beheer via `/backup/` (enkel de rol Beheerder) of `manage.py backup`.
 - Instellingen en geheimen: `/etc/khzs.env` (niet in git). SMTP invullen voor de mails bij een vergeten wachtwoord.
 
 ## Documentatie bijwerken
@@ -44,10 +44,11 @@ Het script start de app met demodata, maakt alle screenshots opnieuw (gsm + pc, 
 
 | Gebruiker | Rol | Wachtwoord |
 |---|---|---|
-| `beheerder` | Sportsecretaris + beheer (`/beheer/`) | `demo` |
 | `sportsec1`, `sportsec2` | Sportsecretaris | `demo` |
 | `trainer1`, `trainer2` | Trainer | `demo` |
 | `zwemmer1` (ouder Ann, kinderen Lien 2013 en Noor 2015), `zwemmer2` (Bram, 2011) | Zwemmer | `demo` |
+
+Het beheerdersaccount **`admin`** is geen demo-account: het heeft een sterk wachtwoord (`manage.py beheerder` maakt of herstelt het).
 
 > **Verwijder of wijzig deze accounts voor er echte zwemmersgegevens in komen**:
 > `manage.py demo_accounts --verwijder`. Het beheer-paneel staat op `/beheer/`.

@@ -28,7 +28,7 @@ from .models import BesteTijd, Deelname, Inschrijving, Melding, Nummer, Profiel,
 from .regels import (vandaag, beoordeel, leeftijd, mag_wijzigen, parse_invoer_tijd, past_in_nummer, programma_voor, rol,
                      toon_tijd)
 
-STAF = (Profiel.TRAINER, Profiel.SECRETARIS)
+STAF = Profiel.STAF
 
 
 def vereist_rol(*rollen):
@@ -374,7 +374,7 @@ def beoordelen(request, pk):
 
 # ---------- sportsecretaris ----------
 
-@vereist_rol(Profiel.SECRETARIS)
+@vereist_rol(*Profiel.SECRETARIAAT)
 def upload(request, pk=None):
     bestaand = get_object_or_404(Wedstrijd, pk=pk) if pk else None
     form = UploadForm(request.POST or None, request.FILES or None)
@@ -419,7 +419,7 @@ def uitslagen(request):
     return render(request, "uitslagen.html", {"form": form, "stats": stats})
 
 
-@vereist_rol(Profiel.SECRETARIS)
+@vereist_rol(*Profiel.SECRETARIAAT)
 def instellingen(request, pk):
     w = get_object_or_404(Wedstrijd, pk=pk)
     vorige_status = w.status
@@ -437,7 +437,7 @@ def instellingen(request, pk):
     return render(request, "instellingen.html", {"w": w, "form": form, "sessies": sessies})
 
 
-@vereist_rol(Profiel.SECRETARIS)
+@vereist_rol(*Profiel.SECRETARIAAT)
 @require_POST
 def verwijderen(request, pk):
     w = get_object_or_404(Wedstrijd, pk=pk)
@@ -451,7 +451,7 @@ def _goedgekeurd(w):
             .select_related("zwemmer", "nummer__sessie"))
 
 
-@vereist_rol(Profiel.SECRETARIS)
+@vereist_rol(*Profiel.SECRETARIAAT)
 def export_lxf(request, pk):
     w = get_object_or_404(Wedstrijd, pk=pk)
     resp = HttpResponse(lenex.bouw_inschrijvingen(w, _goedgekeurd(w)), content_type="application/zip")
@@ -459,7 +459,7 @@ def export_lxf(request, pk):
     return resp
 
 
-@vereist_rol(Profiel.SECRETARIS)
+@vereist_rol(*Profiel.SECRETARIAAT)
 def export_xlsx(request, pk):
     w = get_object_or_404(Wedstrijd, pk=pk)
     resp = HttpResponse(excel_overzicht(w, _goedgekeurd(w)),
@@ -468,11 +468,15 @@ def export_xlsx(request, pk):
     return resp
 
 
-@vereist_rol(Profiel.SECRETARIS)
+@vereist_rol(*Profiel.SECRETARIAAT)
 def gebruikers(request):
     if request.method == "POST":
         u = get_object_or_404(User, pk=request.POST.get("user"))
         p, _ = Profiel.objects.get_or_create(user=u)
+        beheerder = rol(request.user) == Profiel.BEHEERDER
+        if not beheerder and (Profiel.BEHEERDER in (p.rol, request.POST.get("rol")) or u.is_superuser):
+            messages.error(request, "Enkel een beheerder kan beheerders aanstellen of wijzigen.")
+            return redirect("gebruikers")
         form = RolForm(request.POST, instance=p)
         if form.is_valid():
             form.save()
@@ -482,7 +486,9 @@ def gebruikers(request):
     users = User.objects.select_related("profiel").order_by("last_name", "first_name")
     if q:
         users = users.filter(Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q))
-    return render(request, "gebruikers.html", {"users": users, "q": q, "rollen": Profiel.ROLLEN})
+    rollen = Profiel.ROLLEN if rol(request.user) == Profiel.BEHEERDER else [
+        r for r in Profiel.ROLLEN if r[0] != Profiel.BEHEERDER]
+    return render(request, "gebruikers.html", {"users": users, "q": q, "rollen": rollen})
 
 
 # ---------- backup (beheerder) ----------
@@ -491,7 +497,7 @@ def vereist_beheerder(view):
     @wraps(view)
     @login_required
     def inner(request, *a, **kw):
-        if not request.user.is_superuser:
+        if rol(request.user) != Profiel.BEHEERDER:
             raise PermissionDenied
         return view(request, *a, **kw)
     return inner

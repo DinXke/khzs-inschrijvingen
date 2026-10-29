@@ -462,3 +462,31 @@ class GezinTest(TestCase):
         })
         self.assertEqual(r.status_code, 200)
         self.assertFalse(User.objects.filter(username="leeg@test.be").exists())
+
+
+class RolTest(StroomTest):
+    def test_zwemmer_ziet_geen_bedragen(self):
+        ouder = User.objects.create_user("o@o.be", "o@o.be", "geheim123!")
+        z = Zwemmer.objects.create(account=ouder, voornaam="L", naam="P", geboortedatum=date(2013, 3, 2), geslacht="F")
+        self.c.force_login(ouder)
+        self.assertNotContains(self.c.get(f"/wedstrijd/{self.w.pk}/?zwemmer={z.pk}"), "€")
+        self.c.force_login(self.tr)
+        self.assertContains(self.c.get(f"/wedstrijd/{self.w.pk}/?zwemmer={z.pk}"), "€")
+
+    def test_beheerder_rol(self):
+        from django.core.management import call_command
+        call_command("beheerder", gebruiker="admin", wachtwoord="x-sterk-123", stdout=io.StringIO())
+        admin = User.objects.get(username="admin")
+        self.assertEqual(admin.profiel.rol, Profiel.BEHEERDER)
+        # secretaris: geen backup, kan geen beheerder aanstellen of de admin wijzigen
+        self.assertEqual(self.c.get("/backup/").status_code, 403)
+        self.c.post("/gebruikers/", {"user": self.tr.pk, "rol": "beheerder"})
+        self.assertEqual(User.objects.get(pk=self.tr.pk).profiel.rol, Profiel.TRAINER)
+        self.c.post("/gebruikers/", {"user": admin.pk, "rol": "zwemmer"})
+        self.assertEqual(User.objects.get(pk=admin.pk).profiel.rol, Profiel.BEHEERDER)
+        # beheerder: wel
+        self.c.force_login(admin)
+        self.assertEqual(self.c.get("/backup/").status_code, 200)
+        self.assertEqual(self.c.get(f"/wedstrijd/{self.w.pk}/instellingen/").status_code, 200)
+        self.c.post("/gebruikers/", {"user": self.tr.pk, "rol": "beheerder"})
+        self.assertEqual(User.objects.get(pk=self.tr.pk).profiel.rol, Profiel.BEHEERDER)
