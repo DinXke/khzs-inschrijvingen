@@ -1,0 +1,27 @@
+{% extends "base.html" %}{% block titel %}Wedstrijden{% endblock %}
+{% block inhoud %}
+<div class="rij tussen"><h1>Wedstrijden</h1>{% if is_secretaris %}<a class="knop" href="{% url 'upload' %}">+ Lenex uploaden</a>{% endif %}</div>
+{% for w, eigen, nieuw, keuzes in lijst %}
+<a class="kaart" href="{% if is_staf %}{% if is_secretaris %}{% url 'instellingen' w.pk %}{% else %}{% url 'nakijken' w.pk %}{% endif %}{% else %}{% url 'wedstrijd' w.pk %}{% endif %}">
+  <div class="rij tussen"><strong>{{ w.naam }}</strong>{% if is_staf %}<span class="badge {{ w.status }}">{{ w.get_status_display }}</span>{% endif %}</div>
+  <div class="klein">{{ w.stad }} · {{ w.startdatum|date:"j M Y" }} · {{ w.get_baan_display }}</div>
+  <div class="rij klein" style="margin-top:.4rem">
+    {% if is_staf %}
+      <span>Zwemmers tot <b>{{ w.deadline_zwemmer|date:"j/m" }}</b></span>
+      <span>Trainers tot <b>{{ w.deadline_trainer|date:"j/m" }}</b></span>
+      <span>Organisator <b>{{ w.deadline|date:"j/m" }}</b></span>
+      <span>{{ w.aantal }} inschrijvingen{% if w.te_keuren %} · <span class="badge wacht">{{ w.te_keuren }} na te kijken</span>{% endif %}</span>
+    {% else %}
+      {% if w.status == 'concept' %}<span class="badge concept">Nog niet open</span>{% elif w.status == 'open' %}<span>Inschrijven tot <b>{{ w.deadline_zwemmer|date:"l j F" }}</b></span>{% else %}<span class="badge gesloten">Inschrijvingen gesloten</span>{% endif %}
+      {% for d in keuzes %}<span class="badge k-{{ d.keuze }}">{% if keuzes|length > 1 %}{{ d.zwemmer.voornaam }}: {% endif %}{{ d.get_keuze_display }}</span>{% empty %}<span class="badge">Nog geen keuze</span>{% endfor %}
+      {% if eigen %}<span class="badge ok">{{ eigen }} ingeschreven</span>{% endif %}
+      {% if nieuw %}<span class="badge wacht">🔔 gewijzigd door de club</span>{% endif %}
+    {% endif %}
+  </div>
+</a>
+{% empty %}
+<div class="leeg">{% if is_secretaris %}Nog geen wedstrijden. Upload een Lenex-bestand om te starten.{% else %}Er staan momenteel geen wedstrijden open.{% endif %}</div>
+{% endfor %}
+{% if not is_staf %}<button id="installeer" class="secundair vol">📲 Installeer als app</button>{% endif %}
+{% endblock %}
+{% block scripts %}{% include "pwa/_installeer.html" %}{% endblock %}

@@ -1,0 +1,15 @@
+<script>
+(function () {
+  const knop = document.getElementById("installeer");
+  if (!knop || window.matchMedia("(display-mode: standalone)").matches) return;
+  let prompt;
+  window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); prompt = e; knop.style.display = "flex"; });
+  knop.addEventListener("click", async () => { if (!prompt) return; prompt.prompt(); await prompt.userChoice; knop.style.display = "none"; });
+  // iPhone: geen installatieprompt, toon uitleg.
+  if (/iphone|ipad/i.test(navigator.userAgent)) {
+    knop.style.display = "flex";
+    knop.textContent = "📲 Installeer: tik op Delen ⬆ en dan ‘Zet op beginscherm’";
+    knop.disabled = true;
+  }
+})();
+</script>

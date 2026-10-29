@@ -1,0 +1,76 @@
+{% load static %}<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#111b1e" media="(prefers-color-scheme: dark)">
+  <script>try{var t=localStorage.getItem("thema");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="HZS">
+  <title>{% block titel %}Inschrijvingen{% endblock %} · HZS</title>
+  <link rel="manifest" href="{% url 'manifest' %}">
+  <link rel="icon" href="{% static 'img/favicon-32.png' %}">
+  <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}">
+  <link rel="stylesheet" href="{% static 'app.css' %}">
+</head>
+<body>
+{% with p=request.resolver_match.url_name %}
+<header class="kop">
+  <a class="logo" href="{% url 'start' %}"><span class="logo-badge"><img src="{% static 'img/logo.png' %}" alt="HZS Spartacus"></span><span class="logo-tekst">Inschrijvingen</span></a>
+  <button type="button" class="thema-knop" id="thema" title="Licht / donker / automatisch" aria-label="Thema wisselen"></button>
+  {% if user.is_authenticated %}
+  <nav>
+    <a href="{% url 'wedstrijden' %}" class="{% if p in 'wedstrijden wedstrijd nakijken instellingen upload' %}actief{% endif %}">Wedstrijden</a>
+    <a href="{% url 'zwemmers' %}" class="{% if p in 'zwemmers zwemmer zwemmer_nieuw' %}actief{% endif %}">{% if is_staf %}Zwemmers{% else %}Mijn zwemmers{% endif %}</a>
+    {% if is_secretaris %}<a href="{% url 'gebruikers' %}" class="{% if p == 'gebruikers' %}actief{% endif %}">Gebruikers</a>{% endif %}
+    <a href="{% url 'meldingen' %}" class="{% if p == 'meldingen' %}actief{% endif %}" title="Meldingen">🔔</a>
+    <form method="post" action="{% url 'logout' %}" style="display:inline">{% csrf_token %}<button class="mini secundair">Afmelden</button></form>
+  </nav>
+  {% endif %}
+</header>
+<main class="{% block mainklasse %}{% endblock %}">
+  {% for m in messages %}<div class="melding {{ m.tags }}">{{ m }}</div>{% endfor %}
+  {% block inhoud %}{% endblock %}
+</main>
+{% if user.is_authenticated %}
+<nav class="tabbalk">
+  <a href="{% url 'wedstrijden' %}" class="{% if p in 'wedstrijden wedstrijd nakijken instellingen upload' %}actief{% endif %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Wedstrijden</a>
+  <a href="{% url 'zwemmers' %}" class="{% if p in 'zwemmers zwemmer zwemmer_nieuw' %}actief{% endif %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>{% if is_staf %}Zwemmers{% else %}Profiel{% endif %}</a>
+  {% if is_secretaris %}<a href="{% url 'gebruikers' %}" class="{% if p == 'gebruikers' %}actief{% endif %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20c0-3 3-5 7-5s7 2 7 5M16 14c3 0 6 1.5 6 4.5"/></svg>Gebruikers</a>{% endif %}
+  <a href="{% url 'meldingen' %}" class="{% if p == 'meldingen' %}actief{% endif %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>Meldingen</a>
+  <a href="#" onclick="document.getElementById('afmelden').submit();return false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>Afmelden</a>
+</nav>
+<form id="afmelden" method="post" action="{% url 'logout' %}" hidden>{% csrf_token %}</form>
+{% endif %}
+{% endwith %}
+<script>
+(function () {
+  const iconen = {
+    auto: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg>',
+    light: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+    dark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>'
+  };
+  const knop = document.getElementById("thema");
+  const volgende = {auto: "light", light: "dark", dark: "auto"};
+  const huidig = () => document.documentElement.dataset.theme || "auto";
+  const toon = () => { knop.innerHTML = iconen[huidig()]; knop.title = {auto: "Thema: automatisch", light: "Thema: licht", dark: "Thema: donker"}[huidig()]; };
+  knop.addEventListener("click", () => {
+    const t = volgende[huidig()];
+    if (t === "auto") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+    try { t === "auto" ? localStorage.removeItem("thema") : localStorage.setItem("thema", t); } catch (e) {}
+    toon();
+  });
+  toon();
+})();
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("{% url 'sw' %}", {scope: "/"});
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

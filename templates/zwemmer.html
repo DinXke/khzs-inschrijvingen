@@ -1,0 +1,37 @@
+{% extends "base.html" %}{% load zwem %}{% block titel %}{{ z }}{% endblock %}
+{% block inhoud %}
+<h1>{{ z.voornaam }} {{ z.naam }}</h1>
+<div class="grid twee">
+  <div>
+    <h2>Beste tijden</h2>
+    <div class="kaart">
+      {% if tijden %}<div class="tabelwrap"><table>
+        <tr><th>Nummer</th><th>Tijd</th><th>Datum</th><th></th></tr>
+        {% for t in tijden %}<tr><td>{{ t.afstand }} m {{ t.get_slag_display|lower }} <span class="klein">{{ t.get_baan_display }}</span></td>
+          <td><b>{{ t.tijd|tijd }}</b></td><td class="klein">{{ t.datum|date:"j/m/y" }}</td>
+          <td><form method="post" action="{% url 'tijd_verwijderen' t.pk %}">{% csrf_token %}<button class="mini secundair" title="Verwijderen">✕</button></form></td></tr>{% endfor %}
+      </table></div>{% else %}<p class="klein">Nog geen tijden. Voeg je beste tijden toe: die worden gebruikt als inschrijftijd en om limieten te controleren.</p>{% endif %}
+    </div>
+    <details class="kaart" {% if tijdform.errors or not tijden %}open{% endif %}>
+      <summary><strong>+ Tijd toevoegen</strong></summary>
+      <form method="post">{% csrf_token %}{% with form=tijdform %}{% include "_form.html" %}{% endwith %}<p><button class="vol">Toevoegen</button></p></form>
+    </details>
+  </div>
+  <div>
+    {% if meldingen %}<h2>Wijzigingen door de club</h2>
+    <div class="kaart melding-lijst">{% for m in meldingen %}
+      <div class="melding-item{% if not m.gelezen %} nieuw{% endif %}"><div class="klein">{{ m.door_naam }} · {{ m.wedstrijd.naam }} · {{ m.aangemaakt|date:"j M H:i" }}</div>
+      <ul>{% for r in m.regels %}<li>{{ r }}</li>{% endfor %}</ul></div>{% endfor %}
+    </div>{% endif %}
+    <h2>Inschrijvingen</h2>
+    <div class="kaart">
+      {% for i in inschrijvingen %}<div class="rij tussen" style="padding:.35rem 0;border-bottom:1px solid var(--lijn)">
+        <span><a href="{% url 'wedstrijd' i.nummer.sessie.wedstrijd.pk %}?zwemmer={{ z.pk }}">{{ i.nummer.sessie.wedstrijd.naam }}</a><br><span class="klein">#{{ i.nummer.nummer }} {{ i.nummer.omschrijving }} · {{ i.inschrijftijd|tijd }}</span></span>
+        <span class="badge {{ i.status }}">{{ i.get_status_display }}</span></div>
+      {% empty %}<p class="klein">Nog geen inschrijvingen.</p>{% endfor %}
+    </div>
+    <h2>Gegevens</h2>
+    <form method="post" class="kaart">{% csrf_token %}{% include "_form.html" %}<p><button>Bewaren</button></p></form>
+  </div>
+</div>
+{% endblock %}

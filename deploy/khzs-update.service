@@ -1,0 +1,7 @@
+[Unit]
+Description=HZS inschrijvingen – nieuwe versie van GitHub installeren
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/khzs/app/deploy/auto_update.sh

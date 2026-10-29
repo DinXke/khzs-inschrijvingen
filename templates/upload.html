@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block titel %}Lenex uploaden{% endblock %}{% block mainklasse %}smal{% endblock %}
+{% block inhoud %}
+<h1>{% if bestaand %}Nieuwe versie: {{ bestaand.naam }}{% else %}Wedstrijd toevoegen{% endif %}</h1>
+<form method="post" enctype="multipart/form-data" class="kaart">{% csrf_token %}
+  {% include "_form.html" %}
+  <p class="klein">Programma, sessies, laatste inschrijfdatum en limieten worden automatisch uit het bestand gehaald.
+  {% if bestaand %}Bestaande inschrijvingen blijven behouden.{% endif %}</p>
+  <p><button class="vol">Inlezen</button></p>
+</form>
+{% endblock %}

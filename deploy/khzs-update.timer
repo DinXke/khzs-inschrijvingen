@@ -1,0 +1,9 @@
+[Unit]
+Description=HZS inschrijvingen – elke 10 minuten op updates controleren
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=10min
+
+[Install]
+WantedBy=timers.target

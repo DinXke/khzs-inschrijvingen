@@ -1,0 +1,12 @@
+{% extends "base.html" %}{% block titel %}Gebruikers{% endblock %}
+{% block inhoud %}
+<h1>Gebruikers & rollen</h1>
+<form method="get" class="kaart"><input type="search" name="q" value="{{ q }}" placeholder="Zoek op naam of e-mail…"></form>
+<div class="kaart tabelwrap"><table>
+  <tr><th>Naam</th><th>E-mail</th><th>Rol</th></tr>
+  {% for u in users %}<tr><td>{{ u.get_full_name|default:"—" }}</td><td>{{ u.email|default:u.username }}</td>
+    <td><form method="post" class="rij">{% csrf_token %}<input type="hidden" name="user" value="{{ u.pk }}">
+      <select name="rol" onchange="this.form.submit()" style="width:auto">{% for k, l in rollen %}<option value="{{ k }}" {% if u.profiel.rol == k %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+    </form></td></tr>{% endfor %}
+</table></div>
+{% endblock %}

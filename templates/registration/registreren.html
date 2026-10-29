@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% block titel %}Profiel aanmaken{% endblock %}{% block mainklasse %}smal{% endblock %}
+{% block inhoud %}
+<h1>Profiel aanmaken</h1>
+<form method="post" class="kaart">{% csrf_token %}
+  <p class="klein">Schrijf je kind in? Gebruik het e-mailadres van de ouder. Extra zwemmers (broers/zussen) voeg je nadien toe.</p>
+  <h3>Account</h3>
+  {% for field in form %}{% if field.name in "email password1 password2" %}{% include "_veld.html" %}{% endif %}{% endfor %}
+  <h3>Zwemmer</h3>
+  {% for field in form %}{% if field.name in "voornaam naam geboortedatum geslacht licentie" %}{% include "_veld.html" %}{% endif %}{% endfor %}
+  <p><button class="vol">Profiel aanmaken</button></p>
+</form>
+<p class="leeg">Al een account? <a href="{% url 'login' %}">Aanmelden</a></p>
+{% endblock %}

@@ -1,0 +1,14 @@
+[Unit]
+Description=KHZS inschrijvingen (gunicorn)
+After=network.target postgresql.service
+
+[Service]
+User=khzs
+Group=khzs
+WorkingDirectory=/opt/khzs/app
+EnvironmentFile=/etc/khzs.env
+ExecStart=/opt/khzs/venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 60
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

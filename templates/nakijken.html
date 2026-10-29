@@ -1,0 +1,59 @@
+{% extends "base.html" %}{% load zwem %}{% block titel %}Nakijken · {{ w.naam }}{% endblock %}
+{% block inhoud %}
+<div class="rij tussen"><h1>{{ w.naam }}</h1>
+  <div class="rij">{% if is_secretaris %}<a class="knop secundair" href="{% url 'instellingen' w.pk %}">Instellingen & export</a>{% endif %}
+  <a class="knop" href="{% url 'wedstrijd' w.pk %}">+ Inschrijving toevoegen</a></div></div>
+<div class="stappen">
+  <div class="stap">Zwemmers tot<b>{{ w.deadline_zwemmer|date:"D j M" }}</b></div>
+  <div class="stap">Trainers tot<b>{{ w.deadline_trainer|date:"D j M" }}</b></div>
+  <div class="stap">Organisator<b>{{ w.deadline|date:"D j M" }}</b></div>
+  <div class="stap">Status<b>{{ w.get_status_display }}</b></div>
+</div>
+<div class="kaart">
+  <strong>Deelname</strong>
+  <div class="grid drie" style="margin-top:.5rem">
+    {% for k, label, lijst in overzicht %}<div><span class="badge k-{{ k }}">{{ label }} · {{ lijst|length }}</span>
+      <div class="klein" style="margin-top:.35rem">{% for z in lijst %}<a href="{% url 'wedstrijd' w.pk %}?zwemmer={{ z.pk }}">{{ z.voornaam }} {{ z.naam }}</a>{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</div></div>{% endfor %}
+  </div>
+</div>
+<details class="kaart">
+  <summary><strong>Deadline voor zwemmers instellen</strong></summary>
+  <form method="post" class="rij" style="align-items:end">{% csrf_token %}
+    <div style="flex:1">{% for field in instform %}{% include "_veld.html" %}{% endfor %}</div>
+    <button>Bewaren</button>
+  </form>
+</details>
+
+<div class="rij" style="margin:1rem 0">
+  <a class="badge {% if not status %}ok{% endif %}" href="?">Alle</a>
+  <a class="badge ingediend" href="?status=ingediend">Na te kijken ({{ tellers.ingediend|default:0 }})</a>
+  <a class="badge goedgekeurd" href="?status=goedgekeurd">Goedgekeurd ({{ tellers.goedgekeurd|default:0 }})</a>
+  <a class="badge afgekeurd" href="?status=afgekeurd">Afgekeurd ({{ tellers.afgekeurd|default:0 }})</a>
+</div>
+
+<form method="post" action="{% url 'beoordelen' w.pk %}" id="beoordeel">{% csrf_token %}
+<input type="hidden" name="terug" value="{{ request.get_full_path }}">
+{% for z, lijst in per_zwemmer.items %}
+<div class="kaart">
+  <div class="rij tussen"><label style="margin:0"><input type="checkbox" onclick="this.closest('.kaart').querySelectorAll('input[name=inschrijving]').forEach(c=>c.checked=this.checked)"> {{ z.naam }} {{ z.voornaam }} <span class="klein">({{ z.geboortedatum|date:"Y" }})</span></label>
+    <a class="klein" href="{% url 'wedstrijd' w.pk %}?zwemmer={{ z.pk }}">wijzigen</a></div>
+  <div class="tabelwrap"><table>
+    {% for i in lijst %}<tr>
+      <td style="width:32px"><input type="checkbox" name="inschrijving" value="{{ i.pk }}"></td>
+      <td>#{{ i.nummer.nummer }} {{ i.nummer.omschrijving }}<div class="klein">sessie {{ i.nummer.sessie.nummer }}</div></td>
+      <td>{{ i.inschrijftijd|tijd }} <span class="klein">{{ i.inschrijfbaan }}</span></td>
+      <td><span class="badge {{ i.status }}">{{ i.get_status_display }}</span>{% if i.opmerking %}<div class="klein">{{ i.opmerking }}</div>{% endif %}</td>
+    </tr>{% endfor %}
+  </table></div>
+</div>
+{% empty %}<div class="leeg">Geen inschrijvingen{% if status %} met deze status{% endif %}.</div>
+{% endfor %}
+{% if per_zwemmer %}
+<div class="vaste-actie" style="flex-wrap:wrap">
+  <input type="text" name="opmerking" placeholder="Opmerking (optioneel)" style="flex:1;min-width:160px">
+  <button name="actie" value="goedgekeurd" class="ok">Goedkeuren</button>
+  <button name="actie" value="afgekeurd" class="gevaar">Afkeuren</button>
+</div>
+{% endif %}
+</form>
+{% endblock %}

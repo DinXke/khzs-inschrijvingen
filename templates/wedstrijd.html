@@ -1,0 +1,78 @@
+{% extends "base.html" %}{% load zwem %}{% block titel %}{{ w.naam }}{% endblock %}
+{% block inhoud %}
+<h1>{{ w.naam }}</h1>
+<div class="klein">{{ w.zwembad }}, {{ w.stad }} · {{ w.get_baan_display }}</div>
+<div class="stappen">
+  <div class="stap">{% if w.status == 'concept' %}Nog niet open · tot{% else %}Inschrijven tot{% endif %}<b>{{ w.deadline_zwemmer|date:"D j M" }}</b></div>
+  {% if staf %}<div class="stap">Trainers tot<b>{{ w.deadline_trainer|date:"D j M" }}</b></div>
+  <div class="stap">Organisator<b>{{ w.deadline|date:"D j M" }}</b></div>{% endif %}
+</div>
+{% if staf %}<p><a href="{% url 'nakijken' w.pk %}">← Terug naar overzicht inschrijvingen</a></p>{% endif %}
+
+{% if zwemmers|length > 1 or staf %}
+<form method="get" class="kaart">
+  <label for="zw">Zwemmer</label>
+  <select id="zw" name="zwemmer" onchange="this.form.submit()">
+    <option value="">— kies —</option>
+    {% for z in zwemmers %}<option value="{{ z.pk }}" {% if z == gekozen %}selected{% endif %}>{{ z.naam }} {{ z.voornaam }} ({{ z.geboortedatum|date:"Y" }})</option>{% endfor %}
+  </select>
+</form>
+{% endif %}
+
+{% if gekozen %}
+  <form method="post" action="{% url 'deelname' w.pk %}" class="kaart deelname">{% csrf_token %}
+    <input type="hidden" name="zwemmer" value="{{ gekozen.pk }}">
+    <strong>{% if staf %}Keuze van {{ gekozen.voornaam }}{% else %}Doe je mee?{% endif %}</strong>
+    <div class="segment">
+      {% for k, label in keuzes %}<button name="keuze" value="{{ k }}" class="{% if deelname.keuze == k %}gekozen{% endif %} k-{{ k }}">{{ label }}</button>{% endfor %}
+    </div>
+    {% if w.status == 'concept' %}<p class="help">Inschrijven op nummers kan zodra het sportsecretariaat de inschrijvingen opent. Met ‘Interesse’ of ‘Ik doe mee’ krijg je dan een melding.</p>{% endif %}
+  </form>
+  {% if meldingen %}
+  <div class="kaart melding-lijst">
+    <strong>{% if ongelezen and not staf %}🔔 Nieuw: {% endif %}Wijzigingen door de club</strong>
+    {% for m in meldingen %}
+    <div class="melding-item{% if not m.gelezen %} nieuw{% endif %}">
+      <div class="klein">{{ m.door_naam }} heeft {% if staf %}de inschrijving{% else %}je inschrijving{% endif %} gewijzigd · {{ m.aangemaakt|date:"j M H:i" }}</div>
+      <ul>{% for r in m.regels %}<li>{{ r }}</li>{% endfor %}</ul>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if not mag_wijzigen %}<div class="melding info">{% if w.status == 'concept' %}De inschrijvingen zijn nog niet open. Je ziet hieronder al het programma.{% else %}De inschrijvingen zijn afgesloten.{% endif %}</div>{% endif %}
+  {% if staf %}<p class="klein">Als trainer kan je nummers aan- of uitvinken en de inschrijftijd aanpassen. De zwemmer krijgt hiervan een melding.</p>{% endif %}
+  <p class="klein">{{ gekozen }} – categorie <b>{{ jaren }} jaar</b>. Je ziet enkel de nummers waarvoor je in aanmerking komt.</p>
+  {% if not gekozen.tijden.exists %}<div class="melding info">Nog geen beste tijden ingevuld. <a href="{% url 'zwemmer' gekozen.pk %}">Vul ze in</a> om limieten te kunnen controleren.</div>{% endif %}
+  <form method="post" action="{% url 'inschrijven' w.pk %}" autocomplete="off">{% csrf_token %}
+    <input type="hidden" name="zwemmer" value="{{ gekozen.pk }}">
+    {% for sessie, rijen in programma %}
+    <h2>Sessie {{ sessie.nummer }} · {{ sessie.datum|date:"l j F" }}{% if sessie.starttijd %} · {{ sessie.starttijd|time:"H:i" }}{% endif %}</h2>
+    <div class="kaart" style="padding:4px 12px">
+      {% for b in rijen %}{% with n=b.nummer i=bestaande|get:b.nummer.pk %}
+      <label class="nummer {% if not b.mag_inschrijven and not staf and not i %}uit{% endif %}">
+        <input type="checkbox" name="nummer" value="{{ n.pk }}" {% if i %}checked{% endif %}
+          {% if not mag_wijzigen %}disabled{% elif not b.mag_inschrijven and not staf and not i %}disabled{% endif %}>
+        <span class="info">
+          <span class="titel">#{{ n.nummer }} {{ n.omschrijving }}</span>
+          <span class="klein">{% if n.ronde == 'PRE' %}reeksen + finale{% else %}tijdfinale{% endif %} · {{ n.kost|euro }}
+            {% if b.beste %} · beste {{ b.beste.tijd|tijd }} ({{ b.beste.get_baan_display }}){% endif %}</span>
+          {% if b.limiet_nodig %}<span class="klein" style="display:block">Limiet: {% for naam, baan, t, minimum in b.limieten %}{% if minimum %}trager dan {% endif %}{{ t|tijd }} ({% if baan == 'SCM' %}25 m{% else %}50 m{% endif %}){% if not forloop.last %} of {% endif %}{% endfor %}</span>{% endif %}
+        </span>
+        {% if i and staf and mag_wijzigen %}<input type="text" name="tijd_{{ n.pk }}" value="{{ i.inschrijftijd|tijd }}" class="tijd-invoer" inputmode="decimal" title="Inschrijftijd" onclick="event.stopPropagation()">{% endif %}
+        {% if i %}<span class="badge {{ i.status }}">{{ i.get_status_display }}</span>
+        {% elif b.limiet_nodig %}{% if b.limiet_gehaald %}<span class="badge ok">limiet ✓</span>{% else %}<span class="badge fout">geen limiet</span>{% endif %}{% endif %}
+      </label>
+      {% if i.opmerking %}<div class="klein" style="padding:0 0 .5rem 2.25rem">💬 {{ i.opmerking }}</div>{% endif %}
+      {% endwith %}{% endfor %}
+    </div>
+    {% empty %}
+    <div class="leeg">Geen nummers voor deze leeftijd/geslacht in deze wedstrijd.</div>
+    {% endfor %}
+    {% if mag_wijzigen and programma %}
+    <div class="vaste-actie"><span class="klein" style="flex:1">Huidig: {{ bestaande|length }} nummer(s) · {{ totaal|euro }}</span><button>Bewaren</button></div>
+    {% endif %}
+  </form>
+{% elif not zwemmers %}
+  <div class="leeg">Nog geen zwemmer gekoppeld. <a href="{% url 'zwemmer_nieuw' %}">Voeg een zwemmer toe</a>.</div>
+{% endif %}
+{% endblock %}

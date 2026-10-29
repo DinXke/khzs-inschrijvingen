@@ -1,0 +1,8 @@
+django>=5.1,<5.2
+defusedxml
+dj-database-url
+gunicorn
+openpyxl
+psycopg[binary]
+whitenoise
+pywebpush

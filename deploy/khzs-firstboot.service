@@ -1,0 +1,13 @@
+[Unit]
+Description=HZS inschrijvingen – eerste installatie
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/khzs-firstboot.env
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /usr/local/sbin/khzs-firstboot
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% block titel %}Aanmelden{% endblock %}{% block mainklasse %}smal{% endblock %}
+{% block inhoud %}
+<h1>Aanmelden</h1>
+<form method="post" class="kaart">{% csrf_token %}
+  {% if form.errors %}<div class="melding error">E-mail of wachtwoord klopt niet.</div>{% endif %}
+  <label for="id_username">E-mail</label>
+  <input type="email" name="username" id="id_username" autocomplete="username" required autofocus value="{{ form.username.value|default:'' }}">
+  <label for="id_password">Wachtwoord</label>
+  <input type="password" name="password" id="id_password" autocomplete="current-password" required>
+  <input type="hidden" name="next" value="{{ next }}">
+  <p><button class="vol">Aanmelden</button></p>
+  <p class="klein"><a href="{% url 'password_reset' %}">Wachtwoord vergeten?</a></p>
+</form>
+<p class="leeg">Nog geen account? <a href="{% url 'registreren' %}">Maak een profiel aan</a></p>
+<button id="installeer" class="secundair vol">📲 Installeer als app</button>
+{% endblock %}
+{% block scripts %}{% include "pwa/_installeer.html" %}{% endblock %}
