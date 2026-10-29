@@ -6,7 +6,7 @@ from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
-from django.db.models import Count, Q
+from django.db.models import Count, Min, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -107,7 +107,12 @@ def wedstrijden(request):
             eigen[i.nummer.sessie.wedstrijd_id] += 1
         for m in Melding.objects.filter(zwemmer__account=request.user, gelezen=False):
             nieuw[m.wedstrijd_id] += 1
-    lijst = [(w, eigen.get(w.id, 0), nieuw.get(w.id, 0), keuzes.get(w.id, [])) for w in qs]
+    qs = qs.annotate(start=Min("sessies__datum"))
+    nu = vandaag()
+    # Komende wedstrijden eerst (vroegste bovenaan), daarna de voorbije (meest recente bovenaan).
+    gesorteerd = sorted(qs, key=lambda w: (0, w.start.toordinal()) if w.start and w.start >= nu
+                        else (1, -(w.start or nu).toordinal()))
+    lijst = [(w, eigen.get(w.id, 0), nieuw.get(w.id, 0), keuzes.get(w.id, [])) for w in gesorteerd]
     return render(request, "wedstrijden.html", {"lijst": lijst})
 
 
