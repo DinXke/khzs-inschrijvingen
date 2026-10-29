@@ -71,7 +71,8 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_DIRS = [BASE_DIR / "static"]
+# De documentatie (PDF's en filmpjes) wordt ook in de app aangeboden onder /static/docs/ en /static/video/.
+STATICFILES_DIRS = [BASE_DIR / "static", ("docs", BASE_DIR / "docs" / "pdf"), ("video", BASE_DIR / "docs" / "video")]
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage" if DEBUG

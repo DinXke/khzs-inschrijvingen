@@ -555,3 +555,14 @@ class FinaliseerTest(StroomTest):
         r = self.c.get(f"/wedstrijd/{self.w.pk}/overzicht/?weergave=nummer&filter=alle")
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "Afdrukken")
+
+
+class UitlegTest(StroomTest):
+    def test_filmpjes_per_rol(self):
+        ouder = User.objects.create_user("o@o.be", "o@o.be", "geheim123!")
+        self.c.force_login(ouder)
+        r = self.c.get("/uitleg/")
+        self.assertContains(r, "video/zwemmer.mp4")
+        self.assertNotContains(r, "video/trainer.mp4")
+        self.c.force_login(self.sec)
+        self.assertContains(self.c.get("/uitleg/"), "video/sportsecretaris.mp4")

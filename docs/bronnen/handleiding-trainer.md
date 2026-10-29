@@ -85,6 +85,10 @@ Zwemmers vullen hun tijden niet zelf in. Je werkt ze bij op twee manieren:
 
 ![pc uitslagen](../screenshots/trainer-uitslagen.png)
 
+## Uitleg en filmpjes
+
+Onder **Uitleg** staan de instructiefilmpjes met gesproken uitleg en ondertitels, samen met de handleidingen als PDF.
+
 ## 9. Onderweg
 
 Alles werkt ook op je gsm, in licht of donker thema. Zet onder **Meldingen** eventueel *Nieuwe inschrijving om na te kijken* aan.

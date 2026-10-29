@@ -19,7 +19,9 @@ PDF's met screenshots, altijd bijgewerkt bij elke versie:
 - Onepagers: [zwemmers](docs/pdf/onepager-zwemmer.pdf) · [trainers](docs/pdf/onepager-trainer.pdf) · [sportsecretaris](docs/pdf/onepager-sportsecretaris.pdf)
 - [Technische documentatie](docs/pdf/technisch.pdf)
 
-Opnieuw bouwen (screenshots + PDF's): `.venv/bin/python docs/build.py`
+Instructiefilmpjes met voice-over: [zwemmers & ouders](docs/video/zwemmer.mp4) · [trainers](docs/video/trainer.mp4) · [sportsecretaris](docs/video/sportsecretaris.mp4)
+
+Opnieuw bouwen: `.venv/bin/python docs/build.py` (screenshots + PDF's) en `.venv/bin/python docs/video.py` (filmpjes).
 
 | | |
 |---|---|

@@ -31,6 +31,7 @@ urlpatterns = [
     path("tijd/<int:pk>/verwijderen/", v.tijd_verwijderen, name="tijd_verwijderen"),
     path("gebruikers/", v.gebruikers, name="gebruikers"),
     path("meldingen/", v.meldingen_instellingen, name="meldingen"),
+    path("uitleg/", v.uitleg, name="uitleg"),
     path("backup/", v.backups, name="backups"),
     path("backup/<str:naam>", v.backup_download, name="backup_download"),
     path("meldingen/abonneer/", v.push_abonneer, name="push_abonneer"),

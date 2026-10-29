@@ -34,6 +34,14 @@
 
 Het script start de app met demodata, maakt alle screenshots opnieuw (gsm + pc, licht + donker) en bouwt de PDF's in `docs/pdf/`.
 
+## Instructiefilmpjes
+
+```
+.venv/bin/python docs/video.py            # alle drie, of: docs/video.py zwemmer
+```
+
+Het script (macOS) start de app met demodata en neemt met Playwright een gescripte rondleiding per rol op. De voice-over komt van de Vlaamse stem *Ellen* (`say`), en ffmpeg (`imageio-ffmpeg`) voegt beeld, stem en ondertitels samen tot `docs/video/<rol>.mp4`, met `.srt` en `.vtt`. Er zijn een geanimeerd splashscreen, hoofdstukkaarten en zachte overgangen. De app toont de filmpjes en PDF's op `/uitleg/`: ze worden via `STATICFILES_DIRS` aangeboden als `/static/video/` en `/static/docs/`.
+
 ## Tests
 
 ```

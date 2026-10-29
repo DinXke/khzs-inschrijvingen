@@ -75,6 +75,10 @@ Inschrijfgelden zie je als sportsecretaris (en trainer) bij elk nummer en in de 
 
 Backups en technisch beheer horen bij de aparte rol **Beheerder** (zie *Handleiding beheerder*), niet bij het sportsecretariaat.
 
+## Uitleg en filmpjes
+
+Onder **Uitleg** staan de instructiefilmpjes met gesproken uitleg en ondertitels, samen met de handleidingen als PDF.
+
 ## 10. Donker thema
 
 ![pc donker](../screenshots/secretaris-donker.png)

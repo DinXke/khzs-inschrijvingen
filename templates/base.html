@@ -26,6 +26,7 @@
     <a href="{% url 'zwemmers' %}" class="{% if p in 'zwemmers zwemmer zwemmer_nieuw' %}actief{% endif %}">{% if is_staf %}Zwemmers{% else %}Mijn zwemmers{% endif %}</a>
     {% if is_secretaris %}<a href="{% url 'gebruikers' %}" class="{% if p == 'gebruikers' %}actief{% endif %}">Gebruikers</a>{% endif %}
     {% if is_beheerder %}<a href="{% url 'backups' %}" class="{% if p == 'backups' %}actief{% endif %}">Backup</a><a href="/beheer/">Beheer</a>{% endif %}
+    <a href="{% url 'uitleg' %}" class="{% if p == 'uitleg' %}actief{% endif %}">Uitleg</a>
     <a href="{% url 'meldingen' %}" class="{% if p == 'meldingen' %}actief{% endif %}" title="Meldingen">🔔</a>
     <form method="post" action="{% url 'logout' %}" style="display:inline">{% csrf_token %}<button class="mini secundair">Afmelden</button></form>
   </nav>
@@ -43,6 +44,8 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>{% if is_staf %}Zwemmers{% else %}Profiel{% endif %}</a>
   {% if is_secretaris %}<a href="{% url 'gebruikers' %}" class="{% if p == 'gebruikers' %}actief{% endif %}">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20c0-3 3-5 7-5s7 2 7 5M16 14c3 0 6 1.5 6 4.5"/></svg>Gebruikers</a>{% endif %}
+  <a href="{% url 'uitleg' %}" class="{% if p == 'uitleg' %}actief{% endif %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z" fill="currentColor"/></svg>Uitleg</a>
   <a href="{% url 'meldingen' %}" class="{% if p == 'meldingen' %}actief{% endif %}">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>Meldingen</a>
   <a href="#" onclick="document.getElementById('afmelden').submit();return false">

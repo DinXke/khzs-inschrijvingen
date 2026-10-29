@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% load static zwem %}{% block titel %}Uitleg{% endblock %}
+{% block inhoud %}
+<h1>Uitleg</h1>
+<p class="klein">Korte instructiefilmpjes met uitleg, en de handleidingen als PDF. Zet het geluid aan, of gebruik de ondertitels.</p>
+<div class="grid twee">
+  {% for code, titel, pdf in filmpjes %}
+  <div class="kaart filmpje">
+    <h2 style="margin-top:0">{{ titel }}</h2>
+    <video controls preload="metadata" playsinline poster="" src="{% static 'video/'|add:code|add:'.mp4' %}">
+      <track kind="subtitles" srclang="nl" label="Nederlands" src="{% static 'video/'|add:code|add:'.vtt' %}" default>
+    </video>
+    <p class="klein"><a href="{% static 'docs/'|add:pdf|add:'.pdf' %}" target="_blank">📄 Handleiding (PDF)</a></p>
+  </div>
+  {% endfor %}
+</div>
+<h2>Documentatie</h2>
+<div class="kaart"><ul style="margin:0">
+  {% for pdf in pdfs %}<li><a href="{% static 'docs/'|add:pdf|add:'.pdf' %}" target="_blank">{{ pdf|pdfnaam }}</a></li>{% endfor %}
+</ul></div>
+{% endblock %}

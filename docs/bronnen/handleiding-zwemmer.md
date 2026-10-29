@@ -91,7 +91,11 @@ Onder **Meldingen** zet je pushmeldingen aan op je toestel en kies je waarvoor:
 
 ![gsm meldingen](../screenshots/zwemmer-meldingen.png)
 
-## 9. Licht of donker
+## 9. Uitleg en filmpje
+
+Onder **Uitleg** vind je een instructiefilmpje met gesproken uitleg (en ondertitels), en deze handleiding als PDF.
+
+## 10. Licht of donker
 
 Met de knop ◐ naast het logo wissel je tussen automatisch, licht en donker thema.
 

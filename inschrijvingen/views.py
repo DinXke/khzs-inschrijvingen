@@ -650,6 +650,27 @@ def backup_download(request, naam):
     return FileResponse(pad.open("rb"), as_attachment=True, filename=pad.name)
 
 
+# ---------- uitleg ----------
+
+FILMPJES = [
+    ("zwemmer", "Voor zwemmers en ouders", "handleiding-zwemmer"),
+    ("trainer", "Voor trainers", "handleiding-trainer"),
+    ("sportsecretaris", "Voor de sportsecretaris", "handleiding-sportsecretaris"),
+]
+
+
+@login_required
+def uitleg(request):
+    r = rol(request.user)
+    zichtbaar = {Profiel.ZWEMMER: ["zwemmer"], Profiel.TRAINER: ["trainer", "zwemmer"]}.get(r, [f[0] for f in FILMPJES])
+    filmpjes = [f for f in FILMPJES if f[0] in zichtbaar]
+    pdfs = ["onepager-zwemmer", "handleiding-zwemmer"] if r == Profiel.ZWEMMER else (
+        ["onepager-trainer", "handleiding-trainer", "handleiding-zwemmer"] if r == Profiel.TRAINER else
+        ["HZS-inschrijvingen-documentatie", "onepager-sportsecretaris", "handleiding-sportsecretaris",
+         "handleiding-trainer", "handleiding-zwemmer"] + (["handleiding-beheerder", "technisch"] if r == Profiel.BEHEERDER else []))
+    return render(request, "uitleg.html", {"filmpjes": filmpjes, "pdfs": pdfs})
+
+
 # ---------- meldingen ----------
 
 @login_required
