@@ -12,8 +12,11 @@ chown postgres:postgres /opt/khzs/backups/pg
 if [ ! -f /etc/khzs.env ]; then
   DBPW=$(python3 -c 'import secrets;print(secrets.token_urlsafe(24))')
   SK=$(python3 -c 'import secrets;print(secrets.token_urlsafe(50))')
-  sudo -u postgres psql -c "CREATE USER khzs WITH PASSWORD '$DBPW';"
-  sudo -u postgres psql -c "CREATE DATABASE khzs OWNER khzs;"
+  systemctl start postgresql
+  # Debian-LXC heeft geen sudo; runuser zit in util-linux. Idempotent, zodat een herhaalde poging lukt.
+  runuser -u postgres -- psql -v ON_ERROR_STOP=1 -c "DO \$\$BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='khzs') THEN CREATE ROLE khzs LOGIN; END IF; END\$\$;"
+  runuser -u postgres -- psql -v ON_ERROR_STOP=1 -c "ALTER ROLE khzs WITH LOGIN PASSWORD '$DBPW';"
+  runuser -u postgres -- psql -tAc "SELECT 1 FROM pg_database WHERE datname='khzs'" | grep -q 1 || runuser -u postgres -- createdb -O khzs khzs
   cat > /etc/khzs.env <<ENV
 DJANGO_SECRET_KEY=$SK
 DJANGO_DEBUG=0
