@@ -210,7 +210,7 @@ def maak_pdfs(browser):
     page = browser.new_page()
     delen = []
     voet = ('<div style="font-size:7.5pt;color:#5d6d77;width:100%;padding:0 15mm;display:flex;justify-content:space-between">'
-            '<span><b style="color:#0e6b73">HZS Spartacus</b> · inschrijvingen.khzs.be</span><span><span class="pageNumber"></span>/<span class="totalPages"></span></span></div>')
+            '<span><b style="color:#0e6b73">Hasseltse Zwemvereniging Spartacus</b> · inschrijvingen.khzs.be</span><span><span class="pageNumber"></span>/<span class="totalPages"></span></span></div>')
     for slug, titel in DOCUMENTEN:
         html = render(slug, titel, logo)
         delen.append((titel, html))
@@ -230,7 +230,7 @@ def maak_pdfs(browser):
         lichaam = re.search(r"<body[^>]*>(.*)</body>", html, re.S).group(1)
         lichamen.append(f'<section style="break-before: page">{lichaam}</section>')
     voorblad = f"""<section class="voorblad"><span class="badge-logo"><img src="{logo}"></span>
-<h2>HZS inschrijvingen</h2><p style="font-size:14pt">Volledige documentatie</p>
+<h2>HZS inschrijvingen</h2><p style="font-size:14pt">Hasseltse Zwemvereniging Spartacus<br>Volledige documentatie</p>
 <p>versie {date.today():%d/%m/%Y} · inschrijvingen.khzs.be</p><ol>{inhoud}</ol></section>"""
     bundel = f'<!doctype html><html lang="nl"><head><meta charset="utf-8"><style>{CSS}</style></head><body>{voorblad}{"".join(lichamen)}</body></html>'
     tmp = DOCS / ".bundel.html"

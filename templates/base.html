@@ -18,7 +18,7 @@
 <body>
 {% with p=request.resolver_match.url_name %}
 <header class="kop">
-  <a class="logo" href="{% url 'start' %}"><span class="logo-badge"><img src="{% static 'img/logo.png' %}" alt="HZS Spartacus"></span><span class="logo-tekst">Inschrijvingen</span></a>
+  <a class="logo" href="{% url 'start' %}"><span class="logo-badge"><img src="{% static 'img/logo.png' %}" alt="Hasseltse Zwemvereniging Spartacus"></span><span class="logo-tekst">Inschrijvingen</span></a>
   <button type="button" class="thema-knop" id="thema" title="Licht / donker / automatisch" aria-label="Thema wisselen"></button>
   {% if user.is_authenticated %}
   <nav>

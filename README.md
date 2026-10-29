@@ -1,6 +1,6 @@
 # HZS inschrijvingen
 
-Inschrijfsysteem (PWA) voor zwemwedstrijden van HZS Spartacus.
+Inschrijfsysteem (PWA) voor zwemwedstrijden van Hasseltse Zwemvereniging Spartacus.
 
 - **Sportsecretaris**: Lenex-uitnodiging (.lxf/.lef) uploaden → programma, deadline en limieten worden ingelezen; deadline secretariaat instellen; inschrijvingen exporteren als Lenex + Excel.
 - **Trainers**: extra dagen instellen, inschrijvingen nakijken, goed-/afkeuren en aanpassen.

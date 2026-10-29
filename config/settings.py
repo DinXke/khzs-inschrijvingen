@@ -109,7 +109,7 @@ VAPID_FILE = os.environ.get("VAPID_FILE", str(BASE_DIR / "vapid.pem"))
 PUSH_SYNCHROON = False
 
 CLUB = {
-    "naam": os.environ.get("CLUB_NAAM", "HZS Spartacus"),
+    "naam": os.environ.get("CLUB_NAAM", "Hasseltse Zwemvereniging Spartacus"),
     "code": os.environ.get("CLUB_CODE", "KHZS"),
     "nation": "BEL",
 }

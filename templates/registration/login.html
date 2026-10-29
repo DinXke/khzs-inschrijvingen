@@ -1,6 +1,7 @@
 {% extends "base.html" %}{% block titel %}Aanmelden{% endblock %}{% block mainklasse %}smal{% endblock %}
 {% block inhoud %}
 <h1>Aanmelden</h1>
+<p class="klein" style="margin-top:-.6rem">Wedstrijdinschrijvingen van de Hasseltse Zwemvereniging Spartacus</p>
 <form method="post" class="kaart">{% csrf_token %}
   {% if form.errors %}<div class="melding error">E-mail of wachtwoord klopt niet.</div>{% endif %}
   <label for="id_username">E-mail of gebruikersnaam</label>

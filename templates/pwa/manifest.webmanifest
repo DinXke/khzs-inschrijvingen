@@ -1,7 +1,7 @@
 {% load static %}{
   "name": "HZS inschrijvingen",
   "short_name": "HZS",
-  "description": "Inschrijven voor zwemwedstrijden van HZS Spartacus",
+  "description": "Inschrijven voor zwemwedstrijden van Hasseltse Zwemvereniging Spartacus",
   "lang": "nl-BE",
   "start_url": "/?bron=app",
   "scope": "/",
