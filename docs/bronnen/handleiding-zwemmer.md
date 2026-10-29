@@ -51,7 +51,7 @@ Onder **Wedstrijden** zie je alle komende wedstrijden, zodra het sportsecretaria
 
 ## 5. Doe je mee?
 
-Lees eerst de **info van de club** bovenaan de wedstrijd (bv. voor wie de wedstrijd bedoeld is).
+Lees eerst de **info van de club** bovenaan de wedstrijd (bv. voor wie de wedstrijd bedoeld is). Soms zijn er ook **bijlagen** 📎, zoals een busregeling of het reglement: tik erop om ze te openen.
 Kies dan **Interesse**, **Ik doe mee** of **Ik doe niet mee**.
 Trainers en sportsecretariaat zien jouw keuze. Met *Interesse* of *Ik doe mee* krijg je meldingen wanneer de inschrijvingen openen en een dag voor je deadline.
 

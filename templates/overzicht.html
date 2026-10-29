@@ -82,6 +82,7 @@
     <div class="feit">Inschrijfgeld<b>{{ totaal|euro }}</b></div>
   </div>
   {% if w.info %}<div class="info">ℹ️ {{ w.info|linebreaksbr }}</div>{% endif %}
+  {% if w.bijlagen.all %}<div class="info">📎 Bijlagen: {% for b in w.bijlagen.all %}{{ b.naam }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}
 
   {% if weergave == 'nummer' %}
     {% for n, lijst in nummers %}

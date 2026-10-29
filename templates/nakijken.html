@@ -10,7 +10,7 @@
   <div class="stap">Organisator<b>{{ w.deadline|date:"D j M" }}</b></div>
   <div class="stap">Status<b>{{ w.get_status_display }}</b></div>
 </div>
-{% if w.info %}<div class="kaart info-wedstrijd">ℹ️ {{ w.info|linebreaksbr }}</div>{% endif %}
+{% with beheer_bijlagen=True %}{% include "_info_bijlagen.html" %}{% endwith %}
 <div class="kaart finaal">
   <div class="rij tussen">
     <div><strong>Finaliseren</strong>

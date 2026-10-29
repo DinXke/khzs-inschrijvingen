@@ -6,6 +6,7 @@
   <div class="rij tussen"><strong>{{ w.naam }}</strong>{% if is_staf %}<span class="badge {{ w.status }}">{{ w.get_status_display }}</span>{% endif %}</div>
   <div class="klein">{{ w.stad }} · {{ w.startdatum|date:"j M Y" }} · {{ w.get_baan_display }}</div>
   {% if w.info %}<div class="klein info-kort">ℹ️ {{ w.info|truncatechars:110 }}</div>{% endif %}
+  {% with n=w.bijlagen.count %}{% if n %}<div class="klein info-kort">📎 {{ n }} bijlage{{ n|pluralize:"n" }}</div>{% endif %}{% endwith %}
   <div class="rij klein" style="margin-top:.4rem">
     {% if is_staf %}
       <span>Zwemmers tot <b>{{ w.deadline_zwemmer|date:"j/m" }}</b></span>

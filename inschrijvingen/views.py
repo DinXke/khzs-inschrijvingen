@@ -23,9 +23,9 @@ from django.urls import reverse
 
 from . import lenex, push
 from .export import excel_overzicht
-from .forms import (BesteTijdForm, MeldingenForm, ZwemmerFormSet, RegistratieForm, RolForm, SecretarisInstellingenForm,
+from .forms import (BesteTijdForm, BijlageForm, MeldingenForm, ZwemmerFormSet, RegistratieForm, RolForm, SecretarisInstellingenForm,
                     TrainerInstellingenForm, UploadForm, ZwemmerForm)
-from .models import BesteTijd, Deelname, Inschrijving, Melding, Nummer, Profiel, PushAbonnement, Wedstrijd, Zwemmer
+from .models import BesteTijd, Bijlage, Deelname, Inschrijving, Melding, Nummer, Profiel, PushAbonnement, Wedstrijd, Zwemmer
 from .regels import (vandaag, beoordeel, leeftijd, mag_wijzigen, parse_invoer_tijd, past_in_nummer, programma_voor, rol,
                      toon_tijd)
 
@@ -338,6 +338,43 @@ def deelname_beoordelen(request, pk):
         meld(z, w, request.user, ["deelname opnieuw toegestaan"])
         messages.success(request, f"Deelname van {z} opnieuw toegestaan.")
     return redirect(f"/wedstrijd/{w.pk}/?zwemmer={z.pk}")
+
+
+@vereist_rol(*STAF)
+@require_POST
+def bijlage_toevoegen(request, pk):
+    w = get_object_or_404(Wedstrijd, pk=pk)
+    form = BijlageForm(request.POST, request.FILES)
+    if form.is_valid():
+        f = form.cleaned_data["bestand"]
+        naam = form.cleaned_data["naam"].strip() or f.name.rsplit(".", 1)[0]
+        Bijlage.objects.create(wedstrijd=w, bestand=f, naam=naam[:150], door=request.user)
+        messages.success(request, f"Bijlage ‘{naam}’ toegevoegd.")
+    else:
+        messages.error(request, " ".join(e for fouten in form.errors.values() for e in fouten))
+    return redirect(request.POST.get("terug") or f"/wedstrijd/{w.pk}/nakijken/")
+
+
+@vereist_rol(*STAF)
+@require_POST
+def bijlage_verwijderen(request, pk):
+    b = get_object_or_404(Bijlage, pk=pk)
+    b.bestand.delete(save=False)
+    b.delete()
+    messages.success(request, f"Bijlage ‘{b.naam}’ verwijderd.")
+    return redirect(request.POST.get("terug") or f"/wedstrijd/{b.wedstrijd_id}/nakijken/")
+
+
+@login_required
+def bijlage(request, pk):
+    """Download via de app (media wordt in productie niet publiek geserveerd)."""
+    b = get_object_or_404(Bijlage, pk=pk)
+    try:
+        bestand = b.bestand.open("rb")
+    except FileNotFoundError:
+        raise Http404
+    inline = b.extensie in ("pdf", "jpg", "jpeg", "png")
+    return FileResponse(bestand, as_attachment=not inline, filename=f"{b.naam}.{b.extensie}")
 
 
 # ---------- trainer ----------

@@ -303,3 +303,29 @@ class Deelname(models.Model):
 
     class Meta:
         unique_together = [("zwemmer", "wedstrijd")]
+
+
+class Bijlage(models.Model):
+    """Bestand bij de info van een wedstrijd (bv. reglement, busregeling). Enkel voor aangemelde gebruikers."""
+
+    wedstrijd = models.ForeignKey(Wedstrijd, on_delete=models.CASCADE, related_name="bijlagen")
+    bestand = models.FileField(upload_to="bijlagen/%Y/")
+    naam = models.CharField(max_length=150)
+    door = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
+    toegevoegd = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["toegevoegd"]
+        verbose_name_plural = "bijlagen"
+
+    def __str__(self):
+        return self.naam
+
+    @property
+    def extensie(self):
+        return self.bestand.name.rsplit(".", 1)[-1].lower() if "." in self.bestand.name else ""
+
+    @property
+    def icoon(self):
+        return {"pdf": "📄", "jpg": "🖼️", "jpeg": "🖼️", "png": "🖼️", "doc": "📝", "docx": "📝",
+                "xls": "📊", "xlsx": "📊"}.get(self.extensie, "📎")

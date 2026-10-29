@@ -8,6 +8,7 @@
   <div class="stap">Trainers tot<b>{{ w.deadline_trainer|date:"D j M" }}</b></div>
   <div class="stap">Organisator<b>{{ w.deadline|date:"D j M Y" }}</b></div>
 </div>
+{% with beheer_bijlagen=True %}{% include "_info_bijlagen.html" %}{% endwith %}
 <div class="grid twee">
   <form method="post" class="kaart">{% csrf_token %}
     <h2 style="margin-top:0">Instellingen</h2>

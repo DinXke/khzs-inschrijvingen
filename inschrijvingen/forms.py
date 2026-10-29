@@ -141,3 +141,20 @@ class MeldingenForm(forms.ModelForm):
             del self.fields["push_nieuwe_inschrijving"]
         else:
             self.fields["push_deadline"].label = "Herinnering: 1 dag voor de deadline (zwemmers én trainers)"
+
+
+TOEGELATEN_BIJLAGEN = {"pdf", "jpg", "jpeg", "png", "doc", "docx", "xls", "xlsx"}
+
+
+class BijlageForm(forms.Form):
+    bestand = forms.FileField(label="Bijlage toevoegen", help_text="PDF, afbeelding, Word of Excel, max. 10 MB")
+    naam = forms.CharField(label="Naam (optioneel)", max_length=150, required=False)
+
+    def clean_bestand(self):
+        f = self.cleaned_data["bestand"]
+        ext = f.name.rsplit(".", 1)[-1].lower() if "." in f.name else ""
+        if ext not in TOEGELATEN_BIJLAGEN:
+            raise forms.ValidationError("Enkel PDF, afbeeldingen, Word- of Excelbestanden.")
+        if f.size > 10 * 1024 * 1024:
+            raise forms.ValidationError("Bestand is te groot (max. 10 MB).")
+        return f

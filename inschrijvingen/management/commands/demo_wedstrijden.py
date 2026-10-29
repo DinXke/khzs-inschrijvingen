@@ -15,7 +15,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from inschrijvingen import lenex
-from inschrijvingen.models import (BesteTijd, Deelname, Inschrijving, Melding, Profiel, Wedstrijd, Zwemmer)
+from inschrijvingen.models import (BesteTijd, Bijlage, Deelname, Inschrijving, Melding, Profiel, Wedstrijd, Zwemmer)
 from inschrijvingen.regels import leeftijd, past_in_nummer
 
 JEUGD = [(11, 11), (12, 12), (13, 13), (14, 14), (15, 16), (17, -1)]
@@ -69,6 +69,24 @@ def richttijd(z, afstand, slag, op, rnd):
     leeftijd_ = op.year - z.geboortedatum.year
     sec = BASIS.get((slag, afstand), afstand * 0.75) * (1 + max(0, 16 - leeftijd_) * 0.06) * rnd.uniform(0.95, 1.08)
     return timedelta(seconds=round(sec, 2))
+
+
+def mini_pdf(regels):
+    """Eenvoudige, geldige PDF met een paar tekstregels (zonder extra pakketten)."""
+    tekst = "BT /F1 16 Tf 60 780 Td 22 TL " + " ".join(f"({r}) '" for r in regels) + " ET"
+    objecten = ["<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R "
+                "/Resources << /Font << /F1 5 0 R >> >> >>",
+                f"<< /Length {len(tekst)} >>\nstream\n{tekst}\nendstream",
+                "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"]
+    uit, posities = "%PDF-1.4\n", []
+    for i, o in enumerate(objecten, 1):
+        posities.append(len(uit))
+        uit += f"{i} 0 obj\n{o}\nendobj\n"
+    xref = len(uit)
+    uit += f"xref\n0 {len(objecten) + 1}\n0000000000 65535 f \n" + "".join(f"{p:010d} 00000 n \n" for p in posities)
+    uit += f"trailer\n<< /Size {len(objecten) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n"
+    return uit.encode("latin-1")
 
 
 def maak_lenex(naam, stad, zwembad, baan, dag, start, deadline, kost, nummers):
@@ -162,6 +180,11 @@ class Command(BaseCommand):
                     Melding.objects.create(zwemmer=z, wedstrijd=w, door=trainer,
                                            tekst="deelname geweigerd: Nog niet in de wedstrijdgroep")
 
+            if naam == "Kerstprijs ZCT":
+                Bijlage.objects.create(wedstrijd=w, naam="Busregeling Kerstprijs", door=trainer, bestand=ContentFile(
+                    mini_pdf(["Busregeling Kerstprijs ZCT - 13 december", "", "Vertrek: 7u15 aan zwembad Kapermolen",
+                              "Terug: rond 13u00", "Meebrengen: clubbadmuts, T-shirt, lunchpakket"]),
+                    name="busregeling.pdf"))
             if verleden:
                 w.deelnames.filter(keuze=Deelname.DOET_MEE).update(gefinaliseerd=True, ingegeven=True)
             elif status == Wedstrijd.OPEN:  # een paar zwemmers al gefinaliseerd, één ervan al ingegeven

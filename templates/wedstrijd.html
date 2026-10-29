@@ -7,7 +7,7 @@
   {% if staf %}<div class="stap">Trainers tot<b>{{ w.deadline_trainer|date:"D j M" }}</b></div>
   <div class="stap">Organisator<b>{{ w.deadline|date:"D j M" }}</b></div>{% endif %}
 </div>
-{% if w.info %}<div class="kaart info-wedstrijd">ℹ️ {{ w.info|linebreaksbr }}</div>{% endif %}
+{% include "_info_bijlagen.html" %}
 {% if staf %}<p><a href="{% url 'nakijken' w.pk %}">← Terug naar overzicht inschrijvingen</a></p>{% endif %}
 
 {% if staf %}

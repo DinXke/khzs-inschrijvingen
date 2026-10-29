@@ -1,0 +1,20 @@
+{% if w.info or w.bijlagen.all or beheer_bijlagen %}
+<div class="kaart info-wedstrijd">
+  {% if w.info %}<div>ℹ️ {{ w.info|linebreaksbr }}</div>{% endif %}
+  {% if w.bijlagen.all %}<div class="bijlagen">{% for b in w.bijlagen.all %}
+    <span class="bijlage"><a href="{% url 'bijlage' b.pk %}" target="_blank">{{ b.icoon }} {{ b.naam }}</a>
+      {% if beheer_bijlagen %}<form method="post" action="{% url 'bijlage_verwijderen' b.pk %}" onsubmit="return confirm('Bijlage verwijderen?')">{% csrf_token %}
+        <input type="hidden" name="terug" value="{{ request.get_full_path }}"><button class="mini secundair" title="Verwijderen">✕</button></form>{% endif %}</span>
+  {% endfor %}</div>{% endif %}
+  {% if beheer_bijlagen %}
+  <details class="bijlage-nieuw"><summary class="klein">+ Bijlage toevoegen</summary>
+    <form method="post" action="{% url 'bijlage_toevoegen' w.pk %}" enctype="multipart/form-data" class="rij" style="align-items:end">{% csrf_token %}
+      <input type="hidden" name="terug" value="{{ request.get_full_path }}">
+      <div style="flex:2;min-width:200px"><label for="bijlage-bestand">Bestand</label><input id="bijlage-bestand" type="file" name="bestand" required accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"></div>
+      <div style="flex:1;min-width:160px"><label for="bijlage-naam">Naam (optioneel)</label><input id="bijlage-naam" type="text" name="naam" placeholder="bv. Busregeling"></div>
+      <button>Toevoegen</button>
+    </form>
+    <p class="help">PDF, afbeelding, Word of Excel, max. 10 MB. Zichtbaar voor alle aangemelde zwemmers, ouders en staf.</p>
+  </details>{% endif %}
+</div>
+{% endif %}

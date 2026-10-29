@@ -32,6 +32,7 @@ De wedstrijd staat eerst op **Concept**: zwemmers zien hem al en kunnen interess
 | Dagen secretaris | Hoeveel dagen vóór die deadline alles bij jou moet zijn |
 | Status | *Concept* → *Open* → *Gesloten* → *Doorgestuurd* |
 | Info voor zwemmers | Vrije tekst bovenaan de wedstrijd, bv. voor wie de wedstrijd is |
+| Bijlagen | Bovenaan de instellingen: *+ Bijlage toevoegen* (PDF, afbeelding, Word, Excel; max. 10 MB), bv. het voorprogramma als PDF of een reglement |
 | Selectiecriteria | Welke limietlijsten gehaald moeten zijn. Zonder vinkje is er geen limiet |
 
 Zet de status op **Open** om de inschrijvingen te openen. Zwemmers met *Interesse* of *Ik doe mee* krijgen dan een melding.

@@ -19,6 +19,8 @@ Elke wedstrijd heeft drie datums:
 Jouw extra dagen stel je in via **Inschrijvingen nakijken → Deadline zwemmers & info voor zwemmers**.
 Daar vul je ook **info voor zwemmers** in, bv. *“Deze wedstrijd is enkel voor de A-groep.”* Die tekst staat bovenaan de wedstrijd en in de lijst van wedstrijden.
 
+Bij de info kan je ook **bijlagen** toevoegen (*+ Bijlage toevoegen*): PDF, afbeelding, Word of Excel, max. 10 MB. Bv. een busregeling of het wedstrijdreglement. Alle aangemelde zwemmers en ouders kunnen ze openen; met ✕ verwijder je een bijlage.
+
 ## 3. Inschrijvingen nakijken
 
 Open een wedstrijd onder **Wedstrijden**. Je ziet:

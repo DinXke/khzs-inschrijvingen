@@ -566,3 +566,32 @@ class UitlegTest(StroomTest):
         self.assertNotContains(r, "video/trainer.mp4")
         self.c.force_login(self.sec)
         self.assertContains(self.c.get("/uitleg/"), "video/sportsecretaris.mp4")
+
+
+class BijlageTest(StroomTest):
+    def test_bijlage_toevoegen_zien_verwijderen(self):
+        import tempfile
+        from inschrijvingen.models import Bijlage
+        with tempfile.TemporaryDirectory() as d, self.settings(MEDIA_ROOT=d):
+            self.c.force_login(self.tr)
+            self.c.post(f"/wedstrijd/{self.w.pk}/bijlage/", {"bestand": upload(b"%PDF-1.4 test", "busregeling.pdf"), "naam": ""})
+            b = Bijlage.objects.get()
+            self.assertEqual(b.naam, "busregeling")
+            # ongeldig type geweigerd
+            self.c.post(f"/wedstrijd/{self.w.pk}/bijlage/", {"bestand": upload(b"x", "virus.exe")})
+            self.assertEqual(Bijlage.objects.count(), 1)
+            # zwemmer ziet en downloadt, maar kan niet toevoegen of verwijderen
+            ouder = User.objects.create_user("o@o.be", "o@o.be", "geheim123!")
+            self.c.force_login(ouder)
+            self.assertContains(self.c.get(f"/wedstrijd/{self.w.pk}/"), "busregeling")
+            r = self.c.get(f"/bijlage/{b.pk}/")
+            self.assertEqual(r.status_code, 200)
+            self.assertEqual(b"".join(r.streaming_content), b"%PDF-1.4 test")
+            self.assertEqual(self.c.post(f"/bijlage/{b.pk}/verwijderen/").status_code, 403)
+            self.assertEqual(self.c.post(f"/wedstrijd/{self.w.pk}/bijlage/", {"bestand": upload(b"x", "a.pdf")}).status_code, 403)
+            # niet aangemeld: geen toegang
+            self.c.logout()
+            self.assertEqual(self.c.get(f"/bijlage/{b.pk}/").status_code, 302)
+            self.c.force_login(self.sec)
+            self.c.post(f"/bijlage/{b.pk}/verwijderen/")
+            self.assertFalse(Bijlage.objects.exists())

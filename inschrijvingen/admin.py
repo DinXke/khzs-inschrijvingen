@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import BesteTijd, Inschrijving, Profiel, Wedstrijd, Zwemmer
+from .models import BesteTijd, Bijlage, Inschrijving, Profiel, Wedstrijd, Zwemmer
 
 
 class BesteTijdInline(admin.TabularInline):
@@ -29,3 +29,5 @@ class InschrijvingAdmin(admin.ModelAdmin):
 
 admin.site.register(Profiel)
 admin.site.site_header = "KHZS inschrijvingen – beheer"
+
+admin.site.register(Bijlage)
