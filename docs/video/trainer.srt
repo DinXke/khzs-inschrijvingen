@@ -1,99 +1,99 @@
 1
-00:00:01,240 --> 00:00:14,763
+00:00:00,326 --> 00:00:11,530
 Welkom. Dit filmpje is bedoeld voor trainers. We tonen hoe je de inschrijvingen van je zwemmers opvolgt, nakijkt, aanpast en finaliseert, zodat het sportsecretariaat ze vlot kan doorsturen naar de organisator.
 
 2
-00:00:16,574 --> 00:00:19,158
+00:00:12,329 --> 00:00:14,941
 Stap 1. Aanmelden en deadlines.
 
 3
-00:00:21,443 --> 00:00:31,772
+00:00:16,241 --> 00:00:24,785
 Je meldt je aan met je eigen account. Maak eerst gewoon een profiel aan, en vraag dan aan de sportsecretaris om je de rol trainer te geven. Pas dan zie je de extra schermen.
 
 4
-00:00:33,644 --> 00:00:51,622
+00:00:25,913 --> 00:00:42,190
 In de lijst met wedstrijden zie je per wedstrijd drie deadlines. De deadline van de organisator komt uit het lenex-bestand. Het sportsecretariaat neemt daar een paar dagen marge op: dat is de deadline voor trainers. En jij neemt daar nog eens een paar dagen marge op: dat is de deadline voor de zwemmers.
 
 5
-00:00:53,411 --> 00:01:01,232
+00:00:43,086 --> 00:00:49,716
 Je ziet ook hoeveel inschrijvingen er zijn, en hoeveel er nog nagekeken moeten worden. Zo zie je in één oogopslag waar er werk ligt.
 
 6
-00:01:03,117 --> 00:01:21,055
+00:00:50,828 --> 00:01:06,815
 We openen een wedstrijd. Bovenaan zie je het blok finaliseren: hoeveel zwemmers je al gefinaliseerd hebt, en hoeveel het secretariaat al heeft ingegeven. Daaronder zie je per keuze welke zwemmers interesse hebben, meedoen, niet meedoen, of geweigerd zijn. Klik op een naam om die zwemmer te openen.
 
 7
-00:01:22,768 --> 00:01:25,618
+00:01:07,615 --> 00:01:10,390
 Stap 2. Deadline en info instellen.
 
 8
-00:01:27,703 --> 00:01:38,287
+00:01:11,632 --> 00:01:21,141
 Klap het blok deadline en info open. Hier vul je in hoeveel dagen vóór de trainersdeadline de zwemmers ingeschreven moeten zijn. De app rekent de datum voor de zwemmers meteen uit.
 
 9
-00:01:40,118 --> 00:01:54,221
+00:01:22,168 --> 00:01:34,301
 In hetzelfde blok kan je info voor de zwemmers toevoegen. Bijvoorbeeld: deze wedstrijd is enkel voor de A-groep, of: we vertrekken om half zeven aan het zwembad. Die tekst staat bovenaan de wedstrijd, voor iedereen zichtbaar.
 
 10
-00:01:55,939 --> 00:01:58,522
+00:01:35,086 --> 00:01:37,129
 Stap 3. Inschrijvingen nakijken.
 
 11
-00:02:00,576 --> 00:02:09,351
+00:01:38,317 --> 00:01:45,725
 Nu het nakijken. Met de filters bovenaan de lijst toon je enkel wat nog na te kijken is, wat al goedgekeurd is, of wat afgekeurd werd.
 
 12
-00:02:11,241 --> 00:02:27,101
+00:01:46,797 --> 00:02:01,054
 Vink de inschrijvingen aan die je wil beoordelen. Met het vakje naast de naam selecteer je meteen alle nummers van die zwemmer. Onderaan vul je eventueel een opmerking in, en klik je op goedkeuren of afkeuren. De zwemmer ziet je beslissing en je opmerking, en krijgt een melding.
 
 13
-00:02:28,813 --> 00:02:31,489
+00:02:01,838 --> 00:02:04,079
 Stap 4. Inschrijvingen aanpassen.
 
 14
-00:02:33,525 --> 00:02:42,252
+00:02:05,282 --> 00:02:12,689
 Wil je de inschrijving zelf aanpassen? Klik bij de zwemmer op wijzigen. Je komt dan op hetzelfde scherm als de zwemmer, maar met meer mogelijkheden.
 
 15
-00:02:44,145 --> 00:02:58,883
+00:02:13,725 --> 00:02:26,345
 Als trainer kan je ook inschrijven op een nummer waarvoor de limiet nog niet gehaald is, en kan je naast elk nummer de inschrijftijd aanpassen. Wat jij toevoegt is meteen goedgekeurd. Na bewaren krijgt de zwemmer een melding met precies wat er veranderd is.
 
 16
-00:03:00,535 --> 00:03:03,189
+00:02:27,140 --> 00:02:29,660
 Stap 5. Finaliseren en weigeren.
 
 17
-00:03:05,402 --> 00:03:23,145
+00:02:31,039 --> 00:02:46,191
 Is de inschrijving van een zwemmer helemaal in orde? Klik dan op finaliseren. Drie dingen gebeuren: openstaande inschrijvingen worden goedgekeurd, de zwemmer kan niets meer wijzigen, ook niet vóór de deadline, en het sportsecretariaat ziet dat deze zwemmer klaar is, zodat die al kan worden ingegeven.
 
 18
-00:03:24,986 --> 00:03:38,624
+00:02:47,217 --> 00:02:59,210
 Met alles finaliseren doe je dat in één keer voor alle zwemmers. En met heropenen kan een zwemmer opnieuw wijzigen. Pas je iets aan nadat het secretariaat de zwemmer al heeft ingegeven, dan krijgt het secretariaat automatisch een waarschuwing.
 
 19
-00:03:40,574 --> 00:03:59,606
+00:03:00,347 --> 00:03:17,112
 Mag een zwemmer niet deelnemen, bijvoorbeeld omdat hij of zij nog niet in de wedstrijdgroep zit? Open de zwemmer, vul een reden in en klik op weigeren. De zwemmer krijgt een melding met de reden, openstaande inschrijvingen worden afgekeurd, en inschrijven voor deze wedstrijd lukt niet meer. Met opnieuw toestaan draai je dat terug.
 
 20
-00:04:01,313 --> 00:04:03,874
+00:03:17,901 --> 00:03:20,119
 Stap 6. Overzicht voor de training.
 
 21
-00:04:05,975 --> 00:04:16,816
+00:03:21,363 --> 00:03:30,987
 Voor de laatste controle op training is er het overzicht. Per zwemmer zie je elk nummer met sessie, inschrijftijd en status, met een vakje om af te vinken en ruimte voor notities.
 
 22
-00:04:18,606 --> 00:04:30,722
+00:03:31,953 --> 00:03:42,123
 Je kan ook per nummer kijken, dan staan de zwemmers per nummer gesorteerd op inschrijftijd. Kies bovenaan of je afgekeurde inschrijvingen wil zien, en druk het overzicht af of bewaar het als PDF.
 
 23
-00:04:32,438 --> 00:04:35,010
+00:03:42,914 --> 00:03:45,039
 Stap 7. Uitslagen importeren.
 
 24
-00:04:37,256 --> 00:04:58,309
+00:03:46,490 --> 00:04:04,694
 Na de wedstrijd werk je de beste tijden bij. Ga naar zwemmers, en dan uitslagen importeren. Laad het uitslagen-lenex-bestand van de wedstrijd op. De app koppelt de resultaten aan onze zwemmers, via licentienummer of via naam en geboortedatum, en bewaart per nummer de beste tijd. Zo kloppen de limietcontroles bij de volgende wedstrijd.
 
 25
-00:05:00,220 --> 00:05:12,405
+00:04:05,714 --> 00:04:16,430
 Samengevat: stel je deadline in, kijk de inschrijvingen na, pas aan waar nodig, en finaliseer tijdig. De volledige handleiding vind je ook als PDF. Veel succes met je zwemmers!

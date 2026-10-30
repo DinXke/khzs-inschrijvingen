@@ -1,119 +1,119 @@
 1
-00:00:01,160 --> 00:00:15,685
+00:00:01,512 --> 00:00:13,772
 Hallo! Welkom bij de inschrijvingen van de Hasseltse Zwemvereniging Spartacus. In dit filmpje leggen we stap voor stap uit hoe je je inschrijft voor een zwemwedstrijd. Het filmpje is bedoeld voor zwemmers, en voor ouders die hun kinderen inschrijven.
 
 2
-00:00:17,415 --> 00:00:19,419
+00:00:14,532 --> 00:00:16,296
 Stap 1. De app openen.
 
 3
-00:00:21,538 --> 00:00:30,033
+00:00:17,511 --> 00:00:25,278
 Alles gebeurt in de app op inschrijvingen punt k h z s punt b e. Je kan die openen in de browser op je gsm, je tablet of je computer.
 
 4
-00:00:31,844 --> 00:00:45,645
+00:00:26,321 --> 00:00:38,511
 Een handige tip: zet de app op het beginscherm van je gsm. Op een iPhone tik je op de deelknop, en dan op zet op beginscherm. Op Android kies je app installeren. Daarna open je de app met één tik, net als een gewone app.
 
 5
-00:00:47,350 --> 00:00:49,678
+00:00:39,279 --> 00:00:41,299
 Stap 2. Een account aanmaken.
 
 6
-00:00:51,807 --> 00:01:05,647
+00:00:42,614 --> 00:00:54,549
 Heb je nog geen account? Tik dan op maak een profiel aan. We werken met één account per gezin. Bovenaan vul je de gegevens in van de persoon die het account beheert, meestal een ouder: je e-mailadres, je naam en een wachtwoord.
 
 7
-00:01:07,419 --> 00:01:21,659
+00:00:55,579 --> 00:01:08,176
 Daaronder vul je de gegevens van de zwemmer in: voornaam, naam, geboortedatum en of het een jongen of meisje is. De geboortedatum is belangrijk, want die bepaalt in welke categorie je zwemt, en dus op welke nummers je mag inschrijven.
 
 8
-00:01:23,507 --> 00:01:36,098
+00:01:09,190 --> 00:01:20,092
 Zwemmen er meerdere kinderen in het gezin? Tik dan op nog een zwemmer, en vul ook hun gegevens in. Zwem je als ouder zelf ook? Voeg jezelf dan gewoon toe als zwemmer. Het licentienummer is niet verplicht.
 
 9
-00:01:37,927 --> 00:01:48,017
+00:01:21,044 --> 00:01:29,577
 Heb je al een account? Dan meld je je gewoon aan met je e-mailadres en je wachtwoord. Wachtwoord vergeten? Via de link onder de knop kan je een nieuw wachtwoord aanvragen.
 
 10
-00:01:49,679 --> 00:01:51,891
+00:01:30,350 --> 00:01:32,161
 Stap 3. Een wedstrijd kiezen.
 
 11
-00:01:54,000 --> 00:02:07,836
+00:01:33,471 --> 00:01:45,232
 Na het aanmelden kom je bij de lijst met wedstrijden. Je ziet alle komende wedstrijden zodra het sportsecretariaat ze heeft opgeladen. Staat er nog niet open? Dan kan je nog niet inschrijven, maar wel al laten weten of je wil meedoen.
 
 12
-00:02:09,716 --> 00:02:25,254
+00:01:46,298 --> 00:02:00,137
 Bij elke wedstrijd zie je ook tot wanneer je kan inschrijven. Dat is jouw persoonlijke deadline. Die ligt altijd een paar dagen vóór de echte deadline van de organisator, zodat je trainer en het sportsecretariaat nog tijd hebben om alles na te kijken en door te sturen.
 
 13
-00:02:26,950 --> 00:02:28,849
+00:02:00,906 --> 00:02:02,474
 Stap 4. Inschrijven.
 
 14
-00:02:30,935 --> 00:02:42,033
+00:02:03,740 --> 00:02:13,121
 Laten we een wedstrijd openen. Heb je meerdere kinderen in je account? Dan zie je bovenaan een knop per kind. Tik op het kind dat je wil inschrijven. Elk kind heeft zijn eigen inschrijving.
 
 15
-00:02:43,804 --> 00:02:53,508
+00:02:14,043 --> 00:02:22,170
 Lees eerst de info van de club, in het blauwe vak. Daar staat bijvoorbeeld voor wie de wedstrijd bedoeld is, of praktische afspraken zoals het uur van vertrek.
 
 16
-00:02:55,319 --> 00:03:09,819
+00:02:23,219 --> 00:02:35,699
 Laat dan weten of je meedoet. Kies interesse als je twijfelt, ik doe mee als je zeker wil zwemmen, of ik doe niet mee. Je trainer en het sportsecretariaat zien je keuze meteen. Met interesse of ik doe mee krijg je ook herinneringen voor de deadline.
 
 17
-00:03:11,646 --> 00:03:23,006
+00:02:36,683 --> 00:02:46,970
 Daaronder staat het programma, per sessie. Je ziet enkel de nummers die passen bij jouw leeftijd en of je een jongen of meisje bent. Je hoeft dus niet zelf uit te zoeken in welke categorie je zwemt.
 
 18
-00:03:24,823 --> 00:03:38,427
+00:02:48,013 --> 00:02:59,705
 Bij elk nummer zie je je beste tijd. Heeft de wedstrijd limieten, dan zie je ook de limiettijd. Een groen label betekent dat je de limiet haalt. Een rood label betekent dat je ze nog niet haalt, en dan kan je dat nummer niet aanvinken.
 
 19
-00:03:40,182 --> 00:03:50,512
+00:03:00,650 --> 00:03:09,602
 Let op: een limiet geldt voor een bepaalde badlengte. Een tijd die je zwom in een bad van vijfentwintig meter, telt niet voor een limiet in een bad van vijftig meter, en omgekeerd.
 
 20
-00:03:52,258 --> 00:04:00,275
+00:03:10,498 --> 00:03:17,487
 Vink nu de nummers aan die je wil zwemmen, en tik onderaan op bewaren. Je krijgt bovenaan een bevestiging met het aantal toegevoegde nummers.
 
 21
-00:04:01,972 --> 00:04:04,800
+00:03:18,258 --> 00:03:20,487
 Stap 5. Je inschrijving opvolgen.
 
 22
-00:04:06,881 --> 00:04:18,127
+00:03:21,750 --> 00:03:31,653
 Je inschrijving staat nu op ingediend. Dat betekent: ze is goed ontvangen, maar je trainer moet ze nog nakijken. Daarna wordt ze goedgekeurd, of afgekeurd met een opmerking waarom.
 
 23
-00:04:19,964 --> 00:04:33,877
+00:03:32,658 --> 00:03:44,047
 Tot je deadline kan je nog alles wijzigen: nummers bijvoegen of schrappen, zelfs als ze al goedgekeurd zijn. Wanneer je trainer je inschrijving finaliseert, ligt ze vast. Wil je dan nog iets veranderen, vraag het dan aan je trainer.
 
 24
-00:04:35,708 --> 00:04:48,128
+00:03:45,053 --> 00:03:55,816
 Past de club iets aan, bijvoorbeeld je inschrijftijd, of keurt de trainer een nummer af? Dan zie je dat bovenaan de wedstrijd, onder wijzigingen door de club. In de lijst met wedstrijden staat er dan een belletje bij.
 
 25
-00:04:49,807 --> 00:04:51,996
+00:03:56,598 --> 00:03:58,769
 Stap 6. Profiel en meldingen.
 
 26
-00:04:54,169 --> 00:05:07,772
+00:04:00,082 --> 00:04:12,272
 Onder profiel vind je al je zwemmers, en per zwemmer de beste tijden. Die tijden vul je niet zelf in: de club werkt ze bij na elke wedstrijd, op basis van de officiële uitslagen. Klopt er iets niet? Laat het je trainer weten.
 
 27
-00:05:09,546 --> 00:05:17,436
+00:04:13,156 --> 00:04:19,403
 Je kan bij je gegevens ook je Swimrankings nummer invullen. Dan krijg je een knop die meteen je pagina op Swimrankings opent.
 
 28
-00:05:19,219 --> 00:05:31,996
+00:04:20,406 --> 00:04:31,772
 Zet tot slot de meldingen aan. Tik op meldingen, en dan op meldingen aanzetten. Je kiest zelf waarvoor je een bericht wil krijgen: een nieuwe wedstrijd, de herinnering een dag voor je deadline, of een wijziging door je trainer.
 
 29
-00:05:33,798 --> 00:05:45,021
+00:04:32,736 --> 00:04:42,500
 Op een iPhone werken meldingen enkel als je de app eerst op je beginscherm hebt gezet, zoals we in het begin uitlegden. Met de knop naast het logo kies je trouwens tussen een licht en een donker thema.
 
 30
-00:05:46,861 --> 00:05:57,512
+00:04:43,463 --> 00:04:53,018
 Dat is alles! Kort samengevat: kies je wedstrijd, laat weten of je meedoet, vink je nummers aan, en bewaar. Veel zwemplezier, en veel succes op de wedstrijd!

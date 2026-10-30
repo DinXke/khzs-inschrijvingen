@@ -8,7 +8,7 @@ Werkwijze:
 
 Whisper (faster-whisper, lokaal) zet de opname om naar woorden met tijdstempels. Die worden met difflib uitgelijnd
 op de scripttekst, zodat we per stap begin en einde kennen. Stappen die niet in de opname te vinden zijn
-(bv. omdat de tekst sindsdien veranderd is) vallen terug op de macOS-stem.
+(bv. omdat de tekst sindsdien veranderd is) vallen terug op de standaardstem (Piper nathalie).
 """
 import json
 import re
@@ -124,5 +124,5 @@ def knip(rol, teksten, uitmap):
         stukken.append((pad, einde - begin))
     gemist = sum(1 for s in stukken if s is None)
     print(f"    {rol}: {len(stukken) - gemist}/{len(stukken)} stappen uit {audio.name}"
-          + (f", {gemist} met macOS-stem (tekst niet gevonden)" if gemist else ""))
+          + (f", {gemist} met de standaardstem (tekst niet gevonden)" if gemist else ""))
     return stukken

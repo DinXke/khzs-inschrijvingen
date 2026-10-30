@@ -1,7 +1,8 @@
 """Instructiefilmpjes met voice-over (zwemmer, trainer, sportsecretaris).
 
 Gebruik (vanuit de projectmap, op macOS):  .venv/bin/python docs/video.py [zwemmer|trainer|sportsecretaris]
-Vereist: playwright + chromium, imageio-ffmpeg en de macOS-stem 'Ellen' (nl_BE).
+Vereist: playwright + chromium, imageio-ffmpeg en piper-tts (stem 'nathalie', nl_BE; wordt automatisch
+gedownload). Zonder piper-tts valt het script terug op de macOS-stem 'Ellen'.
 De app draait tijdelijk met demodata; resultaat in docs/video/<rol>.mp4 (+ .srt ondertitels).
 """
 import base64
@@ -11,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.request
 from pathlib import Path
 
 import imageio_ffmpeg
@@ -29,7 +31,44 @@ build = _laad("docsbuild", "build.py")
 stem = _laad("docsstem", "stem.py")
 URL, ROOT = build.URL, build.ROOT
 FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
-STEM, TEMPO = "Ellen", 172
+STEM, TEMPO = "Ellen", 172  # macOS-reservestem
+# Standaardstem: Piper 'nathalie' (Vlaams, vrouw, licentie CC0), lokaal. Wordt bij eerste gebruik gedownload.
+PIPER_MODEL = Path.home() / ".cache" / "hzs-piper" / "nl_BE-nathalie-medium.onnx"
+PIPER_URL = "https://huggingface.co/rhasspy/piper-voices/resolve/main/nl/nl_BE/nathalie/medium/nl_BE-nathalie-medium.onnx"
+_piper = None
+
+
+def piper_stem():
+    """Laadt de Piper-stem (downloadt het model indien nodig). None als piper-tts niet geïnstalleerd is."""
+    global _piper
+    if _piper is None:
+        try:
+            from piper import PiperVoice
+        except ImportError:
+            _piper = False
+            return None
+        PIPER_MODEL.parent.mkdir(parents=True, exist_ok=True)
+        for suffix in ("", ".json"):
+            doel = Path(str(PIPER_MODEL) + suffix)
+            if not doel.exists():
+                print(f"  stemmodel downloaden: {doel.name}")
+                urllib.request.urlretrieve(PIPER_URL + suffix, doel)
+        _piper = PiperVoice.load(str(PIPER_MODEL))
+    return _piper or None
+
+
+def spreek(tekst, wav):
+    """Maakt een wav met de voice-over en geeft de duur in seconden."""
+    stem_ = piper_stem()
+    if stem_:
+        import wave
+        with wave.open(str(wav), "wb") as w:
+            stem_.synthesize_wav(tekst, w)
+        with wave.open(str(wav), "rb") as w:
+            return w.getnframes() / w.getframerate()
+    subprocess.run(["say", "-v", STEM, "-r", str(TEMPO), "-o", str(wav), tekst], check=True)
+    return float(re.search(r"duration: ([\d.]+)", subprocess.run(["afinfo", str(wav)], capture_output=True,
+                                                                  text=True).stdout).group(1))
 GSM, PC = {"width": 390, "height": 844}, {"width": 1280, "height": 800}
 
 # Zichtbare cursor + markering van het aangeklikte element (headless Chromium toont geen cursor).
@@ -124,10 +163,8 @@ class Opname:
         if self.knipsels and nr < len(self.knipsels) and self.knipsels[nr]:
             wav, duur = self.knipsels[nr]
         else:
-            wav = self.tmp / f"s{nr:02d}.aiff"
-            subprocess.run(["say", "-v", STEM, "-r", str(TEMPO), "-o", str(wav), tekst], check=True)
-            duur = float(re.search(r"duration: ([\d.]+)", subprocess.run(["afinfo", str(wav)], capture_output=True,
-                                                                         text=True).stdout).group(1))
+            wav = self.tmp / f"s{nr:02d}.wav"
+            duur = spreek(tekst, wav)
         start = time.monotonic() - self.t0
         if actie:
             actie(self.page, duur)
