@@ -40,7 +40,9 @@ Het script start de app met demodata, maakt alle screenshots opnieuw (gsm + pc, 
 .venv/bin/python docs/video.py            # alle drie, of: docs/video.py zwemmer
 ```
 
-Het script (macOS) start de app met demodata en neemt met Playwright een gescripte rondleiding per rol op. De voice-over komt van de Vlaamse stem *Ellen* (`say`), en ffmpeg (`imageio-ffmpeg`) voegt beeld, stem en ondertitels samen tot `docs/video/<rol>.mp4`, met `.srt` en `.vtt`. Er zijn een geanimeerd splashscreen, hoofdstukkaarten en zachte overgangen. De app toont de filmpjes en PDF's op `/uitleg/`: ze worden via `STATICFILES_DIRS` aangeboden als `/static/video/` en `/static/docs/`.
+Het script (macOS) start de app met demodata en neemt met Playwright een gescripte rondleiding per rol op. De voice-over komt van de Vlaamse stem *Ellen* (`say`), en ffmpeg (`imageio-ffmpeg`) voegt beeld, stem en ondertitels samen tot `docs/video/<rol>.mp4`, met `.srt` en `.vtt`. Er zijn een geanimeerd splashscreen, hoofdstukkaarten en zachte overgangen. **Andere stem (bv. Artlist):** `docs/video.py --script` exporteert de tekst per filmpje. Bewaar de gegenereerde audio in `docs/video/stem/<rol>.mp3`, en `docs/stem.py` knipt die per stap: faster-whisper geeft de woordtijden, difflib lijnt ze uit met het script. Stappen die niet gevonden worden, vallen terug op de macOS-stem. Meer uitleg in `docs/video/stem/LEESMIJ.md`.
+
+De app toont de filmpjes en PDF's op `/uitleg/`: ze worden via `STATICFILES_DIRS` aangeboden als `/static/video/` en `/static/docs/`.
 
 ## Tests
 

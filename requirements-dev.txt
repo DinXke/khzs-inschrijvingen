@@ -6,3 +6,4 @@ pymupdf
 imageio-ffmpeg
 pillow
 websocket-client
+faster-whisper

@@ -7,3 +7,5 @@ vapid.pem
 .claude/
 backups/
 docs/.*.html
+docs/video/stem/*.woorden.json
+docs/video/stem/.*

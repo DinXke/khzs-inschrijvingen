@@ -18,9 +18,15 @@ from playwright.sync_api import sync_playwright
 
 DOCS = Path(__file__).resolve().parent
 UIT = DOCS / "video"
-spec = importlib.util.spec_from_file_location("docsbuild", DOCS / "build.py")
-build = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(build)
+def _laad(naam, bestand):
+    spec = importlib.util.spec_from_file_location(naam, DOCS / bestand)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+build = _laad("docsbuild", "build.py")
+stem = _laad("docsstem", "stem.py")
 URL, ROOT = build.URL, build.ROOT
 FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
 STEM, TEMPO = "Ellen", 172
@@ -100,8 +106,9 @@ def kaart(titel, sub, logo):
 
 
 class Opname:
-    def __init__(self, page, tmp):
+    def __init__(self, page, tmp, knipsels=None):
         self.page, self.tmp, self.stappen, self.t0 = page, Path(tmp), [], time.monotonic()
+        self.knipsels = knipsels  # [(pad, duur) | None] per stap, uit een externe opname (docs/stem.py)
 
     def hoofdstuk(self, nr, titel):
         """Hoofdstukkaart die over het huidige scherm veegt terwijl de stem het hoofdstuk aankondigt."""
@@ -114,10 +121,13 @@ class Opname:
     def _spreek(self, tekst, actie, extra=0.7):
         """Spreekt de tekst in en voert ondertussen de actie uit; wacht tot de zin uitgesproken is."""
         nr = len(self.stappen)
-        wav = self.tmp / f"s{nr:02d}.aiff"
-        subprocess.run(["say", "-v", STEM, "-r", str(TEMPO), "-o", str(wav), tekst], check=True)
-        duur = float(re.search(r"duration: ([\d.]+)", subprocess.run(["afinfo", str(wav)], capture_output=True,
-                                                                     text=True).stdout).group(1))
+        if self.knipsels and nr < len(self.knipsels) and self.knipsels[nr]:
+            wav, duur = self.knipsels[nr]
+        else:
+            wav = self.tmp / f"s{nr:02d}.aiff"
+            subprocess.run(["say", "-v", STEM, "-r", str(TEMPO), "-o", str(wav), tekst], check=True)
+            duur = float(re.search(r"duration: ([\d.]+)", subprocess.run(["afinfo", str(wav)], capture_output=True,
+                                                                         text=True).stdout).group(1))
         start = time.monotonic() - self.t0
         if actie:
             actie(self.page, duur)
@@ -125,6 +135,40 @@ class Opname:
         if rest > 0:
             self.page.wait_for_timeout(int(rest * 1000))
         self.stappen.append((start, duur, tekst, wav))
+
+
+class _GeenPagina:
+    def __getattr__(self, naam):
+        return lambda *a, **k: None
+
+
+class Verzamelaar:
+    """Loopt een script door zonder browser en verzamelt enkel de gesproken teksten (in volgorde)."""
+
+    def __init__(self):
+        self.page, self.teksten = _GeenPagina(), []
+
+    def hoofdstuk(self, nr, titel):
+        self.teksten.append(f"Stap {nr}. {titel}.")
+
+    def stap(self, tekst, actie=None):
+        self.teksten.append(tekst)
+
+
+def teksten_van(script):
+    v = Verzamelaar()
+    script(v, "")
+    return v.teksten
+
+
+def schrijf_scripts():
+    map_ = UIT / "script"
+    map_.mkdir(parents=True, exist_ok=True)
+    for naam, (script, _) in ROLLEN.items():
+        teksten = teksten_van(script)
+        (map_ / f"{naam}.txt").write_text("\n\n".join(teksten) + "\n")
+        print(f"  script/{naam}.txt: {len(teksten)} stappen, {sum(len(t) for t in teksten)} tekens")
+    print(f"Plak de tekst in je stemgenerator en bewaar de audio als docs/video/stem/<rol>.mp3")
 
 
 def beweeg_klik(page, doel, klik=True):
@@ -429,7 +473,9 @@ def monteer(naam, webm, stappen, tmp, duur):
 
 
 def main():
-    gekozen = sys.argv[1:] or list(ROLLEN)
+    if "--script" in sys.argv:
+        return schrijf_scripts()
+    gekozen = [a for a in sys.argv[1:] if not a.startswith("-")] or list(ROLLEN)
     logo = base64.b64encode((ROOT / "static" / "img" / "logo.png").read_bytes()).decode()
     with tempfile.TemporaryDirectory() as tmp:
         proc = build.start_server(tmp)
@@ -444,7 +490,8 @@ def main():
                                               color_scheme="light", service_workers="block", locale="nl-BE")
                     ctx.add_init_script(INIT)
                     page = ctx.new_page()
-                    o = Opname(page, tmp)
+                    knipsels = stem.knip(naam, teksten_van(script), Path(tmp) / "knip")
+                    o = Opname(page, tmp, knipsels)
                     script(o, logo)
                     page.wait_for_timeout(800)
                     webm = page.video.path()
