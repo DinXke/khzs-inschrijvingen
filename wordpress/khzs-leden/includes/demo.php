@@ -164,7 +164,8 @@ function demo_controleer(): void
 // ---------- opties: in de demo eigen waarden ----------
 
 /** Opties die in de demo een eigen waarde hebben: echte naam => naam in de demo. */
-const DEMO_OPTIES = ['khzs_prive_map' => 'khzs_demo_prive_map', 'khzs_db_versie' => 'khzs_demo_db_versie'];
+const DEMO_OPTIES = ['khzs_prive_map' => 'khzs_demo_prive_map', 'khzs_db_versie' => 'khzs_demo_db_versie',
+    'khzs_tr_db_versie' => 'khzs_demo_tr_db_versie', 'khzs_com_db_versie' => 'khzs_demo_com_db_versie'];
 
 foreach (DEMO_OPTIES as $echt => $demo) {
     // '' in plaats van false, anders valt WordPress terug op de echte waarde.
@@ -302,9 +303,9 @@ function demo_terugzetten(): void
     $was = is_demo();
     demo_start();
     try {
-        if (get_option('khzs_db_versie') !== DB_VERSIE) {
-            installeer_db(); // in de demo: enkel de demotabellen
-        }
+        // Altijd (dbDelta laat bestaande tabellen staan): de modules houden hun tabelversie bij in een optie die de
+        // demo deelt met de echte site, dus een nieuwe module of nieuwe kolommen kwamen anders nooit in de demo.
+        installeer_db(); // in de demo: enkel de demotabellen
         demo_accounttabellen();
         demo_controleer();
         foreach (alle_tabellen() as $tab) {

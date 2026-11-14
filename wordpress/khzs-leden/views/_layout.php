@@ -41,7 +41,7 @@ $ingelogd = is_user_logged_in();
 <main class="<?= esc_attr($mainklasse) ?>">
   <?php foreach ($meldingen_flash as [$soort, $tekst]): ?><div class="melding <?= esc_attr($soort) ?>"><?= e($tekst) ?></div><?php endforeach; ?>
   <?php foreach ($ploegbeslissingen as $_l): ?><div class="melding <?= $_l->status === PL_AFGEKEURD ? 'error' : 'success' ?>"><?= e($_l->voornaam) ?>: <?= $_l->status === PL_AFGEKEURD ? 'aanvraag voor ' . e($_l->ploegnaam) . ' afgekeurd' : 'zit nu in ' . e($_l->ploegnaam) ?>. <a href="<?= esc_url(app_url("zwemmers/{$_l->zwemmer_id}/")) ?>">Bekijk</a></div><?php endforeach; ?>
-  <?php if ($privacy_lezen && $p !== 'privacy'): ?><div class="melding info">Lees hoe de club met je gegevens omgaat, en bevestig dat je akkoord gaat. <a href="<?= esc_url(app_url('privacy/')) ?>">Privacyverklaring</a></div><?php endif; ?>
+  <?php if ($privacy_lezen && $pagina !== 'privacy'): ?><div class="melding info">Lees hoe de club met je gegevens omgaat, en bevestig dat je akkoord gaat. <a href="<?= esc_url(app_url('privacy/')) ?>">Privacyverklaring</a></div><?php endif; ?>
   <?php foreach ($rolbeslissingen as $_a): ?><div class="melding <?= $_a->status === RA_AFGEKEURD ? 'error' : 'success' ?>"><?= e(rol_beslissing($_a)) ?> <a href="<?= esc_url(app_url('rollen/')) ?>">Mijn rollen</a></div><?php endforeach; ?>
   <?php include $inhoud_sjabloon; ?>
 </main>
