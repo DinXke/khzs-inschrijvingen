@@ -46,7 +46,10 @@ services:
     depends_on: [db]
     working_dir: /var/www/html/leden-demo   # WordPress in de submap leden-demo
     environment: *wp-omgeving
-    volumes: *wp-volumes
+    volumes:
+      - wp:/var/www/html/leden-demo
+      - ../khzs-leden:/var/www/html/leden-demo/wp-content/plugins/khzs-leden:ro
+      - ./wortel.php:/var/www/html/index.php:ro   # leden-demo.khzs.be/ → de demo
     ports:
       # Standaard enkel lokaal (voor cloudflared op dezelfde host). Zet DEMO_BIND=0.0.0.0 als de tunnel elders draait.
       - "${DEMO_BIND:-127.0.0.1}:${DEMO_POORT:-8094}:80"

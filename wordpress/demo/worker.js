@@ -1,6 +1,6 @@
 // Cloudflare Worker voor de route khzs.be/leden-demo* (en www.khzs.be/leden-demo*).
 // Stuurt de demo door naar de aparte demo-WordPress in het homelab (via een Cloudflare-tunnel). De site van de club zelf
-// merkt er niets van. Variabele BRON (Settings → Variables): adres van de tunnel, bv. https://leden-demo-bron.khzs.be
+// merkt er niets van. Variabele BRON (Settings → Variables): adres van de tunnel, https://leden-demo.khzs.be
 //
 // Enkel cookies van de demo gaan mee (khzs_…, en de WordPress-cookies van de demo met COOKIEHASH 'khzsdemo'), zodat
 // aanmeldcookies van de echte site nooit bij de demoserver terechtkomen.

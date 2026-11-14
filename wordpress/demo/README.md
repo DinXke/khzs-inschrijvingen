@@ -8,7 +8,7 @@ Bezoekers zien ze toch op **https://khzs.be/leden-demo/**. Dat werkt zo:
 bezoeker → https://khzs.be/leden-demo/…
              │  Cloudflare Worker op de route khzs.be/leden-demo*  (worker.js)
              ▼
-           https://leden-demo-bron.khzs.be/leden-demo/…   (Cloudflare-tunnel, verborgen hostnaam)
+           https://leden-demo.khzs.be/leden-demo/…   (Cloudflare-tunnel naar de LXC leden-demo)
              │  cloudflared
              ▼
            demo-WordPress in het homelab (docker compose, WordPress in de submap /leden-demo/)
@@ -23,7 +23,20 @@ bezoeker → https://khzs.be/leden-demo/…
   - zet het de demo terug naar de begintoestand, zodat de demodata bij de nieuwe code passen;
   - gaat het terug naar de vorige versie als dat mislukt.
 
-## 1. Demo-WordPress installeren (bv. in een LXC met Docker)
+## 1. Demo-WordPress installeren
+
+**Nieuwe LXC op Proxmox** (aanbevolen): maak eerst de tunnel aan (stap 2) en kopieer het token. Dan, op de Proxmox-host:
+
+```bash
+git clone https://github.com/DinXke/khzs-leden /root/khzs-leden && cd /root/khzs-leden/wordpress/demo/lxc
+CF_TUNNEL_TOKEN=<token> ./maak-lxc.sh <vmid> [opslag] [bridge] [vlan]
+```
+
+`maak-lxc.sh` doet het volgende:
+- een Debian 12-LXC `leden-demo` aanmaken (unprivileged, met nesting voor Docker);
+- daarin `firstboot.sh` uitvoeren: Docker en cloudflared installeren, de repo clonen in `/opt/khzs-demo`, `.env` met een willekeurig wachtwoord, `installeer.sh`, en een cron-regel voor `update.sh`.
+
+**Of met de hand** op een bestaande host met Docker:
 
 Gebruik een **eigen clone** voor de demo: `update.sh` zet die clone telkens gelijk met `main`.
 
@@ -42,19 +55,16 @@ Houd de demo bij met cron, elke 10 minuten. Dezelfde taak draait ook de geplande
 
 ## 2. Cloudflare-tunnel
 
-Geef de tunnel een hostnaam die bezoekers niet moeten kennen, bijvoorbeeld `leden-demo-bron.khzs.be`. Gebruik die naam ook in de Worker. Ingress-regel in de configuratie van cloudflared:
+Maak in Cloudflare Zero Trust (Networks → Tunnels) een tunnel `leden-demo` aan, met de public hostname **`leden-demo.khzs.be`** → `http://localhost:8094`. cloudflared draait in de LXC zelf, met het token van die tunnel.
 
-```yaml
-- hostname: leden-demo-bron.khzs.be
-  service: http://localhost:8094      # of http://<ip-van-de-lxc>:8094 met DEMO_BIND=0.0.0.0 in .env
-```
+Wie `leden-demo.khzs.be` rechtstreeks opent, wordt doorgestuurd naar `khzs.be/leden-demo/`.
 
 ## 3. Cloudflare Worker
 
 In het Cloudflare-dashboard van khzs.be:
 
 1. **Workers & Pages → Create → Worker**, bv. met de naam `khzs-leden-demo`. Plak de inhoud van `worker.js` en klik op **Deploy**.
-2. **Settings → Variables**: voeg de variabele `BRON` toe, met als waarde `https://leden-demo-bron.khzs.be`.
+2. **Settings → Variables**: voeg de variabele `BRON` toe, met als waarde `https://leden-demo.khzs.be`.
 3. **Settings → Domains & Routes → Add route**:
    - `khzs.be/leden-demo*`
    - `www.khzs.be/leden-demo*`, als de site ook op www draait.

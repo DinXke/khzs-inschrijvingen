@@ -121,7 +121,7 @@ Daarna nog drie bijsturingen:
 **Beslissingen**
 - **Aparte installatie**: de demo draait op een eigen WordPress met een eigen database (`wordpress/demo/`: docker-compose, `installeer.sh`, `update.sh`). Ze deelt niets met www.khzs.be.
 - **Adres khzs.be/leden-demo**: khzs.be loopt via Cloudflare.
-  - Een Worker (`wordpress/demo/worker.js`) op de route `khzs.be/leden-demo*` stuurt dat pad naar een tunnel met een verborgen hostnaam, bv. `leden-demo-bron.khzs.be`.
+  - Een Worker (`wordpress/demo/worker.js`) op de route `khzs.be/leden-demo*` stuurt dat pad naar de tunnel `leden-demo.khzs.be` (nieuwe LXC `leden-demo`, `wordpress/demo/lxc/maak-lxc.sh`).
   - De demo-WordPress staat zelf in de submap `/leden-demo/` (`working_dir` in de compose, eigen `.htaccess`). De app staat op de wortel van die site (`demo_slug()` is leeg met `KHZS_DEMO_ENKEL`).
   - De Worker laat enkel de cookies van de demo door: `khzs_…` en `…_khzsdemo` (vaste `COOKIEHASH`). Aanmeldcookies van de echte site komen dus nooit bij de demoserver.
   - In de kern is `huidige_url()` hersteld: bij WordPress in een submap kwam het pad dubbel.
@@ -178,7 +178,7 @@ Daarna nog drie bijsturingen:
 - `wordpress/demo/` is lokaal getest met Docker Desktop: `installeer.sh`, en `update.sh` met een nieuwe commit.
 - De Worker is lokaal getest met Node: cookiefilter, doorsturen, aanmelden en manifest.
 - **Nog niet uitgerold.**
-  - De host (LXC) moet de eigenaar nog kiezen.
+  - Het gaat om een nieuwe LXC `leden-demo` met tunnel `leden-demo.khzs.be` (keuze van de eigenaar). Daarvoor zijn nog nodig: de Proxmox-host, het vmid, de opslag en het netwerk, en het token van de tunnel.
   - Daarna: de tunnel, en de Worker en de route in Cloudflare (stappen in `wordpress/demo/README.md`).
 
 ## Werken aan de plugin
