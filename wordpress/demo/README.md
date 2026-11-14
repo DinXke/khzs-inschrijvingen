@@ -28,7 +28,7 @@ bezoeker → https://khzs.be/leden-demo/…
 **Nieuwe LXC op Proxmox** (aanbevolen): maak eerst de tunnel aan (stap 2) en kopieer het token. Dan, op de Proxmox-host:
 
 ```bash
-git clone https://github.com/DinXke/khzs-leden /root/khzs-leden && cd /root/khzs-leden/wordpress/demo/lxc
+git clone https://github.com/DinXke/khzs-inschrijvingen /root/khzs-leden && cd /root/khzs-leden/wordpress/demo/lxc
 CF_TUNNEL_TOKEN=<token> ./maak-lxc.sh <vmid> [opslag] [bridge] [vlan]
 ```
 
@@ -41,7 +41,7 @@ CF_TUNNEL_TOKEN=<token> ./maak-lxc.sh <vmid> [opslag] [bridge] [vlan]
 Gebruik een **eigen clone** voor de demo: `update.sh` zet die clone telkens gelijk met `main`.
 
 ```bash
-git clone https://github.com/DinXke/khzs-leden /opt/khzs-demo
+git clone https://github.com/DinXke/khzs-inschrijvingen /opt/khzs-demo
 cd /opt/khzs-demo/wordpress/demo
 cp .env.voorbeeld .env          # DB_WACHTWOORD invullen; DEMO_URL=https://khzs.be/leden-demo
 ./installeer.sh                 # toont eenmalig het wachtwoord van wp-admin (gebruiker beheer)

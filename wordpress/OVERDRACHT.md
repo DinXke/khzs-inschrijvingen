@@ -178,7 +178,15 @@ Daarna nog drie bijsturingen:
 - `wordpress/demo/` is lokaal getest met Docker Desktop: `installeer.sh`, en `update.sh` met een nieuwe commit.
 - De Worker is lokaal getest met Node: cookiefilter, doorsturen, aanmelden en manifest.
 - **Nog niet uitgerold.**
-  - Het gaat om een nieuwe LXC `leden-demo` met tunnel `leden-demo.khzs.be` (keuze van de eigenaar). Daarvoor zijn nog nodig: de Proxmox-host, het vmid, de opslag en het netwerk, en het token van de tunnel.
+  - **LXC aangemaakt (14/11/2026)**: CT 139 `leden-demo` op pve01. Debian 13, 2 cores, 2 GB RAM, 16 GB op `rpool`, `vmbr1` met DHCP, IP **10.10.30.220**, SSH als root met de sleutel van Björn.
+    - Aangemaakt via de Proxmox-API met het token van Klimaat. Dat token mag geen `keyctl` zetten, maar Docker werkt ook met alleen nesting.
+    - Daarna `lxc/firstboot.sh` met `DEMO_TAK=wordpress/demo` (zolang PR #8 niet gemerged is). Zet het na de merge op `main` in `/opt/khzs-demo/wordpress/demo/.env`.
+    - De demo draait: met de headers van de Worker getest in de container; cron voor `update.sh` staat in `/etc/cron.d/khzs-demo`.
+    - Het wachtwoord van wp-admin van de demo (gebruiker `beheer`) staat in `/var/log/khzs-demo-firstboot.log` op CT 139.
+  - **Nog te doen door de eigenaar** in Cloudflare:
+    - een tunnel `leden-demo` met public hostname `leden-demo.khzs.be` → `http://localhost:8094`;
+    - het token installeren op CT 139: `cloudflared service install <token>`, of aan Claude bezorgen;
+    - de Worker met `BRON=https://leden-demo.khzs.be` en de route `khzs.be/leden-demo*`.
   - Daarna: de tunnel, en de Worker en de route in Cloudflare (stappen in `wordpress/demo/README.md`).
 
 ## Werken aan de plugin

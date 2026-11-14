@@ -6,7 +6,7 @@ exec > >(tee -a /var/log/khzs-demo-firstboot.log) 2>&1
 echo "== start $(date)"
 # CF_TUNNEL_TOKEN (optioneel): token van de Cloudflare-tunnel; zonder token wordt cloudflared later ingesteld.
 # DEMO_TAK (optioneel, standaard main): de tak die de demo volgt.
-REPO="${REPO:-https://github.com/DinXke/khzs-leden}"
+REPO="${REPO:-https://github.com/DinXke/khzs-inschrijvingen}"  # na het hernoemen verwijst GitHub door
 MAP=/opt/khzs-demo
 
 apt-get update
