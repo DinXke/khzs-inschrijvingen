@@ -29,6 +29,7 @@ $ingelogd = is_user_logged_in();
   <nav>
     <?php foreach ($items as [$label, $pad, $namen, $icoon]): ?><a href="<?= esc_url(app_url($pad)) ?>" class="<?= $actief($namen) ?>"<?= $label === 'Meldingen' ? ' title="Meldingen"' : '' ?>><?= $label === 'Meldingen' ? '🔔' : e($label) ?></a>
     <?php endforeach; ?>
+    <?php if (club()['webshop']): ?><a href="<?= esc_url(club()['webshop']) ?>" target="_blank" rel="noopener">Webshop ↗</a><?php endif; ?>
     <?php if ($is_beheerder): ?><a href="<?= esc_url(app_url('backup/')) ?>" class="<?= $actief(['backups']) ?>">Backup</a><?php if (current_user_can('manage_options')): ?><a href="<?= esc_url(admin_url('options-general.php?page=khzs')) ?>">Beheer</a><?php endif; endif; ?>
     <form method="post" action="<?= esc_url(app_url('afmelden/')) ?>" style="display:inline"><?= nonce_veld() ?><button class="mini secundair">Afmelden</button></form>
   </nav>

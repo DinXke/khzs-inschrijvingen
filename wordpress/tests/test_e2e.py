@@ -911,6 +911,25 @@ class TrainersTest(Basis):
 
 
 
+class WebshopTest(Basis):
+    """Knop naar de webshop (optie khzs_webshop): in het menu op de pc en bij Mijn zwemmers; leeg = geen knop."""
+
+    def test_knop_naar_webshop(self):
+        gebruiker("ouder@x.be")
+        k = self.c.login("ouder@x.be")
+        r = k.get("zwemmers/")
+        self.assertEqual(r.text.count('href="https://www.robsport.nl/nl/796-hzs-hasselt" target="_blank"'), 2)
+        self.assertContains(r, "Naar de webshop")
+        hulp("exec", sql="INSERT INTO wp_options (option_name, option_value, autoload) VALUES ('khzs_webshop', '', 'auto') "
+                         "ON DUPLICATE KEY UPDATE option_value=''")
+        hulp("cache")
+        try:
+            self.assertNotContains(k.get("zwemmers/"), "Webshop")
+        finally:
+            hulp("exec", sql="DELETE FROM wp_options WHERE option_name='khzs_webshop'")
+            hulp("cache")
+
+
 class TabbalkTest(Basis):
     """Onderbalk op de gsm: hoogstens 5 knoppen; bij veel menu-items de rest en Afmelden onder 'Meer'."""
 

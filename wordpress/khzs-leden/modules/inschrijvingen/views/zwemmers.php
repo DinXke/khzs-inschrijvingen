@@ -15,3 +15,4 @@
 </form>
 <?php if (!$alle && $zelf_ontbreekt): ?><p class="klein">Zwem je zelf (bv. masters)? Voeg jezelf toe met <a href="<?= esc_url(app_url('zwemmers/nieuw/', ['zelf' => 1])) ?>"><b>+ Mezelf</b></a>.</p><?php endif; ?>
 <?php if (!$alle): ?><p class="klein">Eén account kan meerdere zwemmers hebben, bv. al je kinderen. Voeg ze toe met <b>+ Zwemmer</b>; bij elke wedstrijd kies je dan voor wie je inschrijft.</p><?php endif; ?>
+<?php if (club()['webshop']): ?><a class="kaart rij tussen webshop" href="<?= esc_url(club()['webshop']) ?>" target="_blank" rel="noopener"><span><strong>🛍️ Webshop</strong><br><span class="klein">Clubkledij en badmutsen van de club bestellen</span></span><span class="knop secundair mini">Naar de webshop ↗</span></a><?php endif; ?>

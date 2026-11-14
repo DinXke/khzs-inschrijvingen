@@ -12,6 +12,7 @@ const OPTIES = [
     'khzs_app_naam' => ['Naam van de app', 'KHZS Leden', 'Zoals de app heet op het beginscherm van de gsm.'],
     'khzs_app_kort' => ['Korte naam', 'KHZS Leden', 'Onder het icoon op de gsm en in de titel van het tabblad.'],
     'khzs_slug' => ['Adres van de app', 'leden', 'De app staat op jouwsite.be/<dit adres>/'],
+    'khzs_webshop' => ['Webshop', 'https://www.robsport.nl/nl/796-hzs-hasselt', 'Link naar de webshop van de club: knop in de app. Leeg = geen knop.'],
 ];
 
 add_action('admin_menu', function () {
@@ -21,7 +22,7 @@ add_action('admin_menu', function () {
 add_action('admin_init', function () {
     foreach (OPTIES as $k => $o) {
         register_setting('khzs', $k, ['type' => 'string', 'default' => $o[1], 'sanitize_callback' => $k === 'khzs_slug'
-            ? fn($v) => sanitize_title($v) ?: 'leden' : 'sanitize_text_field']);
+            ? fn($v) => sanitize_title($v) ?: 'leden' : ($k === 'khzs_webshop' ? 'esc_url_raw' : 'sanitize_text_field')]);
     }
     foreach (['khzs_registratie' => 1, 'khzs_pwa_melding' => 1, 'khzs_pwa_enkel_gsm' => 1, 'khzs_pwa_enkel_home' => 0] as $k => $std) {
         register_setting('khzs', $k, ['type' => 'integer', 'default' => $std, 'sanitize_callback' => fn($v) => $v ? 1 : 0]);
