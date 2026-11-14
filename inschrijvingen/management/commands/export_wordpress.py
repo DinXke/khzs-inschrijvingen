@@ -1,4 +1,4 @@
-"""Exporteert alle gegevens naar een zip voor de WordPress-plugin (wordpress/khzs-inschrijvingen).
+"""Exporteert alle gegevens naar een zip voor de WordPress-plugin (wordpress/khzs-leden).
 
     python manage.py export_wordpress [--uit pad.zip]
 

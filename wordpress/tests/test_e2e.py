@@ -16,7 +16,7 @@ from xml.etree import ElementTree as ET
 import requests
 
 BASIS = os.environ.get("KHZS_URL", "http://localhost:8080").rstrip("/")
-APP = BASIS + "/club/"
+APP = BASIS + "/leden/"
 HIER = Path(__file__).resolve().parent
 VK = (HIER.parent.parent / "inschrijvingen" / "tests" / "fixtures" / "vk_kb_jeugd.lxf").read_bytes()
 
@@ -904,9 +904,10 @@ class TrainersTest(Basis):
             requests.post(f"{BASIS}/?khzs_test=cache")
 
     def test_oud_adres(self):
-        r = requests.get(BASIS + "/inschrijvingen/wedstrijden/", allow_redirects=False)
-        self.assertEqual(r.status_code, 301)
-        self.assertTrue(r.headers["Location"].endswith("/club/wedstrijden/"))
+        for oud in ("inschrijvingen", "club"):
+            r = requests.get(f"{BASIS}/{oud}/wedstrijden/", allow_redirects=False)
+            self.assertEqual(r.status_code, 301)
+            self.assertTrue(r.headers["Location"].endswith("/leden/wedstrijden/"))
 
 
 if __name__ == "__main__":

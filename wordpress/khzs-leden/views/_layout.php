@@ -14,8 +14,8 @@ $ingelogd = is_user_logged_in();
   <script>try{var t=localStorage.getItem("thema");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="<?= esc_attr(get_option('khzs_app_kort', 'HZS')) ?>">
-  <title><?= e($titel) ?> · <?= e(get_option('khzs_app_kort', 'HZS')) ?></title>
+  <meta name="apple-mobile-web-app-title" content="<?= esc_attr(app_kort()) ?>">
+  <title><?= e($titel) ?> · <?= e(app_kort()) ?></title>
   <link rel="manifest" href="<?= esc_url(app_url('manifest.webmanifest')) ?>">
   <link rel="icon" href="<?= esc_url(asset('img/favicon-32.png')) ?>">
   <link rel="apple-touch-icon" href="<?= esc_url(asset('img/apple-touch-icon.png')) ?>">
@@ -23,7 +23,7 @@ $ingelogd = is_user_logged_in();
 </head>
 <body>
 <header class="kop">
-  <a class="logo" href="<?= esc_url(app_url('')) ?>"><span class="logo-badge"><img src="<?= esc_url(asset('img/logo.png')) ?>" alt="<?= esc_attr(club()['naam']) ?>"></span><span class="logo-tekst"><?= e(get_option('khzs_app_titel', 'Clubapp')) ?></span></a>
+  <a class="logo" href="<?= esc_url(app_url('')) ?>"><span class="logo-badge"><img src="<?= esc_url(asset('img/logo.png')) ?>" alt="<?= esc_attr(club()['naam']) ?>"></span><span class="logo-tekst"><?= e(app_titel()) ?></span></a>
   <button type="button" class="thema-knop" id="thema" title="Licht / donker / automatisch" aria-label="Thema wisselen"></button>
   <?php if ($ingelogd): ?>
   <nav>

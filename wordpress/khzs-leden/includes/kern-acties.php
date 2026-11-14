@@ -203,9 +203,9 @@ function v_manifest(): void
     $club = club();
     echo wp_json_encode([
         'id' => app_url(''),
-        'name' => get_option('khzs_app_naam', 'HZS clubapp'),
-        'short_name' => get_option('khzs_app_kort', 'HZS'),
-        'description' => "Clubapp van {$club['naam']}",
+        'name' => app_naam(),
+        'short_name' => app_kort(),
+        'description' => "Ledenapp van {$club['naam']}",
         'lang' => 'nl-BE',
         'start_url' => app_url('', ['bron' => 'app']),
         'scope' => app_url(''),

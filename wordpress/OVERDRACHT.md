@@ -1,4 +1,4 @@
-# Overdracht: WordPress-plugin KHZS
+# Overdracht: KHZS Leden (WordPress-plugin)
 
 Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist en gebouwd is, zodat iemand anders of een volgende sessie meteen verder kan, ook op een andere pc. Lees daarna `wordpress/README.md` voor installatie en gebruik.
 
@@ -18,8 +18,8 @@ Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist 
    - Accounts worden aangemaakt of gekoppeld op gebruikersnaam of e-mail.
    - Django-wachtwoordhashes (`pbkdf2_sha256`) worden bewaard in de user meta `khzs_django_hash`. Bij de eerste login worden ze gecontroleerd en omgezet naar een WordPress-wachtwoord. Zo blijven de bestaande wachtwoorden werken.
 6. **Installatiemelding (PWA)**:
-   - Op de website en in de app verschijnt een melding "Installeer de HZS-app".
-   - Browsers tonen hun installatievenster alleen binnen de scope van de app. Daarom gaat de knop op de rest van de website naar `/club/installeer/`.
+   - Op de website en in de app verschijnt een melding "Installeer de app KHZS Leden".
+   - Browsers tonen hun installatievenster alleen binnen de scope van de app. Daarom gaat de knop op de rest van de website naar `/leden/installeer/`.
 7. **Modules**: de plugin heette eerst `khzs-inschrijvingen` en is daarna omgebouwd tot één plugin **KHZS** met een kern en modules. Het adres werd `/club/`; het oude `/inschrijvingen/` verwijst door (301).
 8. **Module Trainers**, op vraag van de club: trainers duiden aan welke trainingen ze normaal geven en melden zich af als ze niet kunnen. De penningmeester koppelt bedragen aan trainers en ziet per maand de uren en de verloning. Gekozen werking:
    - vaste trainers per trainingsmoment (`tr_vast`, met periode) plus wijzigingen per datum (`tr_wijzigingen`: afwezig, vervanger, extra)
@@ -37,6 +37,11 @@ Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist 
    - Meldingen en push gaan naar alle accounts. "Gelezen" geldt per melding, dus voor beide ouders samen.
    - Verwijder je het eerste account, dan wordt de andere ouder het eerste account (Django: `on_delete=account_verwijderd`).
    - De staf kan een account ook rechtstreeks koppelen via het e-mailadres.
+11. **Naam KHZS Leden** (op vraag van de eigenaar):
+   - Plugin: "KHZS Leden", map `wordpress/khzs-leden/` met als hoofdbestand `khzs-leden.php`. Het adres werd `/leden/`; `/club/` en `/inschrijvingen/` verwijzen door (301).
+   - Interne namen zijn gebleven: PHP-namespace `KHZS`, tabellen en opties met `khzs_`.
+   - Django: de zichtbare naam is "KHZS Leden" (titel, app op de gsm, mails, beheer).
+   - De GitHub-repo heet `khzs-leden`. GitHub verwijst het oude adres `khzs-inschrijvingen` automatisch door, dus de server werkt gewoon verder.
 10. **Zelf zwemmer** (bv. masters), in Django én WordPress:
    - Bij registratie vult het vinkje *Ik zwem zelf* het eerste zwemmerblok met de eigen naam. Dat gebeurt enkel met JavaScript; de server verandert niet.
    - Bij *Mijn zwemmers* opent de knop *+ Mezelf* het formulier met de naam al ingevuld. De knop verdwijnt zodra er een zwemmer met de naam van het account bestaat.
@@ -61,7 +66,7 @@ Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist 
 ## Verdergaan op een andere pc
 
 ```bash
-git clone https://github.com/DinXke/khzs-inschrijvingen && cd khzs-inschrijvingen
+git clone https://github.com/DinXke/khzs-leden && cd khzs-leden
 git checkout -b mijn-werk            # niet rechtstreeks op main werken
 # Django
 uv venv --python 3.12 .venv && uv pip install --python .venv -r requirements.txt
@@ -87,7 +92,7 @@ Start Claude Code in de map van de repo. Claude leest dan automatisch `CLAUDE.md
 ```bash
 wordpress/tests/testsite.sh                     # lokale WordPress + MariaDB + plugin op http://localhost:8080
 KHZS_URL=http://localhost:8080 python3 wordpress/tests/test_e2e.py
-wordpress/bouw.sh                               # khzs.zip voor WordPress
+wordpress/bouw.sh                               # khzs-leden.zip voor WordPress
 ```
 
 - **Nieuwe module**: maak `modules/<id>/` met een `db.php` die `schema_<id>()` bevat en een `module.php`. Haak in via de filters `khzs_routes`, `khzs_menu`, `khzs_tabellen`, `khzs_voorkeuren` en `khzs_taken`, en voeg een regel toe aan `modules()` in `includes/kern.php`.

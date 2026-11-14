@@ -9,5 +9,5 @@ backups/
 docs/.*.html
 docs/video/stem/*.woorden.json
 docs/video/stem/.*
-wordpress/khzs.zip
+wordpress/khzs-leden.zip
 .testsite/

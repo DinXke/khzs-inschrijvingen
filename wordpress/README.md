@@ -1,6 +1,6 @@
-# KHZS: WordPress-plugin (clubapp met modules)
+# KHZS Leden: WordPress-plugin (ledenapp met modules)
 
-Eén plugin **KHZS** met een gedeelde kern en modules:
+Eén plugin **KHZS Leden** met een gedeelde kern en modules:
 
 | Module | Wat |
 |---|---|
@@ -13,14 +13,14 @@ De **kern** bevat wat alle modules delen:
 - pushmeldingen, de PWA en de installatiemelding
 - backup en instellingen
 
-De app staat op `https://jouwsite.be/club/`. Het oude adres `/inschrijvingen/…` verwijst automatisch door.
+De app staat op `https://jouwsite.be/leden/`. De oudere adressen `/inschrijvingen/…` en `/club/…` verwijzen automatisch door.
 
 ## Installeren
 
-1. `./bouw.sh` maakt `khzs.zip`. Met `--met-uitleg` komen de filmpjes en PDF's uit `../docs` mee, maar dan is het bestand ± 40 MB.
+1. `./bouw.sh` maakt `khzs-leden.zip`. Met `--met-uitleg` komen de filmpjes en PDF's uit `../docs` mee, maar dan is het bestand ± 40 MB.
 2. Upload de zip in WordPress via **Plugins → Nieuwe plugin → Plugin uploaden** en activeer de plugin.
 3. Zet de **permalinks** op iets anders dan "Eenvoudig".
-4. Stel de plugin in via **Instellingen → KHZS**:
+4. Stel de plugin in via **Instellingen → KHZS Leden**:
    - welke modules aanstaan
    - clubnaam en clubcode
    - het adres van de app
@@ -75,9 +75,9 @@ De loonberekening zelf (bv. wettelijke plafonds van vrijwilligersvergoedingen of
 
 ## App installeren (PWA)
 
-Bezoekers op gsm zien op de website en in de app een melding *"Installeer de HZS-app"*.
+Bezoekers op gsm zien op de website en in de app een melding *"Installeer de app KHZS Leden"*.
 - In de app zelf opent *Installeren* het installatievenster van de browser.
-- Op de rest van de website gaat de knop naar `/club/installeer/`. Daar installeer je met één tik op Android; op iPhone legt de pagina stap voor stap uit hoe het moet.
+- Op de rest van de website gaat de knop naar `/leden/installeer/`. Daar installeer je met één tik op Android; op iPhone legt de pagina stap voor stap uit hoe het moet.
 - Wie op *Niet nu* tikt, ziet de melding 30 dagen niet.
 
 ## Overstappen vanuit de Django-versie
@@ -101,8 +101,8 @@ Daarna in de app (als WordPress-beheerder): **Backup → Backup terugzetten**, k
 ## Opbouw
 
 ```
-khzs/
-  khzs.php                    opstart, laadt kern en actieve modules, cron
+khzs-leden/
+  khzs-leden.php                    opstart, laadt kern en actieve modules, cron
   includes/                   kern
     kern.php                  rollen, penningmeester, modules, datums, bedragen
     db.php                    gedeelde tabellen (zwemmers, push), privémap, hulpfuncties

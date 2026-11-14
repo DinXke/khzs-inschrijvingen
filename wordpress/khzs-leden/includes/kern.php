@@ -147,3 +147,21 @@ function rij(string $tabel, int $id): ?object
 {
     return db()->get_row(db()->prepare("SELECT * FROM " . t($tabel) . " WHERE id=%d", $id)) ?: null;
 }
+
+// ---------- naam van de app ----------
+
+/** Naam op het beginscherm en in de titel van het tabblad (instelbaar in wp-admin). */
+function app_naam(): string
+{
+    return app_naam() ?: 'KHZS Leden';
+}
+
+function app_kort(): string
+{
+    return app_kort() ?: 'KHZS Leden';
+}
+
+function app_titel(): string
+{
+    return app_titel() ?: 'KHZS Leden';
+}

@@ -42,7 +42,7 @@ add_action('wp_head', function () {
 function pwa_melding_html(bool $in_app): string
 {
     $tekst = get_option('khzs_pwa_tekst', '') ?: 'Schrijf je kinderen in voor wedstrijden en krijg meldingen, rechtstreeks vanaf je beginscherm.';
-    $titel = 'Installeer de ' . get_option('khzs_app_kort', 'HZS') . '-app';
+    $titel = 'Installeer de app ' . app_naam();
     $cfg = [
         'installeer' => app_url('installeer/'),
         'inApp' => $in_app,

@@ -8,7 +8,7 @@ $baan_kort = fn($b) => $b === 'LCM' ? '50m' : ($b ? '25m' : '');
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Overzicht <?= e($w->naam) ?> · <?= e(get_option('khzs_app_kort', 'HZS')) ?></title>
+<title>Overzicht <?= e($w->naam) ?> · <?= e(app_kort()) ?></title>
 <link rel="icon" href="<?= esc_url(asset('img/favicon-32.png')) ?>">
 <style>
   @page { size: A4; margin: 12mm 12mm 14mm; }
@@ -75,7 +75,7 @@ $baan_kort = fn($b) => $b === 'LCM' ? '50m' : ($b ? '25m' : '');
   </nav>
 
   <header>
-    <span class="logo"><img src="<?= esc_url(asset('img/logo.png')) ?>" alt="<?= esc_attr(get_option('khzs_app_kort', 'HZS')) ?>"></span>
+    <span class="logo"><img src="<?= esc_url(asset('img/logo.png')) ?>" alt="<?= esc_attr(app_kort()) ?>"></span>
     <div><h1><?= e($w->naam) ?></h1>
       <div class="sub"><?= e($w->zwembad) ?>, <?= e($w->stad) ?> · <?= e(BAAN[$w->baan]) ?> · <?= e(datum(startdatum($w), 'l j F Y')) ?></div></div>
   </header>

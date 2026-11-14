@@ -8,20 +8,20 @@ defined('ABSPATH') || exit;
 const OPTIES = [
     'khzs_club_naam' => ['Clubnaam', 'Hasseltse Zwemvereniging Spartacus', 'Komt in de Lenex-export en op het overzicht.'],
     'khzs_club_code' => ['Clubcode', 'KHZS', 'Code van de club in de Lenex-export.'],
-    'khzs_app_titel' => ['Titel in de app', 'Clubapp', 'Naast het logo bovenaan de app.'],
-    'khzs_app_naam' => ['Naam van de app', 'HZS clubapp', 'Zoals de app heet op het beginscherm van de gsm.'],
-    'khzs_app_kort' => ['Korte naam', 'HZS', 'Onder het icoon op de gsm en in de titel van het tabblad.'],
-    'khzs_slug' => ['Adres van de app', 'club', 'De app staat op jouwsite.be/<dit adres>/'],
+    'khzs_app_titel' => ['Titel in de app', 'KHZS Leden', 'Naast het logo bovenaan de app.'],
+    'khzs_app_naam' => ['Naam van de app', 'KHZS Leden', 'Zoals de app heet op het beginscherm van de gsm.'],
+    'khzs_app_kort' => ['Korte naam', 'KHZS Leden', 'Onder het icoon op de gsm en in de titel van het tabblad.'],
+    'khzs_slug' => ['Adres van de app', 'leden', 'De app staat op jouwsite.be/<dit adres>/'],
 ];
 
 add_action('admin_menu', function () {
-    add_options_page('KHZS', 'KHZS', 'manage_options', 'khzs', __NAMESPACE__ . '\\admin_pagina');
+    add_options_page('KHZS Leden', 'KHZS Leden', 'manage_options', 'khzs', __NAMESPACE__ . '\\admin_pagina');
 });
 
 add_action('admin_init', function () {
     foreach (OPTIES as $k => $o) {
         register_setting('khzs', $k, ['type' => 'string', 'default' => $o[1], 'sanitize_callback' => $k === 'khzs_slug'
-            ? fn($v) => sanitize_title($v) ?: 'club' : 'sanitize_text_field']);
+            ? fn($v) => sanitize_title($v) ?: 'leden' : 'sanitize_text_field']);
     }
     foreach (['khzs_registratie' => 1, 'khzs_pwa_melding' => 1, 'khzs_pwa_enkel_gsm' => 1, 'khzs_pwa_enkel_home' => 0] as $k => $std) {
         register_setting('khzs', $k, ['type' => 'integer', 'default' => $std, 'sanitize_callback' => fn($v) => $v ? 1 : 0]);
@@ -37,7 +37,7 @@ add_action('update_option_khzs_slug', function () {
     flush_rewrite_rules();
 });
 
-add_filter('plugin_action_links_khzs/khzs.php', function ($links) {
+add_filter('plugin_action_links_khzs-leden/khzs-leden.php', function ($links) {
     array_unshift($links, '<a href="' . esc_url(admin_url('options-general.php?page=khzs')) . '">Instellingen</a>',
         '<a href="' . esc_url(app_url('')) . '">Open de app</a>');
     return $links;
@@ -54,7 +54,7 @@ function admin_pagina(): void
     }
     ?>
     <div class="wrap">
-      <h1>KHZS</h1>
+      <h1>KHZS Leden</h1>
       <p><a class="button button-primary" href="<?= esc_url(app_url('')) ?>" target="_blank">Open de app ↗</a>
         <span style="margin-left:1em">Adres: <code><?= esc_html(app_url('')) ?></code></span></p>
       <?php if (!get_option('permalink_structure')): ?>
@@ -109,7 +109,7 @@ function profiel_veld(\WP_User $u): void
     }
     $wpbeheer = user_can($u, 'manage_options');
     ?>
-    <h2>KHZS clubapp</h2>
+    <h2>KHZS Leden</h2>
     <input type="hidden" name="khzs_rol_veld" value="1">
     <table class="form-table" role="presentation"><tr><th><label for="khzs_rol">Rol in de app</label></th><td>
       <?php if ($wpbeheer): ?>Beheerder (WordPress-beheerders zijn altijd beheerder)<?php else: ?>

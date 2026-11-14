@@ -29,6 +29,6 @@ class InschrijvingAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Profiel)
-admin.site.site_header = "KHZS inschrijvingen – beheer"
+admin.site.site_header = "KHZS Leden – beheer"
 
 admin.site.register(Bijlage)

@@ -1,13 +1,13 @@
 <?php
 /**
- * Plugin Name:       KHZS
- * Description:       Clubapp van de Hasseltse Zwemvereniging Spartacus, met modules: wedstrijdinschrijvingen (Lenex) en trainers (planning, afwezigheden, uren en verloning). Gebruikt de WordPress-gebruikers en werkt als app op de gsm.
+ * Plugin Name:       KHZS Leden
+ * Description:       Ledenapp van de Hasseltse Zwemvereniging Spartacus, met modules: wedstrijdinschrijvingen (Lenex) en trainers (planning, afwezigheden, uren en verloning). Gebruikt de WordPress-gebruikers en werkt als app op de gsm.
  * Version:           2.0.0
  * Requires at least: 6.2
  * Requires PHP:      8.0
  * Author:            Hasseltse Zwemvereniging Spartacus
  * License:           GPL-2.0-or-later
- * Text Domain:       khzs
+ * Text Domain:       khzs-leden
  */
 
 namespace KHZS;
