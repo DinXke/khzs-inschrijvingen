@@ -176,7 +176,7 @@ Menu *Berichten* (`/leden/berichten/`), voor iedereen die aangemeld is. Alles ge
 - **Beheer**:
   - *⚙ Kanalen beheren* (bestuur, secretariaat, beheer): secties maken, hernoemen, verwijderen (enkel lege), extra kanalen maken met wie ze ziet (*Alle leden*, *Leden van de competitie*, *Leden van de zwemschool*, *Eén ploeg*, *Enkel trainers en bestuur*).
   - ⚙ in een kanaal: beschrijving, *zwemmers en ouders mogen posten*, archiveren. Een trainer doet dat voor het kanaal van zijn eigen ploeg; het bestuur voor alle kanalen. Ploegkanalen en wedstrijdthreads kan je niet verwijderen, wel archiveren.
-- **Aankondigingen** bovenaan *Berichten* (hoogstens drie, dringend eerst) en bovenaan het kanaal waarvoor ze zijn. Soorten: *Informatief*, *Dringend*, *Aankondiging* en *Vraag naar hulp*.
+- **Aankondigingen** bovenaan *Berichten* (hoogstens drie, dringend eerst) en bovenaan elk kanaal waarvoor ze zijn. Een aankondiging is voor iedereen of voor een of meer kanalen (vinkjes bij *Voor wie?*). Soorten: *Informatief*, *Dringend*, *Aankondiging* en *Vraag naar hulp*.
   - Het bestuur maakt ze voor iedereen of voor een kanaal; een trainer voor de kanalen die hij of zij beheert. Optioneel: *wanneer* en *bovenaan tot en met*. *Niet meer bovenaan tonen* beëindigt ze; ze blijven bij *Aankondigingen*.
   - **Vraag naar hulp** (bv. vrijwilligers voor een wedstrijd of de pastadag): iedereen antwoordt met *Ja*, *Misschien* of *Nee*, met hoeveel personen (standaard 1) en een opmerking. Leden zien het totaal; het bestuur en wie de vraag maakte, zien de lijst en downloaden ze als **Excel**.
 - **Meldingen** (enkel webpush), elk met een eigen schakelaar onder *Meldingen*: *Nieuw bericht in een kanaal*, *Iemand vermeldt mij*, *Nieuwe aankondiging*, *Nieuwe vraag naar hulp*.

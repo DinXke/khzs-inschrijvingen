@@ -742,7 +742,7 @@ function demo_vul_communicatie(object $c): void
     // Aankondigingen van elke soort, en twee vragen naar hulp met antwoorden.
     $aank = function (string $soort, string $titel, string $tekst, string $wie, int $dagen, array $extra = []) use ($u, $op): int {
         db()->insert(t('com_aankondigingen'), ['soort' => $soort, 'titel' => $titel, 'tekst' => $tekst, 'door_id' => $u[$wie],
-            'aangemaakt' => $op($dagen, '09:00')] + $extra + ['kanaal_id' => 0, 'wanneer' => '', 'nodig' => 0, 'tot' => null]);
+            'aangemaakt' => $op($dagen, '09:00')] + $extra + ['kanalen' => '', 'wanneer' => '', 'nodig' => 0, 'tot' => null]);
         return (int) db()->insert_id;
     };
     $rsvp = function (int $aid, string $wie, string $antwoord, int $personen, string $opm = '') use ($u, $op) {
@@ -761,7 +761,7 @@ function demo_vul_communicatie(object $c): void
     $rsvp($pasta, 'pieter', 'misschien', 1);
     $rsvp($pasta, 'sofie', 'nee', 0);
     $jury = $aank('hulp', 'Juryleden en tijdopnemers voor de thuiswedstrijd', 'Ouders met een juryopleiding of zin om tijden op te nemen: laat het weten!', 'katrien', -1,
-        ['kanaal_id' => $ca, 'nodig' => 8, 'wanneer' => 'zaterdagvoormiddag, 8u30', 'tot' => $v->modify('+14 days')->format('Y-m-d')]);
+        ['kanalen' => (string) $ca, 'nodig' => 8, 'wanneer' => 'zaterdagvoormiddag, 8u30', 'tot' => $v->modify('+14 days')->format('Y-m-d')]);
     $rsvp($jury, 'koen', 'ja', 1);
     $rsvp($jury, 'hilde', 'misschien', 1, 'Als ik geen dienst heb');
     $aank('dringend', 'Zwembad Kapermolen zaterdag dicht', 'Door een technisch defect is het zwembad zaterdag dicht. Alle trainingen en lessen vallen weg.', 'katrien', 0,

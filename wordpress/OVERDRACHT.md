@@ -457,6 +457,7 @@ Wensen van de eigenaar (14/11/2026), verzameld in de loop van de dag:
 - **Knop *💬 Wedstrijdchat*** op de pagina van een wedstrijd via een nieuwe actie `khzs_wedstrijd_knoppen` in `modules/inschrijvingen/views/wedstrijd.php`.
 - **Bestaande installaties**: de module staat aan als `khzs_modules` nooit bewaard werd, anders zet je ze aan in wp-admin.
 - **Tabellen** via een eigen `COM_DB_VERSIE` (zoals `TR_DB_VERSIE`), dus `DB_VERSIE` van de kern bleef 6.
+- **Aankondigingen voor meerdere kanalen** (`COM_DB_VERSIE` 2): de kolom `kanalen` (ids met komma's, leeg = iedereen) vervangt `kanaal_id`. `com_migreer()` zet bestaande aankondigingen over. Wie minstens één van de kanalen ziet, ziet de aankondiging (`com_aank_kanalen()`, `com_ziet_aankondiging()`). Wordt een kanaal verwijderd, dan verdwijnt het uit de lijst; blijft er geen kanaal over, dan is de aankondiging voor iedereen (zoals vroeger). Een backup van vóór versie 2 terugzetten zet `kanaal_id` niet meer om.
 
 **Getest**: `CommunicatieTest` (8 scenario's: opbouw en wie ziet wat; posten, meldingen, dempen, volgen, vermelden en het getal in het menu; versturen zonder herladen en vernieuwen; bewerken, verwijderen, vastpinnen en bijlagen; threads en beheer; de wedstrijdthread die de deelname volgt, met archief; aankondigingen en hulpvraag met Excel; voorkeuren en AVG), `DemoTest.test_berichten` en de aangepaste `TabbalkTest`, op een Docker-testsite. Met de browser nagekeken op gsm-formaat in de demo: overzicht, chat, @-suggesties, versturen zonder herladen, lijst van een hulpvraag.
 

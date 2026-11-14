@@ -25,6 +25,10 @@ main.com-main{max-width:820px}
 .com-aank-dringend .com-aank-soort{color:var(--fout)}
 .com-aank-tekst{overflow-wrap:anywhere}
 .com-aank.afgelopen{opacity:.7}
+.com-voor-wie{border:0;padding:0;margin:0 0 1rem}.com-voor-wie legend{font-weight:700;padding:0;margin-bottom:.3rem}
+.com-vinkjes{max-height:15rem;overflow:auto;border:1px solid var(--lijn);border-radius:10px;padding:.2rem .7rem}
+.com-vinkjes label{display:flex;gap:.5rem;align-items:center;font-weight:400;margin:0;padding:.45rem 0;border-bottom:1px solid var(--lijn)}
+.com-vinkjes label:last-child{border-bottom:0}
 .com-rsvp{margin-top:.8rem;padding-top:.6rem;border-top:1px dashed var(--lijn)}
 .com-rsvp .segment button.gekozen.r-ja{background:var(--ok)}
 .com-rsvp .segment button.gekozen.r-misschien{background:var(--accent);color:#1c1200}

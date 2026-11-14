@@ -331,7 +331,13 @@ function com_verwijder_kanaal(object $k): void
     foreach (['com_berichten', 'com_status', 'com_wedstrijdzwemmers'] as $tab) {
         db()->query("DELETE FROM " . t($tab) . " WHERE kanaal_id IN ($lijst)");
     }
-    db()->query("UPDATE " . t('com_aankondigingen') . " SET kanaal_id=0 WHERE kanaal_id IN ($lijst)");
+    // Aankondigingen verliezen dit kanaal; zonder kanalen over zijn ze voor iedereen (zoals vroeger).
+    foreach (db()->get_results("SELECT id, kanalen FROM " . t('com_aankondigingen') . " WHERE kanalen<>''") as $a) {
+        $over = array_diff(com_aank_kanalen($a), $ids);
+        if (count($over) !== count(com_aank_kanalen($a))) {
+            db()->update(t('com_aankondigingen'), ['kanalen' => implode(',', $over)], ['id' => $a->id]);
+        }
+    }
     db()->query("DELETE FROM " . t('com_kanalen') . " WHERE id IN ($lijst)");
     com_cache(true);
 }
@@ -407,10 +413,10 @@ function v_com_beheer(): void
 // ---------- aankondigingen ----------
 
 /** Leest een aankondiging uit het formulier. Geeft [rij, fouten]. */
-function com_lees_aankondiging(int $uid): array
+function com_lees_aankondiging(int $uid, array $kanalen): array
 {
     $v = ['soort' => post('soort'), 'titel' => mb_substr(post('titel'), 0, 120), 'tekst' => mb_substr(post_ruw('tekst') ?? '', 0, 5000),
-        'kanaal_id' => (int) post('kanaal_id'), 'wanneer' => mb_substr(post('wanneer'), 0, 80), 'nodig' => max(0, min(9999, (int) post('nodig'))),
+        'kanalen' => '', 'wanneer' => mb_substr(post('wanneer'), 0, 80), 'nodig' => max(0, min(9999, (int) post('nodig'))),
         'tot' => post('tot') ?: null];
     $f = [];
     if (!isset(COM_AANK_SOORT[$v['soort']])) {
@@ -419,8 +425,13 @@ function com_lees_aankondiging(int $uid): array
     if ($v['titel'] === '') {
         $f['titel'] = 'Dit veld is verplicht.';
     }
-    if (!array_key_exists($v['kanaal_id'], com_aankondiging_kanalen($uid))) {
-        $f['kanaal_id'] = 'Kies voor wie de aankondiging is.';
+    // Meerdere kanalen mogen; 'Iedereen' (0) gaat voor op de rest.
+    $gekozen = array_values(array_unique(array_map('intval', (array) wp_unslash($_POST['kanalen'] ?? []))));
+    if (!$gekozen || array_diff($gekozen, array_keys($kanalen))) {
+        $f['kanalen'] = 'Kies voor wie de aankondiging is.';
+    } elseif (!in_array(0, $gekozen, true)) {
+        sort($gekozen);
+        $v['kanalen'] = implode(',', $gekozen);
     }
     if ($v['tot'] !== null && !dag($v['tot'])) {
         $f['tot'] = 'Geef een geldige datum.';
@@ -437,14 +448,14 @@ function v_com_aankondigingen(): void
     com_sync();
     $uid = get_current_user_id();
     $kanalen = com_aankondiging_kanalen($uid);
-    $v = ['soort' => get('soort') ?: 'info', 'titel' => '', 'tekst' => '', 'kanaal_id' => (int) get('kanaal', array_key_first($kanalen) ?? 0),
+    $v = ['soort' => get('soort') ?: 'info', 'titel' => '', 'tekst' => '', 'kanalen' => (string) (int) get('kanaal', array_key_first($kanalen) ?? 0),
         'wanneer' => '', 'nodig' => 0, 'tot' => ''];
     $f = [];
     if (is_post()) {
         if (!$kanalen) {
             geen_toegang();
         }
-        [$v, $f] = com_lees_aankondiging($uid);
+        [$v, $f] = com_lees_aankondiging($uid, $kanalen);
         if (!$f) {
             db()->insert(t('com_aankondigingen'), $v + ['door_id' => $uid, 'aangemaakt' => nu_sql()]);
             $a = com_aankondiging((int) db()->insert_id);
@@ -497,11 +508,8 @@ function v_com_aankondiging($id): void
             flash('Je antwoord is weg.');
             naar(app_url("berichten/aankondiging/{$a->id}/"));
         } elseif ($actie === 'bewaar' && $wijzigen) {
-            $kanalen = com_aankondiging_kanalen($uid);
-            if (!array_key_exists((int) $a->kanaal_id, $kanalen) && (int) post('kanaal_id') === (int) $a->kanaal_id) {
-                $_POST['kanaal_id'] = array_key_first($kanalen) ?? 0; // eigen aankondiging voor een kanaal dat je niet meer beheert
-            }
-            [$v, $f] = com_lees_aankondiging($uid);
+            // Ook de kanalen die ze al had, als je die niet (meer) beheert.
+            [$v, $f] = com_lees_aankondiging($uid, com_aank_keuzes($a, $uid));
             if (!$f) {
                 db()->update(t('com_aankondigingen'), $v + ['gewijzigd' => nu_sql()], ['id' => $a->id]);
                 flash('Aankondiging bewaard.');
@@ -523,14 +531,31 @@ function v_com_aankondiging($id): void
     }
     $lijst = com_ziet_rsvp_lijst($a, $uid) ? com_rsvp_lijst((int) $a->id) : [];
     toon('communicatie/aankondiging', ['a' => $a, 'v' => $v, 'f' => $f, 'wijzigen' => $wijzigen, 'lijst' => $lijst,
-        'kanalen' => $wijzigen ? com_aankondiging_kanalen($uid) + [(int) $a->kanaal_id => com_aank_doel($a)] : []], $a->titel, 'smal');
+        'kanalen' => $wijzigen ? com_aank_keuzes($a, $uid) : []], $a->titel, 'smal');
+}
+
+/** Keuzes bij het bewerken: wat je mag kiezen, plus de kanalen die de aankondiging al heeft. */
+function com_aank_keuzes(object $a, int $uid): array
+{
+    $keuzes = com_aankondiging_kanalen($uid);
+    foreach (com_aank_kanalen($a) as $id) {
+        if (!isset($keuzes[$id]) && ($k = com_kanaal($id))) {
+            $keuzes[$id] = com_volle_naam($k);
+        }
+    }
+    return $keuzes;
 }
 
 /** Voor wie een aankondiging is, als tekst. */
 function com_aank_doel(object $a): string
 {
-    $k = (int) $a->kanaal_id ? com_kanaal((int) $a->kanaal_id) : null;
-    return $k ? com_volle_naam($k) : 'Iedereen';
+    $namen = [];
+    foreach (com_aank_kanalen($a) as $id) {
+        if ($k = com_kanaal($id)) {
+            $namen[] = com_volle_naam($k);
+        }
+    }
+    return $namen ? implode(', ', $namen) : 'Iedereen';
 }
 
 function v_com_rsvp_export($id): void

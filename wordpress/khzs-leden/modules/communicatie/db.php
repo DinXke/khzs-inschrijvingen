@@ -9,7 +9,7 @@ add_filter('khzs_tabellen', fn($t) => array_merge($t, ['com_secties', 'com_kanal
     'com_wedstrijdzwemmers', 'com_aankondigingen', 'com_rsvp']));
 
 /** Versie van de tabellen van deze module; los van DB_VERSIE van de kern (zoals TR_DB_VERSIE). */
-const COM_DB_VERSIE = '1';
+const COM_DB_VERSIE = '2';
 /** Berichten en aankondigingen blijven 2 jaar bewaard (vastgepinde berichten blijven). */
 const COM_BEWAAR_DAGEN = 730;
 /** Een wedstrijdthread wordt een jaar na de wedstrijd gearchiveerd: enkel nog lezen. */
@@ -18,9 +18,16 @@ const COM_WEDSTRIJD_ARCHIEF_DAGEN = 365;
 add_action('plugins_loaded', function () {
     if (get_option('khzs_com_db_versie') !== COM_DB_VERSIE) {
         installeer_db();
+        com_migreer();
         update_option('khzs_com_db_versie', COM_DB_VERSIE);
     }
 }, 11);
+
+/** Versie 2: een aankondiging kan voor meerdere kanalen zijn (kolom kanalen in plaats van kanaal_id). */
+function com_migreer(): void
+{
+    db()->query("UPDATE " . t('com_aankondigingen') . " SET kanalen=kanaal_id, kanaal_id=0 WHERE kanaal_id>0 AND kanalen=''");
+}
 
 /** Map met de bijlagen van berichten (foto's en pdf's), in de privémap: enkel via de app te downloaden. */
 function com_bijlagen_map(): string
@@ -172,13 +179,15 @@ function schema_communicatie(string $c): array
   KEY zwemmer_id (zwemmer_id)
 ) $c;",
         // Aankondigingen bovenaan. soort: info, dringend, aankondiging, hulp (vraag naar hulp, met RSVP).
-        // kanaal_id 0 = voor iedereen; anders voor wie dat kanaal ziet. Zichtbaar tot en met 'tot' (leeg = tot iemand ze weghaalt).
+        // kanalen: ids met komma's, bv. '3,7'; leeg = voor iedereen, anders voor wie minstens één van die kanalen ziet.
+        // kanaal_id: enkel nog voor de overzetting van versie 1 (één kanaal). Zichtbaar tot en met 'tot' (leeg = tot iemand ze weghaalt).
         "CREATE TABLE " . t('com_aankondigingen') . " (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   soort varchar(12) NOT NULL DEFAULT 'info',
   titel varchar(120) NOT NULL,
   tekst text NOT NULL,
   kanaal_id bigint(20) unsigned NOT NULL DEFAULT 0,
+  kanalen varchar(1000) NOT NULL DEFAULT '',
   wanneer varchar(80) NOT NULL DEFAULT '',
   nodig int(10) unsigned NOT NULL DEFAULT 0,
   tot date NULL,

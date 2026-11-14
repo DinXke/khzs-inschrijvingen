@@ -590,16 +590,28 @@ function com_aankondiging(int $id): ?object
     return db()->get_row(db()->prepare("SELECT * FROM " . t('com_aankondigingen') . " WHERE id=%d", $id)) ?: null;
 }
 
+/** De kanalen van een aankondiging; leeg = voor iedereen. */
+function com_aank_kanalen(object $a): array
+{
+    return array_values(array_filter(array_map('intval', explode(',', (string) $a->kanalen))));
+}
+
+/** Iedereen ziet een aankondiging voor iedereen; anders wie minstens één van haar kanalen ziet. */
 function com_ziet_aankondiging(object $a, int $uid): bool
 {
     if ($uid <= 0) {
         return false;
     }
-    if (!(int) $a->kanaal_id || com_is_bestuur($uid) || (int) $a->door_id === $uid) {
+    $ids = com_aank_kanalen($a);
+    if (!$ids || com_is_bestuur($uid) || (int) $a->door_id === $uid) {
         return true;
     }
-    $k = com_kanaal((int) $a->kanaal_id);
-    return $k && com_ziet($k, $uid);
+    foreach ($ids as $id) {
+        if (($k = com_kanaal($id)) && com_ziet($k, $uid)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /** Aankondigingen die nog lopen (tot vandaag inbegrepen), dringend eerst. Met $kanaal_id enkel die voor dat kanaal. */
@@ -607,7 +619,7 @@ function com_actieve_aankondigingen(int $uid, ?int $kanaal_id = null): array
 {
     $sql = db()->prepare("SELECT * FROM " . t('com_aankondigingen') . " WHERE (tot IS NULL OR tot>=%s)", vandaag()->format('Y-m-d'));
     if ($kanaal_id !== null) {
-        $sql .= db()->prepare(" AND kanaal_id=%d", $kanaal_id);
+        $sql .= db()->prepare(" AND FIND_IN_SET(%d, kanalen)", $kanaal_id);
     }
     $lijst = db()->get_results("$sql ORDER BY soort='dringend' DESC, id DESC");
     return array_values(array_filter($lijst, fn($a) => com_ziet_aankondiging($a, $uid)));
