@@ -1134,6 +1134,135 @@ class AanwezigheidTest(TrainersBasis):
         self.assertIn("Bert", hulp("push")[-1]["bericht"]["tekst"])
 
 
+class VerlofSeizoenTest(TrainersBasis):
+    """Trainers: trainingen per ploeg, verlof per ploeg met melding, en begin en einde van het seizoen."""
+
+    def setUp(self):
+        super().setUp()
+        self.bestuur = gebruiker("bestuur@khzs.be", first_name="Bert")
+        exe(f"INSERT INTO wp_usermeta (user_id, meta_key, meta_value) VALUES ({self.bestuur}, 'khzs_rollen', 'bestuurder')")
+        self.b = Klant().login("bestuur@khzs.be")
+        self.b.vandaag = "2026-10-01"
+        self.pa = exe("INSERT INTO {p}ploegen (naam, beschrijving, actief, aangemaakt) VALUES ('A-groep', '', 1, NOW())")["id"]
+        self.pb = exe("INSERT INTO {p}ploegen (naam, beschrijving, actief, aangemaakt) VALUES ('B-groep', '', 1, NOW())")["id"]
+
+    def vraag(self, nu):
+        return hulp("eval", f="tr_vraag_aanwezigheid", args=[nu])["v"]
+
+    def trainingen(self, van, tot):
+        return [(t["moment"]["naam"], t["datum"]) for t in hulp("eval", f="tr_trainingen", args=[van, tot])["v"]]
+
+    def pushes(self, wie):
+        return [p["bericht"] for p in hulp("push") if p["endpoint"] == f"https://push.example/{wie}"]
+
+    def test_verlof_per_ploeg(self):
+        # De A-groep traint op maandag; 'Samen' (woensdag) is voor de A- en de B-groep, met Lies.
+        r = self.s.post(f"trainers/moment/{self.m}/", {"wat": "bewaar", "naam": "A-groep", "weekdag": 1, "start": "18:00", "einde": "19:30",
+                                                      "locatie": "Groot bad", "van": "2026-09-01", "ploegen[]": [self.pa]})
+        self.assertEqual(r.status_code, 302, r.text[:1500])
+        self.assertEqual(int(een(f"SELECT ploeg_id FROM {{p}}tr_moment_ploegen WHERE moment_id={self.m}")), self.pa)
+        # Ook het bestuur (niet enkel het secretariaat) beheert de trainingen.
+        r = self.b.post("trainers/beheer/", {"wat": "moment", "naam": "Samen", "weekdag": 3, "start": "19:00", "einde": "20:00",
+                                            "van": "2026-09-01", "ploegen[]": [self.pa, self.pb]})
+        self.assertEqual(r.status_code, 302, r.text[:1500])
+        samen = int(een("SELECT id FROM {p}tr_momenten WHERE naam='Samen'"))
+        self.assertEqual(int(een(f"SELECT COUNT(*) FROM {{p}}tr_moment_ploegen WHERE moment_id={samen}")), 2)
+        self.l.vandaag = "2026-10-01"
+        self.l.post("trainers/vast/", {"moment": samen, "aan": 1})
+        r = self.b.get("trainers/beheer/")
+        self.assertContains(r, "A-groep, B-groep")
+        self.assertContains(r, "Ploeg (al haar trainingen)")
+        # Een trainer beheert niets.
+        self.assertEqual(self.t.post("trainers/beheer/", {"wat": "afgelast", "voor": f"p{self.pa}", "van": "2026-10-26"}).status_code, 403)
+
+        # Herfstvakantie voor de A-groep: Tom krijgt een melding, 'Samen' gaat door (de B-groep traint nog).
+        r = self.b.post("trainers/beheer/", {"wat": "afgelast", "voor": f"p{self.pa}", "soort": "vakantie", "van": "2026-10-26",
+                                            "tot": "2026-11-01", "reden": "Herfstvakantie"})
+        self.assertEqual(r.status_code, 302)
+        rij = sql("SELECT moment_id, ploeg_id, soort, door_id FROM {p}tr_afgelast")[0]
+        self.assertEqual(rij, {"moment_id": "0", "ploeg_id": str(self.pa), "soort": "vakantie", "door_id": str(self.bestuur)})
+        tom = self.pushes("tom")
+        self.assertEqual(tom[-1]["titel"], "Training afgelast")
+        self.assertIn("Herfstvakantie", tom[-1]["tekst"])
+        self.assertIn("A-groep", tom[-1]["tekst"])
+        self.assertFalse([p for p in self.pushes("lies") if p["titel"] == "Training afgelast"])
+        self.t.vandaag = "2026-10-20"
+        r = self.t.get("trainers/planning/", week="2026-10-26")
+        self.assertContains(r, "Afgelast: Herfstvakantie")
+        self.assertEqual(r.text.count("Afgelast:"), 1)  # enkel de A-groep, niet 'Samen'
+        # Verlof voor de B-groep: nu valt ook 'Samen' weg, Lies krijgt een melding.
+        self.b.post("trainers/beheer/", {"wat": "afgelast", "voor": f"p{self.pb}", "soort": "verlof", "van": "2026-10-28", "tot": "2026-10-28"})
+        lies = self.pushes("lies")
+        self.assertEqual(lies[-1]["titel"], "Training afgelast")
+        self.assertIn("Verlof", lies[-1]["tekst"])
+        self.assertEqual(self.t.get("trainers/planning/", week="2026-10-26").text.count("Afgelast:"), 2)
+        # Geen vraag 'Was je aanwezig?' en niet te bevestigen.
+        self.assertEqual(self.vraag("2026-10-26 19:45")["gevraagd"], 0)
+        self.assertEqual(self.vraag("2026-10-28 20:15")["gevraagd"], 0)
+        self.t.vandaag = "2026-10-27"
+        self.actie(self.t, "ja", "2026-10-26")
+        self.assertFalse(sql("SELECT id FROM {p}tr_bevestigingen WHERE datum='2026-10-26'"))
+        # Verlof van de A-groep weg → de trainingen gaan toch door, Tom krijgt een melding.
+        self.b.post("trainers/beheer/", {"wat": "afgelast_weg", "id": een(f"SELECT id FROM {{p}}tr_afgelast WHERE ploeg_id={self.pa}")})
+        self.assertEqual(self.pushes("tom")[-1]["titel"], "Training gaat toch door")
+        self.assertEqual(self.vraag("2026-10-26 19:45")["gevraagd"], 1)
+        # Voorkeur uit → geen melding.
+        exe(f"INSERT INTO wp_usermeta (user_id, meta_key, meta_value) VALUES ({self.tom}, 'khzs_push_afgelast', '0')")
+        aantal = len(self.pushes("tom"))
+        self.b.post("trainers/beheer/", {"wat": "afgelast", "voor": f"p{self.pa}", "soort": "zwembad", "van": "2026-11-02", "tot": "2026-11-02"})
+        self.assertEqual(len(self.pushes("tom")), aantal)
+        self.assertContains(self.b.get("trainers/beheer/"), "zwembad dicht")
+        # Een ploeg verwijderen: de trainingen blijven, de koppeling en het verlof van de ploeg verdwijnen.
+        self.b.post(f"ploegen/{self.pa}/", {"actie": "verwijder_ploeg"})
+        self.assertFalse(sql(f"SELECT id FROM {{p}}tr_moment_ploegen WHERE ploeg_id={self.pa}"))
+        self.assertFalse(sql(f"SELECT id FROM {{p}}tr_afgelast WHERE ploeg_id={self.pa}"))
+        self.assertEqual(int(een("SELECT COUNT(*) FROM {p}tr_momenten")), 2)
+        # Ongeldige invoer.
+        self.b.post("trainers/beheer/", {"wat": "afgelast", "voor": "p999", "van": "2026-11-02"})
+        self.b.post("trainers/beheer/", {"wat": "afgelast", "voor": "alle", "van": "2026-11-05", "tot": "2026-11-01"})
+        self.assertEqual(int(een("SELECT COUNT(*) FROM {p}tr_afgelast")), 1)
+
+    def test_seizoen(self):
+        # Voor de seizoenen loopt alles door.
+        self.assertEqual(len(self.trainingen("2027-07-01", "2027-07-31")), 4)
+        self.b.post("trainers/beheer/", {"wat": "seizoen", "naam": "", "van": "2026-09-01", "tot": "2027-06-30"})
+        self.b.post("trainers/beheer/", {"wat": "seizoen", "naam": "Seizoen 27-28", "van": "2027-09-01", "tot": "2028-06-30"})
+        self.b.post("trainers/beheer/", {"wat": "seizoen", "van": "2027-06-01", "tot": "2027-08-01"})  # overlapt
+        self.b.post("trainers/beheer/", {"wat": "seizoen", "van": "2027-08-01", "tot": "2027-07-01"})  # einde voor begin
+        self.assertEqual([r["naam"] for r in sql("SELECT naam FROM {p}tr_seizoenen ORDER BY van")], ["Seizoen 2026–2027", "Seizoen 27-28"])
+        # Zomer: geen trainingen in de planning, op de trainingspagina, in de uren of bij Mijn trainingen.
+        self.assertEqual(self.trainingen("2027-07-01", "2027-08-31"), [])
+        self.assertEqual(len(self.trainingen("2027-06-01", "2027-06-30")), 4)
+        self.assertEqual(self.trainingen("2027-09-01", "2027-09-07"), [("A-groep", "2027-09-06")])
+        self.t.vandaag = "2027-07-10"
+        r = self.t.get("trainers/planning/", week="2027-07-05")
+        self.assertContains(r, "Buiten het seizoen")
+        self.assertNotContains(r, "Groot bad")
+        self.assertEqual(self.t.get(f"trainers/training/{self.m}/2027-07-05/").status_code, 404)
+        self.assertEqual(self.t.get(f"trainers/training/{self.m}/2027-06-28/").status_code, 200)
+        r = self.t.get("trainers/")
+        self.assertContains(r, "Buiten het seizoen")
+        self.assertNotContains(r, "Ik geef training")
+        # Geen vraag 'Was je aanwezig?' buiten het seizoen, wel erin.
+        self.assertEqual(self.vraag("2027-07-05 19:45")["gevraagd"], 0)
+        self.assertEqual(self.vraag("2027-06-28 19:45")["gevraagd"], 1)
+        self.assertEqual(self.actie(self.t, "ja", "2027-07-05").status_code, 404)
+        # Uren: in juli telt niets.
+        pm = Klant().login("pm@khzs.be")
+        pm.vandaag = "2027-08-01"
+        pm.post("trainers/tarieven/", {"user": self.tom, "soort": "uur", "bedrag": "15", "geldig_vanaf": "2026-09-01"})
+        exe(f"INSERT INTO {{p}}tr_bevestigingen (moment_id, datum, user_id, aanwezig, bron) VALUES ({self.m}, '2027-07-05', {self.tom}, 1, 'trainer')")
+        self.assertNotContains(pm.get("trainers/uren/", maand="2027-07"), "€ 22,50")
+        # Het bestuur ziet een waarschuwing na het einde van het laatste seizoen.
+        self.b.vandaag = "2028-07-02"
+        self.assertContains(self.b.get("trainers/beheer/"), "Voeg het volgende seizoen toe")
+        # Dagen vóór het eerste seizoen blijven zoals ze waren.
+        self.assertTrue(hulp("eval", f="tr_in_seizoen", args=["2026-08-31"])["v"])
+        # Seizoenen weg → alles loopt weer door.
+        for sid in [r["id"] for r in sql("SELECT id FROM {p}tr_seizoenen")]:
+            self.b.post("trainers/beheer/", {"wat": "seizoen_weg", "id": sid})
+        self.assertEqual(len(self.trainingen("2027-07-01", "2027-07-31")), 4)
+
 
 class RollenTest(Basis):
     """Meerdere rollen per account: aanvragen, goedkeuren, afkeuren, een andere rol geven (zoals test_rollen.py in Django)."""
@@ -1348,6 +1477,7 @@ class PloegenTest(Basis):
         self.assertEqual(een("SELECT l.status FROM {p}ploegleden l JOIN {p}zwemmers z ON z.id=l.zwemmer_id WHERE z.voornaam='Mo'"), "open")
 
 
+
 class TabbalkTest(Basis):
     """Onderbalk op de gsm: hoogstens 5 knoppen; bij veel menu-items de rest en Afmelden onder 'Meer'."""
 
@@ -1477,7 +1607,7 @@ class DemoTest(Basis):
             "trainer": (["Wedstrijden", "Zwemmers", "Trainingen"], ["Verloning", "Gebruikers", "Backup"], "Competitie 2"),
             "zwemmer": (["Wedstrijden", "Profiel"], ["Trainingen", "Verloning", "Gebruikers"], "Lore Daems"),
             "ouder": (["Wedstrijden", "Profiel"], ["Trainingen", "Verloning", "Gebruikers"], "Finn Bosmans"),
-            "bestuur": (["Wedstrijden", "Profiel", "Verloning"], ["Trainingen", "Gebruikers", "Backup"], None),
+            "bestuur": (["Wedstrijden", "Profiel", "Verloning", "Trainingen", "Ploegen", "Gebruikers"], ["Backup"], None),
         }
         for login, (wel, niet, inhoud) in verwacht.items():
             with self.subTest(login):

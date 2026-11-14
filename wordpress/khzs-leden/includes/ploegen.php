@@ -320,6 +320,7 @@ function v_ploeg(string $id): void
             db()->delete(t('ploegleden'), ['ploeg_id' => $p->id]);
             db()->delete(t('ploeg_trainers'), ['ploeg_id' => $p->id]);
             db()->delete(t('ploegen'), ['id' => $p->id]);
+            do_action('khzs_ploeg_verwijderd', (int) $p->id);
             flash("Ploeg {$p->naam} verwijderd.");
             naar(app_url('ploegen/'));
         } elseif ($actie === 'toevoegen' && $behandelen) {

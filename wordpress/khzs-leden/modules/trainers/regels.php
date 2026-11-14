@@ -7,7 +7,17 @@
  *   afwezig   — een vaste trainer kan niet
  *   vervanger — iemand neemt de plaats van een afwezige trainer over (vervangt_id)
  *   extra     — iemand komt helpen
- * Afgelaste trainingen (vakantie, zwembad dicht) staan in tr_afgelast (per moment of voor alle momenten: moment_id 0).
+ * Een moment kan voor één of meer ploegen zijn (tr_moment_ploegen); zonder ploeg is het voor iedereen.
+ *
+ * Afgelast en verlof (tr_afgelast, met een soort: vakantie, verlof, zwembad dicht, ander) gelden voor
+ *   één training (moment_id), alle trainingen van een ploeg (ploeg_id) of alle trainingen (beide 0).
+ *   Een training voor meerdere ploegen valt pas weg als al haar ploegen verlof hebben: zolang één ploeg traint, gaat ze door.
+ *   Een afgelaste training blijft zichtbaar (met de reden), maar telt nooit mee en krijgt geen vraag "Was je aanwezig?".
+ *
+ * Seizoenen (tr_seizoenen): buiten een seizoen bestaan er geen trainingen. Ze staan niet in de planning of bij
+ *   Mijn trainingen, tellen niet voor de uren en krijgen geen vraag (tr_trainingen() en tr_geldig() laten ze weg).
+ *   Zonder seizoenen loopt alles door, en dagen vóór het begin van het eerste seizoen blijven zoals ze waren
+ *   (geschiedenis en uitbetaalde uren van vóór de seizoenen veranderen niet). Zie tr_in_seizoen().
  *
  * Aanwezigheid (tr_bevestigingen): na elke training vraagt een pushmelding aan elke ingeplande trainer "Was je aanwezig?".
  *   ja             — de training telt mee voor de uren en de verloning
@@ -32,10 +42,12 @@ add_filter('khzs_voorkeuren', fn($v) => $v + [
     'push_vervanging' => ['(trainers) Een collega zoekt een vervanger, of iemand neemt mijn training over', true, true],
     'push_aanwezig' => ['(trainers) Na een training: was je aanwezig?', true, true],
     'push_aanpassing' => ['(trainers) Iemand van het bestuur past mijn planning of aanwezigheid aan', true, true],
+    'push_afgelast' => ['(trainers) Een training van mij wordt afgelast (verlof, vakantie…) of gaat toch door', true, true],
 ]);
 
 const TR_STATUS = ['ja' => 'aanwezig', 'nee' => 'niet aanwezig', 'open' => 'niet bevestigd', 'gepland' => 'gepland'];
 const TR_BRON = ['trainer' => 'zelf', 'melding' => 'via de melding', 'bestuur' => 'door het bestuur'];
+const TR_AFGELAST_SOORT = ['vakantie' => 'vakantie', 'verlof' => 'verlof', 'zwembad' => 'zwembad dicht', 'ander' => 'afgelast'];
 
 // ---------- rechten ----------
 
@@ -87,6 +99,85 @@ function tr_momenten(?string $van = null, ?string $tot = null): array
     return db()->get_results("$sql ORDER BY weekdag, start, naam");
 }
 
+/** Ploeg-id's per moment: [moment_id => [ploeg_id, …]]. Momenten zonder ploeg staan er niet in. */
+function tr_moment_ploegen(): array
+{
+    $uit = [];
+    foreach (db()->get_results("SELECT moment_id, ploeg_id FROM " . t('tr_moment_ploegen') . " ORDER BY id") as $r) {
+        $uit[(int) $r->moment_id][] = (int) $r->ploeg_id;
+    }
+    return $uit;
+}
+
+/** Alle ploegen, actieve eerst (een gearchiveerde ploeg kan nog aan een training hangen). */
+function tr_alle_ploegen(): array
+{
+    return db()->get_results("SELECT * FROM " . t('ploegen') . " ORDER BY actief DESC, naam");
+}
+
+/** Namen van ploegen, bv. "A-groep, B-groep" (leeg als er geen zijn: de training is voor iedereen). */
+function tr_ploegnamen(array $ploeg_ids): string
+{
+    if (!$ploeg_ids) {
+        return '';
+    }
+    return implode(', ', db()->get_col("SELECT naam FROM " . t('ploegen') . " WHERE id IN (" . in_lijst($ploeg_ids) . ") ORDER BY naam"));
+}
+
+function tr_bewaar_moment_ploegen(int $moment_id, array $ploeg_ids): void
+{
+    db()->delete(t('tr_moment_ploegen'), ['moment_id' => $moment_id]);
+    foreach (array_unique(array_filter(array_map('intval', $ploeg_ids))) as $p) {
+        db()->insert(t('tr_moment_ploegen'), ['moment_id' => $moment_id, 'ploeg_id' => $p]);
+    }
+}
+
+// ---------- seizoen ----------
+
+/** Alle seizoenen, chronologisch. */
+function tr_seizoenen(): array
+{
+    return db()->get_results("SELECT * FROM " . t('tr_seizoenen') . " ORDER BY van, id");
+}
+
+/**
+ * Is er op $datum training mogelijk? Ja als er geen seizoenen zijn, als de dag vóór het eerste seizoen ligt
+ * (de geschiedenis blijft), of als een seizoen de dag bevat. Anders (tussen twee seizoenen, na het laatste) niet.
+ */
+function tr_in_seizoen(string $datum, ?array $seizoenen = null): bool
+{
+    $seizoenen ??= tr_seizoenen();
+    if (!$seizoenen || $datum < $seizoenen[0]->van) {
+        return true;
+    }
+    foreach ($seizoenen as $s) {
+        if ($s->van <= $datum && $s->tot >= $datum) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/** Leesbare reden van een afgelasting: de ingevulde reden, anders de soort (bv. "verlof"). */
+function tr_afgelast_tekst(object $a): string
+{
+    return $a->reden !== '' ? $a->reden : (TR_AFGELAST_SOORT[$a->soort] ?? 'afgelast');
+}
+
+/** Voor wie een afgelasting geldt: "Alle trainingen", "Ploeg A-groep" of de naam van de training. */
+function tr_afgelast_voor(object $a): string
+{
+    if ((int) $a->ploeg_id) {
+        $p = ploeg((int) $a->ploeg_id);
+        return 'Ploeg ' . ($p ? $p->naam : '?');
+    }
+    if ((int) $a->moment_id) {
+        $m = tr_moment((int) $a->moment_id);
+        return $m ? $m->naam . ' (' . TR_DAGEN[$m->weekdag] . ')' : '?';
+    }
+    return 'Alle trainingen';
+}
+
 function tr_tijd(object $m): string
 {
     return substr($m->start, 0, 5) . '–' . substr($m->einde, 0, 5);
@@ -128,7 +219,7 @@ function tr_datums(object $m, string $van, string $tot): array
  */
 function tr_context(string $van, string $tot): object
 {
-    $c = (object) ['vast' => [], 'wijz' => [], 'afgelast' => [], 'bev' => []];
+    $c = (object) ['vast' => [], 'wijz' => [], 'afgelast' => [], 'bev' => [], 'ploegen' => tr_moment_ploegen(), 'seizoenen' => tr_seizoenen()];
     foreach (db()->get_results(db()->prepare("SELECT * FROM " . t('tr_vast') . " WHERE van<=%s AND (tot IS NULL OR tot>=%s) ORDER BY id", $tot, $van)) as $v) {
         $c->vast[(int) $v->moment_id][] = $v;
     }
@@ -150,10 +241,21 @@ function tr_bezetting(object $m, string $datum, object $c): object
 {
     $b = (object) ['moment' => $m, 'datum' => $datum, 'afgelast' => null, 'aanwezig' => [], 'afwezig' => [], 'open' => [],
         'bevestigd' => $c->bev[(int) $m->id][$datum] ?? []];
+    $ploegen = $c->ploegen[(int) $m->id] ?? [];
+    $verlof = [];
     foreach ($c->afgelast as $a) {
-        if (((int) $a->moment_id === 0 || (int) $a->moment_id === (int) $m->id) && $a->van <= $datum && $a->tot >= $datum) {
-            $b->afgelast = $a->reden ?: 'afgelast';
+        if ($a->van > $datum || $a->tot < $datum) {
+            continue;
         }
+        if ((int) $a->ploeg_id) {
+            $verlof[(int) $a->ploeg_id] ??= tr_afgelast_tekst($a);
+        } elseif ((int) $a->moment_id === 0 || (int) $a->moment_id === (int) $m->id) {
+            $b->afgelast ??= tr_afgelast_tekst($a);
+        }
+    }
+    // Verlof per ploeg: de training valt weg als al haar ploegen verlof hebben.
+    if ($b->afgelast === null && $ploegen && !array_diff($ploegen, array_keys($verlof))) {
+        $b->afgelast = $verlof[$ploegen[0]];
     }
     foreach ($c->vast[(int) $m->id] ?? [] as $v) {
         if ($v->van <= $datum && (!$v->tot || $v->tot >= $datum)) {
@@ -189,18 +291,73 @@ function tr_trainingen(string $van, string $tot): array
     $uit = [];
     foreach (tr_momenten($van, $tot) as $m) {
         foreach (tr_datums($m, $van, $tot) as $d) {
-            $uit[] = tr_bezetting($m, $d, $c);
+            if (tr_in_seizoen($d, $c->seizoenen)) {
+                $uit[] = tr_bezetting($m, $d, $c);
+            }
         }
     }
     usort($uit, fn($a, $b) => [$a->datum, $a->moment->start, $a->moment->naam] <=> [$b->datum, $b->moment->start, $b->moment->naam]);
     return $uit;
 }
 
-/** Is $m een geldig moment op $datum (juiste weekdag, binnen de periode)? */
+/** Is $m een geldig moment op $datum (juiste weekdag, binnen de periode en binnen het seizoen)? */
 function tr_geldig(object $m, string $datum): bool
 {
     $d = dag($datum);
-    return $d && (int) $d->format('N') === (int) $m->weekdag && $datum >= $m->van && (!$m->tot || $datum <= $m->tot);
+    return $d && (int) $d->format('N') === (int) $m->weekdag && $datum >= $m->van && (!$m->tot || $datum <= $m->tot) && tr_in_seizoen($datum);
+}
+
+/** De afgelaste trainingen in [van, tot], als ["moment|datum" => bezetting]. */
+function tr_afgelast_staat(string $van, string $tot): array
+{
+    $uit = [];
+    foreach ($van <= $tot ? tr_trainingen($van, $tot) : [] as $b) {
+        if ($b->afgelast) {
+            $uit["{$b->moment->id}|{$b->datum}"] = $b;
+        }
+    }
+    return $uit;
+}
+
+/**
+ * Voert $wijzig uit (een afgelasting toevoegen of verwijderen) en verwittigt de trainers van de komende trainingen
+ * in [van, tot] die daardoor wegvallen of toch doorgaan: één melding per trainer. Geeft [afgelast, gaat toch door] terug
+ * (aantal trainingen).
+ */
+function tr_wijzig_afgelast(callable $wijzig, string $van, string $tot, string $omschrijving): array
+{
+    $van = max($van, vandaag()->format('Y-m-d'));
+    $voor = tr_afgelast_staat($van, $tot);
+    $wijzig();
+    $na = tr_afgelast_staat($van, $tot);
+    $nieuw = array_diff_key($na, $voor);
+    $terug = array_diff_key($voor, $na);
+    $per_trainer = [];
+    foreach ([[$nieuw, 'af'], [$terug, 'terug']] as [$lijst, $soort]) {
+        foreach ($lijst as $b) {
+            foreach (array_keys($b->aanwezig) as $uid) {
+                $per_trainer[$uid][$soort][] = $b;
+            }
+        }
+    }
+    $wanneer = function (array $lijst): string {
+        return count($lijst) === 1 ? tr_moment_kort($lijst[0]->moment, $lijst[0]->datum)
+            : count($lijst) . ' trainingen van ' . datum($lijst[0]->datum, 'j/m') . ' tot ' . datum(end($lijst)->datum, 'j/m');
+    };
+    foreach ($per_trainer as $uid => $w) {
+        if (!voorkeur($uid, 'push_afgelast')) {
+            continue;
+        }
+        if (!empty($w['af'])) {
+            stuur([$uid], 'Training afgelast', "$omschrijving: " . $wanneer($w['af']) . (count($w['af']) === 1 ? ' gaat' : ' gaan') . ' niet door.',
+                app_url('trainers/'));
+        }
+        if (!empty($w['terug'])) {
+            stuur([$uid], 'Training gaat toch door', $wanneer($w['terug']) . (count($w['terug']) === 1 ? ' gaat' : ' gaan') . ' toch door.',
+                app_url('trainers/'));
+        }
+    }
+    return [count($nieuw), count($terug)];
 }
 
 // ---------- aanwezigheid ----------

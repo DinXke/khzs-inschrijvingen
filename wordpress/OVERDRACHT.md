@@ -76,6 +76,22 @@ Gekozen werking (details in `wordpress/README.md`, *Module Trainers*):
 - **Niet getest op een echt toestel**: de knoppen in de melding (Android/Chrome en desktop ondersteunen ze; iPhone toont geen knoppen en opent dan het scherm).
 - **Bewust niet gedaan**: een wijziging aan het rooster zelf (uur, afgelasting) geeft geen persoonlijke melding; wettelijke plafonds blijven buiten de plugin.
 
+## Trainers: verlof per ploeg en seizoen (branch `wordpress/trainers-verlof-seizoen`)
+
+Vraag van de eigenaar: *"de mogelijkheid toevoegen om verlofperiodes in te stellen per groep enzo zou ook handig zijn, begin en einde seizoen,..."*
+
+- **Branch**: vertrekt van `wordpress/trainers-aanwezigheid` (PR #13) met `origin/feature/ploegen` (PR #9, bovenop #7) erin gemerged. Hangt dus af van #9 en #13. Enige botsing: `tests/test_e2e.py` (beide voegden testklassen toe; allebei behouden).
+- **Ploeg per training**: nieuwe tabel `tr_moment_ploegen` (moment, ploeg; meerdere ploegen per training kan). Vinkjes in het formulier van de training (`views/_moment_velden.php`). Zonder ploeg = voor iedereen.
+- **Verlof per ploeg**: `tr_afgelast` kreeg de kolommen `ploeg_id`, `soort` (vakantie, verlof, zwembad, ander: `TR_AFGELAST_SOORT`), `door_id` en `aangemaakt` (via `TR_DB_VERSIE` 3, dbDelta). Eén rij geldt voor één training (`moment_id`), een ploeg (`ploeg_id`) of alles (beide 0). In `tr_bezetting()`: een training valt weg door ploegverlof als **al** haar ploegen verlof hebben (een gedeelde training gaat door zolang één ploeg traint). Een training zonder ploeg valt enkel weg door een afgelasting voor alles of voor die training.
+- **Seizoen: apart, niet via `tr_afgelast`.** Nieuwe tabel `tr_seizoenen` (naam, van, tot). `tr_in_seizoen()` filtert in `tr_trainingen()` en `tr_geldig()`, dus buiten het seizoen bestaat een training gewoon niet: niet in planning, *Mijn trainingen*, uren, Excel of `tr_vraag_aanwezigheid()`, en de trainingspagina geeft 404. Waarom apart: een afgelasting blijft zichtbaar met een reden, terwijl een zomerstop niet als honderd afgelaste trainingen in de planning hoort te staan.
+  - Zonder seizoenen verandert er niets. Dagen **vóór het begin van het eerste seizoen** tellen als *in seizoen*: zo verdwijnen de bestaande (en uitbetaalde) uren niet als het bestuur pas nu een seizoen invoert.
+  - Valt vandaag buiten elk seizoen, dan toont de beheerpagina een waarschuwing (*Voeg het volgende seizoen toe…* als het laatste voorbij is).
+- **Wie**: de beheerpagina `/leden/trainers/beheer/` en de trainingspagina `/leden/trainers/moment/<id>/` gebruiken nu `tr_vereist_beheer()` (bestuur **en** secretariaat) in plaats van `vereist_rol(SECRETARIAAT)`. De knop *Trainingen beheren* staat er voor wie `tr_mag_beheren()`.
+- **Melding**: `tr_wijzig_afgelast()` vergelijkt de afgelaste trainingen vanaf vandaag vóór en na de wijziging en stuurt elke betrokken trainer één push (*Training afgelast* of *Training gaat toch door*). Nieuwe voorkeur `push_afgelast` (standaard aan, enkel staf).
+- **Buiten `modules/trainers/`**: `includes/ploegen.php` roept `do_action('khzs_ploeg_verwijderd', $id)` als een ploeg verwijderd wordt; de trainersmodule ruimt dan de koppelingen en het verlof van die ploeg op (de trainingen blijven).
+- **Tests**: nieuwe klasse `VerlofSeizoenTest` (2 scenario's: verlof per ploeg met meldingen, gedeelde training, geen vraag, verwijderen, voorkeur uit, ploeg verwijderen, ongeldige invoer; en seizoenen met overlap, planning, 404, vraag, uren, waarschuwing en terug zonder seizoen). Alle e2e-tests groen op een Docker-testsite.
+- **Niet gedaan**: seizoenen en verlof zitten niet in de Django-versie (de trainersmodule bestaat enkel in WordPress). Verlof voor een zwemmer (in plaats van een ploeg) en een kalenderweergave van de vakanties zijn mogelijke volgende stappen.
+
 ## Stand van zaken (14/11/2026, eind van de dag)
 
 - **Alles staat op `main`**, samengevoegd op vraag van de eigenaar via vijf pull requests:
