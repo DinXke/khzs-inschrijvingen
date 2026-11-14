@@ -36,6 +36,7 @@ require_once KHZS_PAD . 'includes/admin.php';
 require_once KHZS_PAD . 'includes/pwa.php';
 // Demo op /leden-demo/ (eigen tabellen en accounts); moet vóór de modules geladen worden.
 require_once KHZS_PAD . 'includes/demo.php';
+require_once KHZS_PAD . 'includes/update.php';
 
 // ---------- modules ----------
 // De tabellen van elke module worden altijd geladen (ook uitgeschakeld blijven de gegevens bewaard en in de backup);
