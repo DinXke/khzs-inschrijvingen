@@ -19,15 +19,21 @@ class Profiel(models.Model):
     """Voorkeuren van een account. De rollen staan in Rol (meerdere per account); `rol` is de hoofdrol:
     de hoogste rol van het account, bijgehouden door rollen.zet_rollen() (voor weergave en oude backups)."""
 
-    ZWEMMER, OUDER, TRAINER, SECRETARIS, BESTUURDER, BEHEERDER = (
-        "zwemmer", "ouder", "trainer", "secretaris", "bestuurder", "beheerder")
+    # TRAINER is de trainer van de competitie (de sleutel "trainer" bleef, zodat bestaande trainers niets verliezen).
+    # TRAINER_ZWEMSCHOOL ziet geen wedstrijdzaken, enkel de ploegen van de zwemschool (en in WordPress de trainingen).
+    ZWEMMER, OUDER, TRAINER, TRAINER_ZWEMSCHOOL, SECRETARIS, BESTUURDER, BEHEERDER = (
+        "zwemmer", "ouder", "trainer", "trainer_zwemschool", "secretaris", "bestuurder", "beheerder")
     # Volgorde = van hoog naar laag; de eerste rol die een account heeft, is de hoofdrol.
     # Een nieuwe rol: hier toevoegen, en in de groepen hieronder als ze rechten geeft.
-    ROLLEN = [(BEHEERDER, "Beheerder"), (SECRETARIS, "Sportsecretaris"), (TRAINER, "Trainer"), (BESTUURDER, "Bestuurder"),
+    ROLLEN = [(BEHEERDER, "Beheerder"), (SECRETARIS, "Sportsecretaris"), (TRAINER, "Trainer competitie"),
+              (TRAINER_ZWEMSCHOOL, "Trainer zwemschool"), (BESTUURDER, "Bestuurder"),
               (OUDER, "Ouder"), (ZWEMMER, "Zwemmer")]
     # Rollen met de rechten van het sportsecretariaat; de beheerder kan daarnaast backups en beheer.
     SECRETARIAAT = (SECRETARIS, BEHEERDER)
+    # Wedstrijdstaf: nakijken, inschrijven voor anderen, uitslagen. Zonder de trainers van de zwemschool.
     STAF = (TRAINER, SECRETARIS, BEHEERDER)
+    # Beide soorten trainers (ploegen trainen).
+    TRAINERS = (TRAINER, TRAINER_ZWEMSCHOOL)
     # Wie rollen toekent, afneemt en aanvragen behandelt (scherm Gebruikers).
     ROLBEHEER = (SECRETARIS, BESTUURDER, BEHEERDER)
     # Rollen die een lid zelf krijgt, zonder goedkeuring: ze geven enkel toegang tot de eigen zwemmers.
@@ -35,10 +41,11 @@ class Profiel(models.Model):
     # Rollen met eigen zwemmers: zij krijgen de meldingen voor zwemmers (nieuwe wedstrijd, deadline).
     GEZIN = (ZWEMMER, OUDER)
     # Rollen die een lid kan aanvragen (beheerder wordt enkel toegekend).
-    AANVRAAGBAAR = (ZWEMMER, OUDER, TRAINER, SECRETARIS, BESTUURDER)
+    AANVRAAGBAAR = (ZWEMMER, OUDER, TRAINER, TRAINER_ZWEMSCHOOL, SECRETARIS, BESTUURDER)
     # Wie ploegen aanmaakt, trainers aanduidt en leden indeelt.
     PLOEGBEHEER = (SECRETARIS, BESTUURDER, BEHEERDER)
-    # Wie alle ploegen (en later hun kanalen) ziet; gewone leden zien enkel de ploegen van hun zwemmers.
+    # Wie alle ploegen (en later hun kanalen) ziet; gewone leden zien enkel de ploegen van hun zwemmers. Een trainer van
+    # de zwemschool ziet de ploegen van de zwemschool (ploegen.py).
     ALLE_PLOEGEN = (TRAINER, SECRETARIS, BESTUURDER, BEHEERDER)
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profiel")
@@ -364,7 +371,8 @@ class Melding(models.Model):
         if not self.door:
             return "De club"
         from .rollen import hoofdrol
-        rol = ROL_NAAM.get(hoofdrol(self.door), "")
+        rol = hoofdrol(self.door)
+        rol = "Trainer" if rol in Profiel.TRAINERS else ROL_NAAM.get(rol, "")  # voor ouders: gewoon "Trainer Tom"
         naam = self.door.first_name or self.door.username
         return f"{rol} {naam}".strip()
 
@@ -445,8 +453,13 @@ class Bijlage(models.Model):
 class Ploeg(models.Model):
     """Een ploeg of trainingsgroep (A-groep, B-groep, masters…). Basis voor de latere communicatie per ploeg."""
 
+    COMPETITIE, ZWEMSCHOOL = "competitie", "zwemschool"
+    SOORTEN = [(COMPETITIE, "Competitie"), (ZWEMSCHOOL, "Zwemschool")]
+
     naam = models.CharField(max_length=60, unique=True)
     beschrijving = models.CharField(max_length=200, blank=True)
+    soort = models.CharField(max_length=12, choices=SOORTEN, default=COMPETITIE,
+                             help_text="De trainers van de zwemschool zien alle ploegen van de zwemschool.")
     trainers = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="getrainde_ploegen")
     actief = models.BooleanField(default=True, help_text="Een gearchiveerde ploeg kan je niet meer kiezen; de leden blijven bewaard.")
     aangemaakt = models.DateTimeField(auto_now_add=True)

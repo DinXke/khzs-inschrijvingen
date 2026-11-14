@@ -1264,6 +1264,141 @@ class VerlofSeizoenTest(TrainersBasis):
         self.assertEqual(len(self.trainingen("2027-07-01", "2027-07-31")), 4)
 
 
+class SoortenKalenderTest(TrainersBasis):
+    """Trainers van de zwemschool en van de competitie, en de kalender (dag, week, maand)."""
+
+    def setUp(self):
+        super().setUp()
+        self.bestuur = gebruiker("bestuur@khzs.be", first_name="Bert")
+        exe(f"INSERT INTO wp_usermeta (user_id, meta_key, meta_value) VALUES ({self.bestuur}, 'khzs_rollen', 'bestuurder')")
+        self.b = Klant().login("bestuur@khzs.be")
+        self.b.vandaag = "2026-09-16"
+
+    def tekst(self, r):
+        return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", r.text))
+
+    def test_trainer_zwemschool_ziet_geen_wedstrijden(self):
+        zs = gebruiker("zs@khzs.be", "trainer_zwemschool", first_name="Zoë")
+        z = Klant().login("zs@khzs.be")
+        z.vandaag = "2026-09-01"
+        # Startpagina is Trainingen; geen menu Wedstrijden, geen nakijken of uitslagen.
+        r = z.get("")
+        self.assertEqual(r.status_code, 302)
+        self.assertTrue(r.headers["Location"].endswith("/leden/trainers/"), r.headers["Location"])
+        self.assertEqual(z.get("wedstrijden/").status_code, 302)
+        menu = z.get("trainers/").text.replace("\n", "")
+        self.assertIn(">Trainingen</a>", menu)
+        self.assertIn(">Ploegen</a>", menu)
+        self.assertNotIn(">Wedstrijden</a>", menu)
+        self.assertEqual(z.get("zwemmers/uitslagen/").status_code, 403)
+        # Wel: eigen schema, aanwezigheid en de meldingen voor trainers.
+        z.post("trainers/vast/", {"moment": self.m, "aan": 1})
+        self.assertEqual(int(een(f"SELECT COUNT(*) FROM {{p}}tr_vast WHERE user_id={zs}")), 1)
+        self.assertContains(z.get("trainers/"), "Ik geef training")
+        self.assertContains(z.get("meldingen/"), "Na een training: was je aanwezig?")
+        # Ploegen: de ploegen van de zwemschool wel, die van de competitie niet. Ze kan trainer van een ploeg zijn.
+        self.b.post("ploegen/", {"naam": "A-groep", "soort": "competitie", "trainers[]": [self.tom], "actief": "on"})
+        self.b.post("ploegen/", {"naam": "Zwemschool rood", "soort": "zwemschool", "trainers[]": [zs], "actief": "on"})
+        self.b.post("ploegen/", {"naam": "Zwemschool geel", "soort": "zwemschool", "actief": "on"})
+        pa = int(een("SELECT id FROM {p}ploegen WHERE naam='A-groep'"))
+        rood = int(een("SELECT id FROM {p}ploegen WHERE naam='Zwemschool rood'"))
+        self.assertEqual(een(f"SELECT soort FROM {{p}}ploegen WHERE id={rood}"), "zwemschool")
+        self.assertEqual(een(f"SELECT soort FROM {{p}}ploegen WHERE id={pa}"), "competitie")
+        self.assertEqual(int(een(f"SELECT user_id FROM {{p}}ploeg_trainers WHERE ploeg_id={rood}")), zs)
+        r = z.get("ploegen/")
+        self.assertContains(r, "Zwemschool rood")
+        self.assertContains(r, "Zwemschool geel")
+        self.assertNotContains(r, "A-groep")
+        self.assertEqual(z.get(f"ploegen/{pa}/").status_code, 403)
+        self.assertContains(z.get(f"ploegen/{rood}/"), "<h1>Zwemschool rood")  # _layout.php overschreef $p (de ploeg)
+        # Een trainer van de competitie houdt alles, ook alle ploegen.
+        self.assertEqual(self.t.get("wedstrijden/").status_code, 200)
+        self.assertEqual(self.t.get("zwemmers/uitslagen/").status_code, 200)
+        self.assertContains(self.t.get("ploegen/"), "Zwemschool geel")
+        # Een trainer van de zwemschool die ook ouder is, ziet de wedstrijden voor de eigen kinderen.
+        beide = gebruiker("beide@khzs.be")
+        exe(f"INSERT INTO wp_usermeta (user_id, meta_key, meta_value) VALUES ({beide}, 'khzs_rollen', 'trainer_zwemschool,ouder')")
+        k = Klant().login("beide@khzs.be")
+        self.assertEqual(k.get("wedstrijden/").status_code, 200)
+        self.assertEqual(k.get("zwemmers/uitslagen/").status_code, 403)
+        # De rol aanvragen kan in het stappenplan en bij Mijn rollen.
+        self.assertContains(z.get("rollen/"), "Trainer competitie")
+        nieuw = Klant()
+        registreer(nieuw, "nieuw@khzs.be")
+        nieuw.post("welkom/", {"rollen[]": ["trainer_zwemschool"]}, query={"stap": "staf"})
+        self.assertEqual(een("SELECT rol FROM {p}rolaanvragen WHERE status='open'"), "trainer_zwemschool")
+
+    def test_kalender(self):
+        # Woensdag: B-groep met Lies. Tom (A-groep, maandag) meldt zich af op 14/9, Lies neemt over.
+        self.s.post("trainers/beheer/", {"wat": "moment", "naam": "B-groep", "weekdag": 3, "start": "17:00", "einde": "18:00",
+                                         "locatie": "Klein bad", "van": "2026-09-01"})
+        mb = int(een("SELECT id FROM {p}tr_momenten WHERE naam='B-groep'"))
+        self.l.post("trainers/vast/", {"moment": mb, "aan": 1})
+        self.actie(self.t, "afwezig", "2026-09-14", reden="ziek")
+        self.actie(self.l, "overnemen", "2026-09-14", vervangt=self.tom)
+        self.t.vandaag = "2026-09-16"
+
+        # Week (standaard), eigen trainingen: de A-groep op 14/9 met de vervanger, niet de B-groep van Lies.
+        r = self.t.get("trainers/kalender/")
+        self.assertEqual(r.status_code, 200, r.text[:1500])
+        t = self.tekst(r)
+        self.assertIn("14 Sep – 20 Sep 2026", t)
+        self.assertIn("A-groep", t)
+        self.assertIn("Lies voor Tom", t)
+        self.assertIn('<s title="afgemeld">Tom</s>', r.text)
+        self.assertNotIn(">B-groep</strong>", r.text)
+        self.assertIn(f"/trainers/training/{self.m}/2026-09-14/", r.text)  # openen om te bevestigen of aan te passen
+        # Filter naar alle trainingen.
+        self.assertIn(">B-groep</strong>", self.t.get("trainers/kalender/", wie="alle").text)
+        # Een trainer kan niet op een andere trainer filteren: dat wordt de eigen kalender.
+        self.assertNotIn(">B-groep</strong>", self.t.get("trainers/kalender/", wie=str(self.lies)).text)
+
+        # Maand: vier maandagen in september (7, 14, 21, 28); de grid loopt van 31/8 tot 4/10.
+        r = self.t.get("trainers/kalender/", weergave="maand", datum="2026-09-10")
+        self.assertEqual(r.text.count(">A-groep</strong>"), 4)
+        self.assertIn("september 2026", self.tekst(r))
+        self.assertEqual(r.text.count('class="tr-k-cel'), 35)
+        self.assertIn("weergave=dag&#038;datum=2026-09-21", r.text)
+
+        # Dag: 7/9 is voorbij en niet bevestigd → meteen bevestigen vanuit de kalender.
+        r = self.t.get("trainers/kalender/", weergave="dag", datum="2026-09-07")
+        self.assertIn("niet bevestigd", r.text)
+        self.assertIn("✓ Ja", r.text)
+        terug = APP + "trainers/kalender/?weergave=dag&datum=2026-09-07"
+        r = self.actie(self.t, "ja", "2026-09-07", terug=terug)
+        self.assertEqual(r.headers["Location"], terug)
+        self.assertEqual(een(f"SELECT aanwezig FROM {{p}}tr_bevestigingen WHERE user_id={self.tom} AND datum='2026-09-07'"), "1")
+        self.assertIn("aanwezig", self.t.get("trainers/kalender/", weergave="dag", datum="2026-09-07").text)
+        # In de week staan de vinkjes van de bevestiging (✓) bij de naam en het blok is 'aanwezig'.
+        r = self.t.get("trainers/kalender/", datum="2026-09-07")
+        self.assertIn('<span class="tr-merk ja">✓</span>', r.text)
+        self.assertIn("tr-k-blok mijn st-ja", r.text)
+        # Toekomst: afmelden kan vanuit de dagweergave.
+        r = self.t.get("trainers/kalender/", weergave="dag", datum="2026-09-21")
+        self.assertIn("Kan niet", r.text)
+        # Op een lege dag.
+        self.assertIn("Je hebt geen training op deze dag.", self.t.get("trainers/kalender/", weergave="dag", datum="2026-09-22").text)
+
+        # Bestuur: standaard alles, filteren op trainer of op ploeg.
+        r = self.b.get("trainers/kalender/")
+        self.assertIn(">A-groep</strong>", r.text)
+        self.assertIn(">B-groep</strong>", r.text)
+        r = self.b.get("trainers/kalender/", wie=str(self.lies))
+        self.assertIn(">B-groep</strong>", r.text)
+        self.assertIn(">A-groep</strong>", r.text)  # Lies vervangt Tom op 14/9
+        r = self.b.get("trainers/kalender/", wie=str(self.lies), datum="2026-09-23")
+        self.assertNotIn(">A-groep</strong>", r.text)
+        pa = exe("INSERT INTO {p}ploegen (naam, beschrijving, soort, actief, aangemaakt) VALUES ('A-ploeg', '', 'competitie', 1, NOW())")["id"]
+        exe(f"INSERT INTO {{p}}tr_moment_ploegen (moment_id, ploeg_id) VALUES ({self.m}, {pa})")
+        r = self.b.get("trainers/kalender/", ploeg=str(pa))
+        self.assertIn(">A-groep</strong>", r.text)
+        self.assertNotIn(">B-groep</strong>", r.text)
+        self.assertIn("A-ploeg", r.text)
+        # Een onbekende weergave wordt de week; wie geen trainer of bestuur is, kan niet binnen.
+        self.assertIn("14 Sep – 20 Sep 2026", self.tekst(self.b.get("trainers/kalender/", weergave="jaar")))
+        self.assertEqual(Klant().login("ouder@khzs.be").get("trainers/kalender/").status_code, 403)
+
+
 class RollenTest(Basis):
     """Meerdere rollen per account: aanvragen, goedkeuren, afkeuren, een andere rol geven (zoals test_rollen.py in Django)."""
 
@@ -1302,7 +1437,7 @@ class RollenTest(Basis):
         push = hulp("push")[-1]["bericht"]
         self.assertIn("goedgekeurd", push["tekst"])
         self.assertTrue(push["url"].endswith("/leden/rollen/"))
-        self.assertContains(self.l.get("meldingen/"), "Je aanvraag voor de rol trainer is goedgekeurd.")
+        self.assertContains(self.l.get("meldingen/"), "Je aanvraag voor de rol trainer competitie is goedgekeurd.")
         self.l.get("rollen/")
         self.assertNotContains(self.l.get("meldingen/"), "is goedgekeurd")
         self.assertEqual(self.l.get("zwemmers/uitslagen/").status_code, 200)
@@ -1346,7 +1481,7 @@ class RollenTest(Basis):
         r = k.post("welkom/", {"rollen[]": ["trainer", "beheerder"], "motivatie": "B-groep"}, query={"stap": "staf"})
         self.assertTrue(r.headers["Location"].endswith("stap=klaar"))
         self.assertEqual(sql(f"SELECT rol, motivatie FROM {{p}}rolaanvragen WHERE user_id={uid}"), [{"rol": "trainer", "motivatie": "B-groep"}])
-        self.assertContains(k.get("welkom/", stap="klaar"), "Trainer (wacht)")
+        self.assertContains(k.get("welkom/", stap="klaar"), "Trainer competitie (wacht)")
 
     def test_rechtstreeks_en_rechten_bestuurder(self):
         a = self.aanvraag()
@@ -1694,6 +1829,30 @@ class DemoTest(Basis):
         hulp("cache")
         self.d.get("wedstrijden/")
         self.assertEqual(demo_aantal("zwemmers"), n)
+
+    def test_soorten_trainers_ploegen_en_kalender(self):
+        # Nina is enkel trainer van de zwemschool: ze start bij Trainingen en ziet geen wedstrijden.
+        n = DemoKlant().login("nina")
+        r = n.get("")
+        self.assertTrue(r.headers["Location"].endswith("/leden-demo/trainers/"), r.headers["Location"])
+        menu = n.get("trainers/").text.replace("\n", "")
+        self.assertNotIn(">Wedstrijden</a>", menu)
+        pl = self.tekst(n.get("ploegen/"))
+        self.assertIn("Zwemschool Startersgroep", pl)
+        self.assertNotIn("Kern", pl)
+        # Lotte is beide: ze ziet de wedstrijden en alle ploegen.
+        lotte = DemoKlant().login("lotte")
+        self.assertEqual(lotte.get("wedstrijden/").status_code, 200)
+        self.assertIn("Kern", self.tekst(lotte.get("ploegen/")))
+        # Ploegen met hun zwemmers en trainingen; de kalender toont de bevestigingen van voorbije trainingen.
+        self.assertGreater(demo_aantal("ploegleden"), 10)
+        self.assertGreater(demo_aantal("tr_moment_ploegen"), 20)
+        self.assertGreater(demo_aantal("tr_bevestigingen"), 100)
+        r = self.d.get("trainers/kalender/", weergave="maand")
+        self.assertEqual(r.status_code, 200)
+        r = self.d.get("trainers/kalender/", wie="alle", datum="2026-11-04")
+        self.assertIn('<span class="tr-merk ja">✓</span>', r.text)
+        self.assertIn("Zwemschool Groep 4 (rood)", self.tekst(self.d.get("trainers/kalender/", wie="alle", weergave="dag", datum="2026-11-14")))
 
     def test_demo_uit(self):
         # Zonder KHZS_DEMO bestaat de demo niet, ook niet via een oude rewrite-regel (nooit de echte app op dit adres).

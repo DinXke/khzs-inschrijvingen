@@ -22,7 +22,7 @@
   <button type="button" class="thema-knop" id="thema" title="Licht / donker / automatisch" aria-label="Thema wisselen"></button>
   {% if user.is_authenticated %}
   <nav>
-    <a href="{% url 'wedstrijden' %}" class="{% if p in 'wedstrijden wedstrijd nakijken instellingen upload' %}actief{% endif %}">Wedstrijden</a>
+    {% if not zonder_wedstrijden %}<a href="{% url 'wedstrijden' %}" class="{% if p in 'wedstrijden wedstrijd nakijken instellingen upload' %}actief{% endif %}">Wedstrijden</a>{% endif %}
     <a href="{% url 'zwemmers' %}" class="{% if p in 'zwemmers zwemmer zwemmer_nieuw' %}actief{% endif %}">{% if is_staf %}Zwemmers{% else %}Mijn zwemmers{% endif %}</a>
     {% if ziet_ploegen %}<a href="{% url 'ploegen' %}" class="{% if p in 'ploegen ploeg' %}actief{% endif %}">Ploegen{% if open_ploegaanvragen %} <span class="badge wacht" title="Ploegaanvragen">{{ open_ploegaanvragen }}</span>{% endif %}</a>{% endif %}
     {% if is_rolbeheerder %}<a href="{% url 'gebruikers' %}" class="{% if p == 'gebruikers' %}actief{% endif %}">Gebruikers{% if open_rolaanvragen %} <span class="badge wacht" title="Rolaanvragen">{{ open_rolaanvragen }}</span>{% endif %}</a>{% endif %}
@@ -41,8 +41,8 @@
 </main>
 {% if user.is_authenticated %}
 <nav class="tabbalk">
-  <a href="{% url 'wedstrijden' %}" class="{% if p in 'wedstrijden wedstrijd nakijken instellingen upload' %}actief{% endif %}">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Wedstrijden</a>
+  {% if not zonder_wedstrijden %}<a href="{% url 'wedstrijden' %}" class="{% if p in 'wedstrijden wedstrijd nakijken instellingen upload' %}actief{% endif %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Wedstrijden</a>{% endif %}
   <a href="{% url 'zwemmers' %}" class="{% if p in 'zwemmers zwemmer zwemmer_nieuw' %}actief{% endif %}">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>{% if is_staf %}Zwemmers{% else %}Profiel{% endif %}</a>
   {% if ziet_ploegen %}<a href="{% url 'ploegen' %}" class="{% if p in 'ploegen ploeg' %}actief{% endif %}">

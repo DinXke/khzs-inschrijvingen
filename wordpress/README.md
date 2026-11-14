@@ -37,14 +37,17 @@ Een account kan **meerdere rollen** hebben (bv. ouder én trainer); de rechten t
 |---|---|
 | Zwemmer | zijn of haar zwemmers inschrijven |
 | Ouder | hetzelfde als zwemmer: de eigen zwemmers inschrijven |
-| Trainer | inschrijvingen nakijken; in *Trainingen* aanduiden welke trainingen hij of zij geeft, afmelden, overnemen, eigen uren bekijken |
+| Trainer competitie | inschrijvingen nakijken, uitslagen; in *Trainingen* aanduiden welke trainingen hij of zij geeft, afmelden, overnemen, eigen uren bekijken; alle ploegen zien (sleutel `trainer`) |
+| Trainer zwemschool | enkel *Trainingen* (schema, aanwezigheid, uren, kalender) en de ploegen van de zwemschool; geen wedstrijden, nakijken of uitslagen (sleutel `trainer_zwemschool`) |
 | Bestuurder | leden en rollen beheren: rolaanvragen goedkeuren of afkeuren, rollen toekennen en afnemen (geen wedstrijden of inschrijvingen) |
 | Sportsecretaris | wedstrijden, export, rollen, trainingsrooster beheren, de planning van anderen corrigeren |
 | Beheerder | alles, plus backup (WordPress-beheerders zijn dit altijd) |
 
 **Rollen aanvragen**: bij het registreren of later via *Mijn rollen* (`/leden/rollen/`). Zwemmer en ouder krijg je meteen; trainer, sportsecretaris en bestuurder worden een aanvraag. Bestuurders, sportsecretarissen en beheerders zien de aanvragen bovenaan *Gebruikers* en kunnen goedkeuren, afkeuren (met reden) of een andere rol geven. Het lid krijgt een melding in de app en een pushmelding. Enkel een beheerder kan beheerders aanstellen of wijzigen.
 
-**Ploegen** (A-groep, B-groep, masters…) beheer je in de app onder *Ploegen* (`/leden/ploegen/`): bestuurders, sportsecretarissen en beheerders maken ploegen aan en duiden de trainers aan. De zwemmer of ouder kiest een ploeg bij de zwemmer; een trainer van die ploeg of het bestuur keurt goed of af. Trainers, bestuur en beheer zien alle ploegen, leden enkel de ploegen van hun zwemmers. Tabellen: `khzs_ploegen`, `khzs_ploeg_trainers`, `khzs_ploegleden`.
+**Twee soorten trainers.** Een trainer van de zwemschool is niet met wedstrijden bezig. Wie enkel die rol heeft (geen zwemmer, ouder of wedstrijdstaf), ziet geen menu *Wedstrijden* en start bij *Trainingen* (`zonder_wedstrijden()` in `includes/kern.php`). Wie beide doet, krijgt beide rollen. Bestaande trainers zijn trainer van de competitie: de sleutel `trainer` bleef dezelfde, enkel de naam veranderde. Wedstrijdrechten gaan via `STAF` (zonder zwemschool), de trainersmodule via `TR_STAF` (beide soorten).
+
+**Ploegen** (A-groep, B-groep, masters…) beheer je in de app onder *Ploegen* (`/leden/ploegen/`): bestuurders, sportsecretarissen en beheerders maken ploegen aan en duiden de trainers aan. De zwemmer of ouder kiest een ploeg bij de zwemmer; een trainer van die ploeg of het bestuur keurt goed of af. Een ploeg is van de **competitie** of van de **zwemschool** (kolom `soort`). Trainers van de competitie, bestuur en beheer zien alle ploegen; een trainer van de zwemschool ziet de ploegen van de zwemschool en de ploegen die hij of zij traint; leden enkel de ploegen van hun zwemmers. Tabellen: `khzs_ploegen`, `khzs_ploeg_trainers`, `khzs_ploegleden`.
 
 **Registratie in stappen**: het formulier vraagt enkel het account. Daarna volgt `/leden/welkom/`: zwem je zelf, heb je kinderen die zwemmen (met ploeg of koppelcode), help je mee bij de club. Een nieuw account start zonder rol; zwemmer of ouder volgt uit de antwoorden.
 
@@ -84,6 +87,10 @@ Een zwemmer kan bij meerdere accounts horen, bv. bij gescheiden ouders.
 - **Eigen schema**: elke trainer duidt in *Trainingen* zelf aan welke trainingen hij of zij normaal geeft, met een datum *vanaf* (starten) of *niet meer vanaf* (stoppen).
   - Een datum in het verleden kan tot het begin van vorige maand, maar niet in een maand die voor die trainer al uitbetaald is. Die voorbije trainingen moet de trainer daarna nog bevestigen.
   - Het bestuur en het secretariaat kunnen het schema van elke trainer aanpassen, zonder grens in de tijd.
+- **Kalender** (*Trainingen → Kalender*, `/leden/trainers/kalender/`): de trainingen per **dag**, **week** (standaard) of **maand**, met wie ingepland is, wie zich afmeldde (doorstreept), wie vervangt (*Lies voor Tom*), *vervanger gezocht*, afgelaste trainingen en de bevestiging van aanwezigheid (✓ aanwezig, ✗ niet aanwezig, ? niet bevestigd).
+  - Een trainer ziet standaard de eigen trainingen en kan naar *Alle trainingen*. Het bestuur en het secretariaat zien standaard alles en filteren op een trainer of een ploeg.
+  - Een training openen (tik op het blokje) gaat naar de trainingspagina om te bevestigen, af te melden of aan te passen. In de dagweergave staan die knoppen meteen bij de training.
+  - Op de gsm staan de dagen van de week onder elkaar (lege dagen verborgen) en toont de maand per dag gekleurde streepjes; tik op een dag voor de dagweergave. Geen externe bibliotheken: eigen HTML en CSS (`views/kalender.php`, `views/_stijl.php`).
 - **Afmelden en vervangen** (één specifieke training):
   - Een trainer die niet kan, tikt *Kan niet* en geeft eventueel een reden. Collega's krijgen een pushmelding en zien de training bij *Vervanger gezocht*.
   - Wie *Ik neem over* tikt, wordt vervanger. De afgemelde trainer krijgt daarvan een melding.

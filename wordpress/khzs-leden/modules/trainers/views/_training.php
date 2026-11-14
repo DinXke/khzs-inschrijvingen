@@ -25,7 +25,11 @@ $_knop = function (string $actie, string $label, string $klasse = 'mini secundai
       foreach ($b->aanwezig as $id => [$soort, $vervangt]) {
           $_st = $_af && !$b->afgelast ? tr_status($b, $id) : '';
           $namen[] = e(tr_voornaam($id)) . ($soort === 'extra' ? ' <i>(extra)</i>' : '')
+              . ($soort === 'vervanger' && $vervangt ? ' <i>(voor ' . e(tr_voornaam($vervangt)) . ')</i>' : '')
               . ($_st ? '<span class="tr-merk ' . $_st . '" title="' . esc_attr(TR_STATUS[$_st]) . '">' . ['ja' => '✓', 'nee' => '✗', 'open' => '?'][$_st] . '</span>' : '');
+      }
+      foreach ($b->afwezig as $id => $_r) {
+          $namen[] = '<s title="afgemeld">' . e(tr_voornaam($id)) . '</s>';
       }
       echo $namen ? '👥 ' . implode(', ', $namen) : '';
       foreach ($b->open as $id) {

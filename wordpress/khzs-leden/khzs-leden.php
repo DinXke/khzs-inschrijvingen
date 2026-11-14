@@ -15,7 +15,7 @@ namespace KHZS;
 defined('ABSPATH') || exit;
 
 const VERSIE = '2.0.0';
-const DB_VERSIE = '5';
+const DB_VERSIE = '6';
 define('KHZS_PAD', plugin_dir_path(__FILE__));
 define('KHZS_URL', plugin_dir_url(__FILE__));
 

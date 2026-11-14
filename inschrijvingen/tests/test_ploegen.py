@@ -146,3 +146,58 @@ class PloegenTest(TestCase):
         self.client.post("/welkom/?stap=kinderen", {"actie": "kind", "voornaam": "Mo", "naam": "Q", "geboortedatum": "2014-05-05",
                                                     "geslacht": "M", "ploeg": self.b.pk})
         self.assertEqual(PloegLid.objects.get(zwemmer__voornaam="Mo").status, PloegLid.OPEN)
+
+
+class TrainerZwemschoolTest(TestCase):
+    """Twee soorten trainers: de trainer van de zwemschool ziet geen wedstrijdzaken, wel de ploegen van de zwemschool."""
+
+    def setUp(self):
+        self.bestuur = account("bestuur@khzs.be", Profiel.BESTUURDER)
+        self.comp = account("comp@khzs.be", Profiel.TRAINER)
+        self.zs = account("zs@khzs.be", Profiel.TRAINER_ZWEMSCHOOL)
+        self.zs_ouder = account("zsouder@khzs.be", Profiel.TRAINER_ZWEMSCHOOL, Profiel.OUDER)
+        self.client.force_login(self.bestuur)
+        self.client.post("/ploegen/", {"naam": "A-groep", "trainers": [self.comp.pk], "actief": "on"})
+        self.client.post("/ploegen/", {"naam": "Zwemschool rood", "soort": "zwemschool", "trainers": [self.zs.pk], "actief": "on"})
+        self.client.post("/ploegen/", {"naam": "Zwemschool geel", "soort": "zwemschool", "actief": "on"})
+        self.a = Ploeg.objects.get(naam="A-groep")
+        self.rood, self.geel = Ploeg.objects.get(naam="Zwemschool rood"), Ploeg.objects.get(naam="Zwemschool geel")
+
+    def test_soort_en_trainers(self):
+        self.assertEqual(self.a.soort, Ploeg.COMPETITIE)
+        self.assertEqual(self.rood.soort, Ploeg.ZWEMSCHOOL)
+        self.assertEqual(list(self.rood.trainers.all()), [self.zs])  # trainer zwemschool kan aan een ploeg gekoppeld worden
+
+    def test_zwemschool_ziet_enkel_zwemschoolploegen(self):
+        self.assertEqual(set(ploegen.zichtbare_ploegen(self.zs)), {self.rood, self.geel})
+        self.assertTrue(ploegen.mag_zien(self.zs, self.geel))
+        self.assertFalse(ploegen.mag_zien(self.zs, self.a))
+        self.assertIn(self.zs, ploegen.lezers_van(self.geel))
+        self.assertNotIn(self.zs, ploegen.lezers_van(self.a))
+        self.assertEqual(set(ploegen.zichtbare_ploegen(self.comp)), {self.a, self.rood, self.geel})
+        self.client.force_login(self.zs)
+        self.assertEqual(self.client.get(f"/ploegen/{self.a.pk}/").status_code, 403)
+        self.assertEqual(self.client.get(f"/ploegen/{self.geel.pk}/").status_code, 200)
+
+    def test_geen_wedstrijdzaken(self):
+        self.client.force_login(self.zs)
+        self.assertRedirects(self.client.get("/"), "/ploegen/")
+        self.assertRedirects(self.client.get("/wedstrijden/"), "/ploegen/")
+        r = self.client.get("/ploegen/")
+        self.assertNotContains(r, ">Wedstrijden<")
+        self.assertContains(r, "Zwemschool rood")
+        # een trainer van de zwemschool die ook ouder is, ziet de wedstrijden wel (voor de eigen kinderen)
+        self.client.force_login(self.zs_ouder)
+        self.assertEqual(self.client.get("/wedstrijden/").status_code, 200)
+        # de trainer van de competitie houdt alles
+        self.client.force_login(self.comp)
+        self.assertEqual(self.client.get("/wedstrijden/").status_code, 200)
+
+    def test_aanvragen(self):
+        self.client.force_login(self.zs)
+        self.client.post("/rollen/", {"rol": Profiel.TRAINER})  # al een andere rol: competitie aanvragen mag
+        self.assertTrue(self.zs.rolaanvragen.filter(rol=Profiel.TRAINER).exists())
+        nieuw = account("nieuw@khzs.be", Profiel.OUDER)
+        self.client.force_login(nieuw)
+        self.client.post("/rollen/", {"rol": Profiel.TRAINER_ZWEMSCHOOL})
+        self.assertTrue(nieuw.rolaanvragen.filter(rol=Profiel.TRAINER_ZWEMSCHOOL).exists())

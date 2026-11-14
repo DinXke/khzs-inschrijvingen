@@ -67,7 +67,8 @@ function demo_ploegen(): array
 
 /**
  * Accounts: sleutel => [voornaam, naam, app-rol, extra]. Gebruikersnaam = sleutel, wachtwoord 'demo'.
- * Extra: 'penningmeester', 'bestuurder' (voor de rollenmodule zodra die er is).
+ * Extra: 'penningmeester', 'bestuurder', 'zwemschool' (ook trainer van de zwemschool). Wie een kind heeft in
+ * demo_zwemmers(), krijgt de rol ouder; de demogebruiker heeft alle rollen (zie demo_vul_accounts()).
  */
 function demo_personen(): array
 {
@@ -75,15 +76,15 @@ function demo_personen(): array
         'demo' => ['Demo', 'Gebruiker', BEHEERDER, ['penningmeester', 'bestuurder']],
         'katrien' => ['Katrien', 'Vos', SECRETARIS, []],
         'marc' => ['Marc', 'Lenaerts', ZWEMMER, ['bestuurder']],
-        'lotte' => ['Lotte', 'Janssens', TRAINER, []],
+        'lotte' => ['Lotte', 'Janssens', TRAINER, ['zwemschool']],      // competitie én zwemschool
         'bram' => ['Bram', 'Willems', TRAINER, []],
         'tom' => ['Tom', 'Peeters', TRAINER, []],
         'wout' => ['Wout', 'Claes', TRAINER, []],
         'annelies' => ['Annelies', 'Hendrickx', TRAINER, []],
-        'nina' => ['Nina', 'Vandenberghe', TRAINER, []],
-        'ruben' => ['Ruben', 'Goossens', TRAINER, []],
-        'elise' => ['Elise', 'Wouters', TRAINER, []],
-        'jasper' => ['Jasper', 'Mertens', TRAINER, []],
+        'nina' => ['Nina', 'Vandenberghe', TRAINER_ZWEMSCHOOL, []],
+        'ruben' => ['Ruben', 'Goossens', TRAINER_ZWEMSCHOOL, []],
+        'elise' => ['Elise', 'Wouters', TRAINER_ZWEMSCHOOL, []],
+        'jasper' => ['Jasper', 'Mertens', TRAINER_ZWEMSCHOOL, []],
         'koen' => ['Koen', 'Vermeulen', ZWEMMER, []],
         'an' => ['An', 'Smets', ZWEMMER, []],
         'pieter' => ['Pieter', 'Maes', ZWEMMER, []],
@@ -147,6 +148,7 @@ function demo_vul(): void
     $c->seizoen = ((int) $v->format('n') >= 9 ? $v->format('Y') : ((int) $v->format('Y') - 1)) . '-09-01';
     demo_vul_accounts($c);
     demo_vul_zwemmers($c);
+    demo_vul_ploegen($c);
     demo_vul_wedstrijden($c);
     demo_vul_trainers($c);
     do_action('khzs_demo_vullen', $c);
@@ -159,18 +161,58 @@ function demo_vul_accounts(object $c): void
     $hash = wp_hash_password('demo');
     $caps = db()->get_blog_prefix() . 'capabilities';
     $nu = gmdate('Y-m-d H:i:s');
+    $ouders = [];
+    foreach (demo_zwemmers() as $sleutel => $z) {
+        foreach ($z[4] as $o) {
+            if ($o !== $sleutel) {
+                $ouders[] = $o;
+            }
+        }
+    }
     foreach (demo_personen() as $login => [$vn, $nm, $rol, $extra]) {
         db()->insert(db()->users, ['user_login' => $login, 'user_pass' => $hash, 'user_nicename' => $login,
             'user_email' => "$login@demo.invalid", 'user_registered' => $nu, 'display_name' => "$vn $nm"]);
         $uid = (int) db()->insert_id;
         $c->users[$login] = $uid;
+        // Rollen: de app-rol, de extra rollen en ouder wie kinderen heeft. Een ouder die zelf niet zwemt, is geen zwemmer.
+        $rollen = [$rol, ...array_values(array_intersect_key(['bestuurder' => BESTUURDER, 'zwemschool' => TRAINER_ZWEMSCHOOL], array_flip($extra)))];
+        if (in_array($login, $ouders, true)) {
+            $rollen = $rol === ZWEMMER ? [OUDER, ...array_slice($rollen, 1)] : [...$rollen, OUDER];
+        }
+        if ($login === 'demo') {
+            $rollen = array_keys(ROLLEN);
+        }
+        $rollen = gesorteerd($rollen);
         $meta = ['first_name' => $vn, 'last_name' => $nm, 'nickname' => $login, $caps => serialize(['subscriber' => true]),
-            db()->get_blog_prefix() . 'user_level' => '0', 'khzs_rol' => $rol];
+            db()->get_blog_prefix() . 'user_level' => '0', 'khzs_rol' => $rollen[0], 'khzs_rollen' => implode(',', $rollen)];
         if (in_array('penningmeester', $extra, true)) {
             $meta['khzs_penningmeester'] = '1';
         }
         foreach ($meta as $k => $w) {
             db()->insert(db()->usermeta, ['user_id' => $uid, 'meta_key' => $k, 'meta_value' => $w]);
+        }
+    }
+}
+
+// ---------- ploegen ----------
+
+/** Ploegen met hun soort en trainers, en de zwemmers erin (goedgekeurd). Zet ->id op elke ploeg in $c->ploegen. */
+function demo_vul_ploegen(object $c): void
+{
+    $nu = nu_sql();
+    foreach ($c->ploegen as $p) {
+        db()->insert(t('ploegen'), ['naam' => $p->naam, 'beschrijving' => $p->soort === 'zwemschool' ? 'Zwemschool' : 'Competitie',
+            'soort' => $p->soort, 'actief' => 1, 'aangemaakt' => $nu]);
+        $p->id = (int) db()->insert_id;
+        foreach ($p->trainers as $k) {
+            db()->insert(t('ploeg_trainers'), ['ploeg_id' => $p->id, 'user_id' => $c->users[$k]]);
+        }
+    }
+    $id = array_column(array_map(fn($p) => (array) $p, $c->ploegen), 'id', 'naam');
+    foreach (demo_zwemmers() as $sleutel => $z) {
+        if ($z[5] !== '' && isset($id[$z[5]])) {
+            db()->insert(t('ploegleden'), ['zwemmer_id' => $c->zwemmers[$sleutel], 'ploeg_id' => $id[$z[5]], 'status' => PL_GOEDGEKEURD,
+                'aangevraagd_door' => $c->users[$z[4][0]], 'behandeld_door' => $c->users['demo'], 'behandeld_op' => $nu, 'gelezen' => 1, 'aangemaakt' => $nu]);
         }
     }
 }
@@ -466,6 +508,9 @@ function demo_vul_trainers(object $c): void
         $mid = (int) db()->insert_id;
         foreach ($m['ploegen'] as $p) {
             $p->momenten[] = $mid;
+            if (!empty($p->id)) {
+                db()->insert(t('tr_moment_ploegen'), ['moment_id' => $mid, 'ploeg_id' => $p->id]);
+            }
         }
         foreach ($m['trainers'] as $k) {
             db()->insert(t('tr_vast'), ['moment_id' => $mid, 'user_id' => $u[$k], 'van' => $seizoen, 'tot' => null]);

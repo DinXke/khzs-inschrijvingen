@@ -2,8 +2,9 @@
 aan; een trainer van die ploeg, een bestuurder, sportsecretaris of beheerder keurt goed of af.
 
 Dit module bepaalt ook wie bij een ploeg hoort (accounts_van, lezers_van), zodat een latere communicatiemodule
-iedereen enkel de berichten van zijn eigen ploegen kan tonen. Trainers, bestuurders, sportsecretarissen en beheerders
-zien alle ploegen."""
+iedereen enkel de berichten van zijn eigen ploegen kan tonen. Trainers van de competitie, bestuurders,
+sportsecretarissen en beheerders zien alle ploegen; een trainer van de zwemschool ziet de ploegen van de zwemschool en
+de ploegen die hij of zij traint."""
 from django.contrib.auth.models import User
 from django.db.models import Q
 from django.urls import reverse
@@ -20,6 +21,15 @@ def mag_ploegen_beheren(user) -> bool:
 
 def ziet_alle_ploegen(user) -> bool:
     return heeft_rol(user, *Profiel.ALLE_PLOEGEN)
+
+
+def ziet_zwemschoolploegen(user) -> bool:
+    return heeft_rol(user, Profiel.TRAINER_ZWEMSCHOOL)
+
+
+def ziet_ploegenmenu(user) -> bool:
+    """Het menu Ploegen: wie meer ploegen ziet dan die van de eigen zwemmers."""
+    return ziet_alle_ploegen(user) or ziet_zwemschoolploegen(user)
 
 
 def mag_behandelen(user, ploeg) -> bool:
@@ -44,6 +54,8 @@ def lezers_van(ploeg):
     """Iedereen die deze ploeg (en later haar kanaal) mag zien: de accounts van de ploeg, plus trainers, bestuurders,
     sportsecretarissen en beheerders, die alle ploegen zien."""
     alle = Q(app_rollen__rol__in=Profiel.ALLE_PLOEGEN) | Q(is_superuser=True)
+    if ploeg.soort == Ploeg.ZWEMSCHOOL:
+        alle |= Q(app_rollen__rol=Profiel.TRAINER_ZWEMSCHOOL)
     return User.objects.filter(Q(pk__in=accounts_van(ploeg).values("pk")) | alle, is_active=True).distinct()
 
 
@@ -55,11 +67,16 @@ def eigen_ploegen(user):
 
 
 def zichtbare_ploegen(user):
-    return Ploeg.objects.all() if ziet_alle_ploegen(user) else eigen_ploegen(user)
+    if ziet_alle_ploegen(user):
+        return Ploeg.objects.all()
+    if ziet_zwemschoolploegen(user):
+        return Ploeg.objects.filter(Q(pk__in=eigen_ploegen(user).values("pk")) | Q(soort=Ploeg.ZWEMSCHOOL))
+    return eigen_ploegen(user)
 
 
 def mag_zien(user, ploeg) -> bool:
-    return ziet_alle_ploegen(user) or eigen_ploegen(user).filter(pk=ploeg.pk).exists()
+    return (ziet_alle_ploegen(user) or (ziet_zwemschoolploegen(user) and ploeg.soort == Ploeg.ZWEMSCHOOL)
+            or eigen_ploegen(user).filter(pk=ploeg.pk).exists())
 
 
 def te_behandelen(user):

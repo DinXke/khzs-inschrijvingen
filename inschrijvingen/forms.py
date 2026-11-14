@@ -61,17 +61,21 @@ class ZwemmerMetPloegForm(ZwemmerForm):
 
 class PloegForm(forms.ModelForm):
     trainers = forms.ModelMultipleChoiceField(User.objects.none(), required=False, widget=forms.CheckboxSelectMultiple,
-                                              help_text="Accounts met de rol trainer.")
+                                              help_text="Accounts met de rol trainer competitie of trainer zwemschool.")
 
     class Meta:
         model = Ploeg
-        fields = ["naam", "beschrijving", "trainers", "actief"]
+        fields = ["naam", "beschrijving", "soort", "trainers", "actief"]
 
     def __init__(self, *a, **kw):
         super().__init__(*a, **kw)
-        self.fields["trainers"].queryset = User.objects.filter(app_rollen__rol=Profiel.TRAINER).distinct().order_by(
+        self.fields["trainers"].queryset = User.objects.filter(app_rollen__rol__in=Profiel.TRAINERS).distinct().order_by(
             "first_name", "last_name")
         self.fields["trainers"].label_from_instance = lambda u: u.get_full_name() or u.username
+        self.fields["soort"].required = False  # leeg (bv. een ouder formulier) = competitie
+
+    def clean_soort(self):
+        return self.cleaned_data.get("soort") or Ploeg.COMPETITIE
 
 
 class TijdVeld(forms.CharField):
