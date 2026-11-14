@@ -13,6 +13,74 @@ function slug(): string
     return trim(get_option('khzs_slug', 'leden'), '/') ?: 'leden';
 }
 
+/**
+ * Eigen domein van de app (optie khzs_app_domein), bv. https://leden.khzs.be, of leeg. Een Cloudflare Worker op dat domein
+ * stuurt alles door naar jouwsite.be/<slug>/… met de header X-KHZS-Domein (wordpress/leden-domein/worker.js).
+ * Werkt enkel met mooie permalinks.
+ */
+function app_domein(): string
+{
+    return get_option('permalink_structure') ? rtrim((string) get_option('khzs_app_domein', ''), '/') : '';
+}
+
+/** host[:poort] van een adres, in kleine letters. */
+function host_van(string $url): string
+{
+    $u = wp_parse_url($url);
+    return empty($u['host']) ? '' : strtolower($u['host'] . (isset($u['port']) ? ':' . $u['port'] : ''));
+}
+
+/** Komt dit verzoek binnen via de Worker op het eigen domein? */
+function via_app_domein(): bool
+{
+    $host = host_van(app_domein());
+    if ($host === '') {
+        return false;
+    }
+    foreach (['HTTP_X_KHZS_DOMEIN', 'HTTP_X_FORWARDED_HOST'] as $k) {
+        if (strtolower(trim(explode(',', (string) ($_SERVER[$k] ?? ''))[0])) === $host) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/** Deel van het gevraagde adres na /<slug> (met query), bv. '/wedstrijden/?x=1', of null buiten de app. */
+function uri_in_app(): ?string
+{
+    $uri = wp_unslash($_SERVER['REQUEST_URI'] ?? '/');
+    $voor = rtrim((string) wp_parse_url(home_url('/'), PHP_URL_PATH), '/') . '/' . slug();
+    if ($uri !== $voor && !str_starts_with($uri, "$voor/") && !str_starts_with($uri, "$voor?")) {
+        return null;
+    }
+    return '/' . ltrim(substr($uri, strlen($voor)), '/');
+}
+
+/**
+ * De app staat op een eigen domein, maar dit verzoek kwam rechtstreeks op jouwsite.be/<slug>/…: doorverwijzen.
+ * Tijdelijk (302/307), zodat browsers niets onthouden als het domein later weer uitgaat.
+ */
+function naar_app_domein(string $pad): never
+{
+    nocache_headers();
+    if ($pad === 'sw.js') {
+        // Een app die nog op het oude adres geïnstalleerd is: die service worker ruimt zichzelf op (doorverwijzen kan niet).
+        header('Content-Type: application/javascript; charset=utf-8');
+        echo 'self.addEventListener("install",()=>self.skipWaiting());'
+            . 'self.addEventListener("activate",e=>e.waitUntil(self.registration.unregister()));';
+        exit;
+    }
+    $rest = uri_in_app() ?? '/';
+    wp_redirect(app_domein() . $rest, in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'HEAD'], true) ? 302 : 307);
+    exit;
+}
+
+// Doorverwijzen naar het eigen domein mag (wp_safe_redirect, ?next= na het aanmelden, wachtwoord vergeten).
+add_filter('allowed_redirect_hosts', function ($hosts) {
+    $h = wp_parse_url(app_domein(), PHP_URL_HOST);
+    return $h ? array_merge($hosts, [strtolower($h)]) : $hosts;
+});
+
 function registreer_routes(): void
 {
     add_rewrite_rule('^' . preg_quote(slug(), '#') . '(?:/(.*))?/?$', 'index.php?khzs_pad=/$matches[1]', 'top');
@@ -38,7 +106,9 @@ add_action('template_redirect', function () {
 function app_url(string $pad = '', array $query = []): string
 {
     $pad = ltrim($pad, '/');
-    if (get_option('permalink_structure')) {
+    if (($domein = app_domein()) !== '') {
+        $url = "$domein/$pad";
+    } elseif (get_option('permalink_structure')) {
         $url = home_url('/' . slug() . '/' . $pad);
     } else {
         $url = add_query_arg('khzs_pad', '/' . $pad, home_url('/'));
@@ -49,13 +119,30 @@ function app_url(string $pad = '', array $query = []): string
 function asset(string $pad): string
 {
     $v = @filemtime(KHZS_PAD . "assets/$pad") ?: VERSIE;
-    return KHZS_URL . "assets/$pad?v=$v";
+    return assets_url() . "$pad?v=$v";
 }
 
-/** Huidig pad + query (voor 'terug'-velden), relatief binnen de app. */
+/**
+ * Map met de assets. Met een eigen domein ook via dat domein (de Worker stuurt ze door): de service worker kan enkel
+ * bestanden van zijn eigen domein in de cache zetten.
+ */
+function assets_url(): string
+{
+    $url = KHZS_URL . 'assets/';
+    $h = wp_parse_url(home_url('/'));
+    $site = $h['scheme'] . '://' . $h['host'] . (isset($h['port']) ? ':' . $h['port'] : '');
+    return app_domein() !== '' && str_starts_with($url, "$site/") ? app_domein() . substr($url, strlen($site)) : $url;
+}
+
+/** Huidig adres met query (voor 'terug'- en 'next'-velden). */
 function huidige_url(): string
 {
-    return home_url(wp_unslash($_SERVER['REQUEST_URI'] ?? '/'));
+    if (via_app_domein() && ($rest = uri_in_app()) !== null) {
+        return app_domein() . $rest;
+    }
+    // REQUEST_URI bevat al het pad van WordPress (ook in een submap): enkel schema, host en poort van de site ervoor.
+    $h = wp_parse_url(home_url('/'));
+    return $h['scheme'] . '://' . $h['host'] . (isset($h['port']) ? ':' . $h['port'] : '') . wp_unslash($_SERVER['REQUEST_URI'] ?? '/');
 }
 
 // ---------- invoer ----------
@@ -257,6 +344,14 @@ function verwerk_verzoek(): void
         return;
     }
     $pad = trim(rawurldecode((string) $pad), '/');
+    if ($pad === 'domein-test') {
+        // Controle bij het instellen van een eigen domein (admin.php): komt dit via de Worker, en met welke host?
+        nocache_headers();
+        wp_send_json(['app' => 'khzs-leden', 'domein' => strtolower((string) ($_SERVER['HTTP_X_KHZS_DOMEIN'] ?? ''))]);
+    }
+    if (app_domein() !== '' && !via_app_domein()) {
+        naar_app_domein($pad);
+    }
     foreach (routes() as [$regex, $naam, $functie]) {
         if (preg_match('#^' . $regex . '$#', $pad, $m)) {
             $GLOBALS['khzs_route'] = $naam;

@@ -51,6 +51,36 @@ Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist 
    - Bij registratie vult het vinkje *Ik zwem zelf* het eerste zwemmerblok met de eigen naam. Dat gebeurt enkel met JavaScript; de server verandert niet.
    - Bij *Mijn zwemmers* opent de knop *+ Mezelf* het formulier met de naam al ingevuld. De knop verdwijnt zodra er een zwemmer met de naam van het account bestaat.
 
+## Eigen domein leden.khzs.be (branch `wordpress/subdomein`)
+
+Vraag van de eigenaar: *"kan de plugin in productie ook op leden.khzs.be werken?"* **Ja**, met een Cloudflare Worker voor dezelfde WordPress. Alles staat in `wordpress/leden-domein/`: de Worker, en een README met de stappen in Cloudflare en het terugdraaien.
+
+- **Werking**: de Worker op `leden.khzs.be` stuurt elk verzoek door naar `https://khzs.be/leden/…`.
+  - De assets van de plugin gaan naar hetzelfde pad op khzs.be.
+  - De Worker zet de header `X-KHZS-Domein` (en `X-Forwarded-Host`).
+  - Een eigen header, omdat een proxy van de hosting `X-Forwarded-Host` kan overschrijven.
+- **Plugin** (`includes/app.php`): de optie `khzs_app_domein` (wp-admin, *Eigen domein*), met de functies `app_domein()` en `via_app_domein()`.
+  - `app_url()` en `asset()` maken dan URL's op het domein.
+  - `huidige_url()` geeft het adres op het domein. Die functie is ook hersteld voor WordPress in een submap, net als op de branch `wordpress/demo`.
+  - Verzoeken zonder de header gaan met een 302/307 naar het domein. Tijdelijk, zodat browsers niets onthouden.
+  - `allowed_redirect_hosts` laat het domein toe voor `?next=` en *wachtwoord vergeten*.
+- **Gekozen**:
+  - **Assets via het domein**: de service worker zet bij de installatie de assets in de cache (`cache.addAll`), en dat mislukt cross-origin. Met assets op khzs.be zou de app dus niet meer installeren.
+  - **Oude installaties**: `khzs.be/leden/sw.js` geeft een service worker die zichzelf uitschrijft, want een service worker doorverwijzen kan niet. Leden installeren de app opnieuw en zetten push opnieuw aan.
+  - **Cookies**: standaard alleen op `leden.khzs.be`, dus apart aanmelden voor de app en voor wp-admin. `COOKIE_DOMAIN` `.khzs.be` om één aanmelding te delen staat als optionele stap beschreven, niet als standaard.
+  - **Controle bij het bewaren**: de plugin vraagt `<domein>/domein-test/` op en bewaart het domein enkel als de Worker antwoordt met de juiste header. Zo kan een fout ingesteld domein de app niet onbereikbaar maken.
+  - **Lusbeveiliging**: verwijst de site naar exact hetzelfde adres terug (de header kwam niet aan), dan stopt de Worker met een 508 en een uitleg.
+- **Getest**:
+  - lokaal met Docker (`mariadb:11`, `wordpress:php8.2`) en de Worker in Node (`wordpress/tests/worker_sim.mjs`)
+  - 7 nieuwe scenario's in `EigenDomeinTest`; alle 84 e2e-tests geslaagd
+  - met headless Chromium: de service worker installeert op scope `/` van het domein en cachet de assets; op het oude adres schrijft hij zich uit
+  - in wp-admin: de controle bij het bewaren weigert een onbereikbaar domein
+- **Nog niet gedaan**: niets uitgerold in Cloudflare of op www.khzs.be. De eigenaar volgt `wordpress/leden-domein/README.md`.
+- **Merge met `wordpress/demo` (PR #8)**:
+  - Die branch wijzigt ook `slug()`, `app_url()`, `asset()` en `huidige_url()` in `includes/app.php`. Verwacht daar botsingen.
+  - Bij het samenvoegen: de demo heeft voorrang (`is_demo()` → geen eigen domein); daarna `app_domein()`; anders het gewone adres.
+  - Bij `huidige_url()` is de herstelling voor een submap op beide branches dezelfde.
+
 ## Stand van zaken (14/11/2026, eind van de dag)
 
 - **Alles staat op `main`**, samengevoegd op vraag van de eigenaar via vijf pull requests:
@@ -98,6 +128,7 @@ Start Claude Code in de map van de repo. Claude leest dan automatisch `CLAUDE.md
 7. Een vinkje "Ik zwem zelf" bij registratie en in het profiel (PR #4).
 8. Alles hernoemen naar KHZS Leden, ook de repo, met het adres `/leden/` (PR #5).
 9. Een logo in dezelfde stijl: HZS bovenaan, "Leden" eronder (PR #5).
+10. De plugin in productie ook op `leden.khzs.be` laten werken (branch `wordpress/subdomein`).
 
 ## Mogelijke volgende stappen
 
