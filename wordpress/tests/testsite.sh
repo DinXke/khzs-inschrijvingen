@@ -39,6 +39,7 @@ mkdir -p "$MAP/site/wp-content/plugins" "$MAP/site/wp-content/mu-plugins"
 ln -sfn "$PLUGIN" "$MAP/site/wp-content/plugins/khzs-leden"
 ln -sfn "$HIER/khzs-test-helper.php" "$MAP/site/wp-content/mu-plugins/khzs-test-helper.php"
 WP plugin activate khzs-leden >/dev/null
+WP config set KHZS_DEMO true --raw >/dev/null   # demo op /leden-demo/ (demo / demo); nooit op een echte site
 WP rewrite flush >/dev/null
 
 # PHP-webserver met router voor mooie permalinks
@@ -57,4 +58,4 @@ if ! curl -s -o /dev/null "http://localhost:$POORT/"; then
     </dev/null >"$MAP/php.log" 2>&1 &
   sleep 2
 fi
-echo "Testsite: http://localhost:$POORT/leden/  (wp-admin: admin / admin123)  map: $MAP"
+echo "Testsite: http://localhost:$POORT/leden/  (wp-admin: admin / admin123)  demo: /leden-demo/ (demo / demo)  map: $MAP"
