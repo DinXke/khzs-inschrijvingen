@@ -229,7 +229,7 @@ textarea { min-height: 80px; }
 .bijlage a { text-decoration: none; font-weight: 600; padding: 4px 6px 4px 0; }
 .bijlage form { display: inline; }
 .bijlage-nieuw { margin-top: .6rem; }
-.bijlage-nieuw summary { cursor: pointer; }
+.bijlage-nieuw summary, .beste-tijden summary { cursor: pointer; }
 
 /* Rollen (meerdere per account) */
 .rollen { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
