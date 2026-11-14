@@ -8,7 +8,7 @@ defined('ABSPATH') || exit;
 /** Alle tabellen van de kern en de actieve modules (voor backup). Modules voegen de hunne toe via khzs_tabellen. */
 function alle_tabellen(): array
 {
-    return apply_filters('khzs_tabellen', ['zwemmers', 'zwemmer_accounts', 'push']);
+    return apply_filters('khzs_tabellen', ['zwemmers', 'zwemmer_accounts', 'push', 'rolaanvragen']);
 }
 
 /** Volledige tabelnaam, bv. t('zwemmers') → wp_khzs_zwemmers (in de demo: wp_khzsdemo_zwemmers). */
@@ -65,6 +65,23 @@ function installeer_db(): void
   PRIMARY KEY  (id),
   UNIQUE KEY endpoint_hash (endpoint_hash),
   KEY user_id (user_id)
+) $c;";
+    // Rolaanvragen: een lid vraagt een rol aan, een bestuurder/sportsecretaris/beheerder beslist (includes/rollen.php).
+    $sql[] = "CREATE TABLE " . t('rolaanvragen') . " (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  user_id bigint(20) unsigned NOT NULL,
+  rol varchar(20) NOT NULL,
+  motivatie varchar(300) NOT NULL DEFAULT '',
+  status varchar(20) NOT NULL DEFAULT 'open',
+  toegekende_rol varchar(20) NOT NULL DEFAULT '',
+  reden varchar(300) NOT NULL DEFAULT '',
+  behandeld_door bigint(20) unsigned NULL,
+  behandeld_op datetime NULL,
+  gelezen tinyint(1) NOT NULL DEFAULT 0,
+  aangemaakt datetime NOT NULL,
+  PRIMARY KEY  (id),
+  KEY user_id (user_id),
+  KEY status (status)
 ) $c;";
     // Tabellen van de modules (ook van uitgeschakelde, zodat hun gegevens bewaard blijven).
     foreach (modules() as $id => $m) {
@@ -135,6 +152,7 @@ function verwijder_gebruiker_data(int $user_id): void
     }
     db()->delete(t('zwemmer_accounts'), ['user_id' => $user_id]);
     db()->delete(t('push'), ['user_id' => $user_id]);
+    db()->delete(t('rolaanvragen'), ['user_id' => $user_id]);
     do_action('khzs_gebruiker_verwijderd', $user_id);
 }
 

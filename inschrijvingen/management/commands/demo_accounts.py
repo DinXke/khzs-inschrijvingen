@@ -7,6 +7,7 @@ from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 
 from inschrijvingen.models import BesteTijd, Profiel, Zwemmer
+from inschrijvingen.rollen import zet_rollen
 
 WACHTWOORD = "demo"
 ACCOUNTS = [
@@ -48,7 +49,7 @@ class Command(BaseCommand):
             u.is_staff = u.is_superuser = superuser
             u.set_password(WACHTWOORD)
             u.save()
-            Profiel.objects.update_or_create(user=u, defaults={"rol": rol})
+            zet_rollen(u, [rol])
             for zvn, znm, gd, gs, tijden in ZWEMMERS.get(naam, []):
                 z, _ = Zwemmer.objects.get_or_create(account=u, voornaam=zvn, naam=znm,
                                                      defaults={"geboortedatum": gd, "geslacht": gs})

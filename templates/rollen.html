@@ -1,0 +1,33 @@
+{% extends "base.html" %}{% block titel %}Mijn rollen{% endblock %}{% block mainklasse %}smal{% endblock %}
+{% block inhoud %}
+<h1>Mijn rollen</h1>
+<div class="kaart">
+  <div class="rollen">{% for k, l in eigen %}<span class="badge rol">{{ l }}</span>{% endfor %}</div>
+</div>
+{% if aanvraagbaar %}
+<form method="post" class="kaart">{% csrf_token %}
+  <h2 style="margin-top:0">Rol aanvragen</h2>
+  <div class="veld"><label for="rol">Rol</label>
+    <select id="rol" name="rol" required>{% for k, l in aanvraagbaar %}<option value="{{ k }}">{{ l }}{% if k in zonder_goedkeuring %} (meteen){% endif %}</option>{% endfor %}</select></div>
+  <div class="veld"><label for="motivatie">Toelichting (optioneel)</label>
+    <input type="text" id="motivatie" name="motivatie" maxlength="300" placeholder="bv. trainer van de B-groep sinds september"></div>
+  <p class="help">Zwemmer en ouder krijg je meteen. De andere rollen keurt een bestuurder, de sportsecretaris of een beheerder eerst goed; je krijgt een melding zodra dat gebeurd is.</p>
+  <p><button>Aanvragen</button></p>
+</form>
+{% endif %}
+{% if aanvragen %}
+<div class="kaart melding-lijst">
+  <h2 style="margin-top:0">Aanvragen</h2>
+  {% for a in aanvragen %}
+  <div class="melding-item{% if not a.gelezen and a.status != 'open' and a.status != 'ingetrokken' %} nieuw{% endif %}">
+    <div class="rij tussen"><strong>{{ a.get_rol_display }}</strong>
+      <span class="badge {% if a.status == 'open' %}wacht{% elif a.status == 'afgekeurd' %}fout{% elif a.status == 'ingetrokken' %}doorgestuurd{% else %}ok{% endif %}">{{ a.get_status_display }}</span></div>
+    <div class="klein">Aangevraagd op {{ a.aangemaakt|date:"j/m/Y" }}{% if a.behandeld_op %} · behandeld op {{ a.behandeld_op|date:"j/m/Y" }}{% if a.behandeld_door %} door {{ a.behandeld_door.get_full_name|default:a.behandeld_door.username }}{% endif %}{% endif %}</div>
+    {% if a.status == 'andere_rol' %}<div>Je kreeg in de plaats de rol <strong>{{ a.get_toegekende_rol_display|lower }}</strong>.</div>{% endif %}
+    {% if a.reden %}<div>{{ a.reden }}</div>{% endif %}
+    {% if a.status == 'open' %}<form method="post" style="margin-top:.3rem">{% csrf_token %}<input type="hidden" name="aanvraag" value="{{ a.pk }}">
+      <button name="actie" value="intrekken" class="mini secundair">Intrekken</button></form>{% endif %}
+  </div>{% endfor %}
+</div>
+{% endif %}
+{% endblock %}

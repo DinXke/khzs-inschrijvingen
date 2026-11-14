@@ -160,9 +160,11 @@ function toon(string $sjabloon, array $ctx = [], string $titel = 'KHZS Leden', s
     nocache_headers();
     header('Content-Type: text/html; charset=utf-8');
     header('X-Frame-Options: SAMEORIGIN');
-    $rol = rol();
-    $ctx += ['rol' => $rol, 'is_staf' => in_array($rol, STAF, true), 'is_secretaris' => in_array($rol, SECRETARIAAT, true),
-        'is_beheerder' => $rol === BEHEERDER, 'pagina' => $GLOBALS['khzs_route'] ?? '', 'meldingen_flash' => flash_lezen()];
+    $ingelogd = is_user_logged_in();
+    $ctx += ['rol' => rol(), 'is_staf' => is_staf(), 'is_secretaris' => is_secretariaat(), 'is_beheerder' => heeft_rol([BEHEERDER]),
+        'is_rolbeheerder' => mag_rollen_beheren(), 'pagina' => $GLOBALS['khzs_route'] ?? '', 'meldingen_flash' => flash_lezen(),
+        // Melding in de app: beslissingen over eigen rolaanvragen die het lid nog niet gezien heeft.
+        'rolbeslissingen' => $ingelogd ? ongelezen_rolbeslissingen(get_current_user_id()) : []];
     extract($ctx, EXTR_SKIP);
     $inhoud_sjabloon = sjabloon($sjabloon);
     include KHZS_PAD . 'views/_layout.php';
@@ -199,7 +201,7 @@ function vereist_login(): void
 function vereist_rol(array $rollen): void
 {
     vereist_login();
-    if (!in_array(rol(), $rollen, true)) {
+    if (!heeft_rol($rollen)) {
         geen_toegang();
     }
 }
@@ -235,6 +237,8 @@ function routes(): array
         ['aanmelden', 'login', 'v_aanmelden'],
         ['afmelden', 'logout', 'v_afmelden'],
         ['gebruikers', 'gebruikers', 'v_gebruikers'],
+        ['gebruikers/aanvraag/(\\d+)', 'gebruikers', 'v_rolaanvraag_behandelen'],
+        ['rollen', 'mijn_rollen', 'v_mijn_rollen'],
         ['meldingen', 'meldingen', 'v_meldingen'],
         ['meldingen/abonneer', 'push_abonneer', 'v_push_abonneer'],
         ['meldingen/afmelden', 'push_afmelden', 'v_push_afmelden'],
@@ -255,7 +259,7 @@ function routes(): array
 function menu(): array
 {
     $items = apply_filters('khzs_menu', [
-        50 => ['Gebruikers', 'gebruikers/', ['gebruikers'], '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20c0-3 3-5 7-5s7 2 7 5M16 14c3 0 6 1.5 6 4.5"/>', fn() => is_secretariaat()],
+        50 => ['Gebruikers', 'gebruikers/', ['gebruikers'], '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20c0-3 3-5 7-5s7 2 7 5M16 14c3 0 6 1.5 6 4.5"/>', fn() => mag_rollen_beheren()],
         80 => ['Meldingen', 'meldingen/', ['meldingen'], '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/>', fn() => true],
     ]);
     ksort($items);

@@ -38,7 +38,7 @@ function verstuur_herinneringen(): array
     $log = [];
     foreach (db()->get_results(db()->prepare("SELECT * FROM " . t('wedstrijden') . " WHERE status=%s", W_OPEN)) as $w) {
         $soorten = [
-            ['zwemmer', deadline_zwemmer($w), [ZWEMMER], 'Morgen (%s) is de laatste dag om in te schrijven.', app_url("wedstrijd/{$w->id}/")],
+            ['zwemmer', deadline_zwemmer($w), GEZIN, 'Morgen (%s) is de laatste dag om in te schrijven.', app_url("wedstrijd/{$w->id}/")],
             ['trainer', deadline_trainer($w), STAF, 'Morgen (%s) moeten de inschrijvingen nagekeken zijn.', app_url("wedstrijd/{$w->id}/nakijken/")],
         ];
         foreach ($soorten as [$soort, $datum, $rollen, $tekst, $url]) {

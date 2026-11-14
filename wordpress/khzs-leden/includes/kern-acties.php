@@ -49,33 +49,32 @@ function registratie_open(): bool
 
 function v_gebruikers(): void
 {
-    vereist_rol(SECRETARIAAT);
-    $beheerder = rol() === BEHEERDER;
+    vereist_rol(ROLBEHEER);
+    $beheerder = heeft_rol([BEHEERDER]);
     if (is_post()) {
         $u = get_userdata((int) post('user')) ?: niet_gevonden();
+        $naam = volle_naam($u) ?: $u->user_login;
         if (isset($_POST['penningmeester'])) {
             if (!$beheerder) {
                 geen_toegang('Enkel een beheerder kan de penningmeester aanduiden.');
             }
             update_user_meta($u->ID, 'khzs_penningmeester', post('penningmeester') === '1' ? '1' : '0');
-            flash((volle_naam($u) ?: $u->user_login) . (post('penningmeester') === '1' ? ' is nu penningmeester.' : ' is geen penningmeester meer.'));
+            flash($naam . (post('penningmeester') === '1' ? ' is nu penningmeester.' : ' is geen penningmeester meer.'));
             naar(app_url('gebruikers/'));
         }
-        $nieuw = post('rol');
-        $huidig = rol($u);
-        if (user_can($u, 'manage_options')) {
-            flash('WordPress-beheerders zijn altijd beheerder in de app.', 'error');
-            naar(app_url('gebruikers/'));
+        $rol = post('rol');
+        try {
+            if (post('actie') === 'afnemen') {
+                neem_rol_af($u->ID, $rol);
+                flash("$naam is geen " . rol_naam($rol) . ' meer.');
+            } else {
+                ken_rol_toe($u->ID, $rol);
+                flash("$naam is nu ook " . rol_naam($rol) . '.');
+            }
+        } catch (\RuntimeException $e) {
+            flash($e->getMessage(), 'error');
         }
-        if (!$beheerder && in_array(BEHEERDER, [$huidig, $nieuw], true)) {
-            flash('Enkel een beheerder kan beheerders aanstellen of wijzigen.', 'error');
-            naar(app_url('gebruikers/'));
-        }
-        if (isset(ROLLEN[$nieuw])) {
-            update_user_meta($u->ID, 'khzs_rol', $nieuw);
-            flash((volle_naam($u) ?: $u->user_login) . ' is nu ' . mb_strtolower(ROLLEN[$nieuw]) . '.');
-        }
-        naar(app_url('gebruikers/'));
+        naar(app_url('gebruikers/', get('q') !== '' ? ['q' => get('q')] : []));
     }
     $q = get('q');
     $args = ['orderby' => 'meta_value', 'meta_key' => 'last_name', 'order' => 'ASC', 'number' => 500];
@@ -97,8 +96,9 @@ function v_gebruikers(): void
         }, []));
         usort($users, fn($a, $b) => [$a->last_name, $a->first_name] <=> [$b->last_name, $b->first_name]);
     }
-    $rollen = $beheerder ? ROLLEN : array_diff_key(ROLLEN, [BEHEERDER => 1]);
-    toon('gebruikers', ['users' => $users, 'q' => $q, 'rollen' => $rollen], 'Gebruikers');
+    $keuzes = $beheerder ? ROLLEN : array_diff_key(ROLLEN, [BEHEERDER => 1]);
+    $aanvragen = db()->get_results(db()->prepare("SELECT * FROM " . t('rolaanvragen') . " WHERE status=%s ORDER BY id", RA_OPEN));
+    toon('gebruikers', ['users' => $users, 'q' => $q, 'keuzes' => $keuzes, 'aanvragen' => $aanvragen], 'Gebruikers');
 }
 
 function v_backups(): void
@@ -147,7 +147,7 @@ function v_meldingen(): void
     vereist_login();
     $uid = get_current_user_id();
     $staf = is_staf();
-    $velden = array_keys(array_filter(voorkeuren(), fn($v) => $staf || empty($v[2])));
+    $velden = array_keys(array_filter(voorkeuren(), fn($v) => voorkeur_zichtbaar($v)));
     if (is_post()) {
         foreach ($velden as $k) {
             update_user_meta($uid, "khzs_$k", isset($_POST[$k]) ? '1' : '0');

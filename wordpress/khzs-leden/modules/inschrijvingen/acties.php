@@ -127,6 +127,13 @@ function v_registreren(): void
             if (is_wp_error($uid)) {
                 $fouten['email'] = $uid->get_error_message();
             } else {
+                $gekozen = array_values(array_intersect(AANVRAAGBAAR, (array) ($_POST['rollen'] ?? [])));
+                zet_rollen($uid, array_intersect($gekozen, ZONDER_GOEDKEURING) ?: [ZWEMMER]);
+                $aangevraagd = [];
+                foreach (array_diff($gekozen, ZONDER_GOEDKEURING) as $r) {
+                    vraag_rol_aan($uid, $r);
+                    $aangevraagd[] = rol_naam($r);
+                }
                 foreach ($zwemmers as [$v]) {
                     db()->insert(t('zwemmers'), $v + ['account_id' => $uid]);
                 }
@@ -137,6 +144,9 @@ function v_registreren(): void
                 wp_set_auth_cookie($uid, true, is_ssl());
                 $n = count($zwemmers) + ($gekoppeld ? 1 : 0);
                 flash("Account aangemaakt met $n zwemmer" . ($n !== 1 ? 's' : '') . '. Kies een wedstrijd om in te schrijven.');
+                if ($aangevraagd) {
+                    flash('Je aanvraag voor de rol ' . implode(' en ', $aangevraagd) . ' wacht op goedkeuring. Je krijgt een melding zodra ze behandeld is.', 'info');
+                }
                 naar(app_url('wedstrijden/'));
             }
         }
@@ -879,7 +889,7 @@ function v_upload($id = null): void
                 $wid = importeer($meet, $rel, $bestaand ? (int) $bestaand->id : null);
                 $w = wedstrijd($wid);
                 if (!$bestaand) {
-                    stuur(users_met('push_nieuwe_wedstrijd', [ZWEMMER]), "Nieuwe wedstrijd: {$w->naam}",
+                    stuur(users_met('push_nieuwe_wedstrijd', GEZIN), "Nieuwe wedstrijd: {$w->naam}",
                         'Laat weten of je interesse hebt of meedoet.', app_url("wedstrijd/$wid/"));
                 }
                 $aantal = array_sum(array_map(fn($s) => count($s['nummers']), $meet['sessies']));
@@ -1025,13 +1035,14 @@ const PDF_NAMEN = [
 function v_uitleg(): void
 {
     vereist_login();
-    $r = rol();
-    $zichtbaar = [ZWEMMER => ['zwemmer'], TRAINER => ['trainer', 'zwemmer']][$r] ?? array_column(FILMPJES, 0);
+    $secretariaat = is_secretariaat();
+    $trainer = heeft_rol([TRAINER]);
+    $zichtbaar = $secretariaat ? array_column(FILMPJES, 0) : ($trainer ? ['trainer', 'zwemmer'] : ['zwemmer']);
     $filmpjes = array_values(array_filter(FILMPJES, fn($f) => in_array($f[0], $zichtbaar, true)));
-    $pdfs = $r === ZWEMMER ? ['onepager-zwemmer', 'handleiding-zwemmer'] : ($r === TRAINER
-        ? ['onepager-trainer', 'handleiding-trainer', 'handleiding-zwemmer']
-        : array_merge(['HZS-inschrijvingen-documentatie', 'onepager-sportsecretaris', 'handleiding-sportsecretaris', 'handleiding-trainer', 'handleiding-zwemmer'],
-            $r === BEHEERDER ? ['handleiding-beheerder', 'technisch'] : []));
+    $pdfs = $secretariaat
+        ? array_merge(['HZS-inschrijvingen-documentatie', 'onepager-sportsecretaris', 'handleiding-sportsecretaris', 'handleiding-trainer', 'handleiding-zwemmer'],
+            heeft_rol([BEHEERDER]) ? ['handleiding-beheerder', 'technisch'] : [])
+        : ($trainer ? ['onepager-trainer', 'handleiding-trainer', 'handleiding-zwemmer'] : ['onepager-zwemmer', 'handleiding-zwemmer']);
     // Filmpjes en PDF's zijn optioneel (groot); enkel tonen wat meegeleverd is in assets/docs.
     $filmpjes = array_values(array_filter($filmpjes, fn($f) => is_file(KHZS_PAD . "assets/docs/video/{$f[0]}.mp4")));
     $pdfs = array_values(array_filter($pdfs, fn($p) => is_file(KHZS_PAD . "assets/docs/pdf/$p.pdf")));

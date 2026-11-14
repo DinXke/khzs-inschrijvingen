@@ -10,6 +10,7 @@ from django.test import TestCase
 from inschrijvingen import lenex
 from inschrijvingen.models import BesteTijd, Inschrijving, Nummer, Profiel, Wedstrijd, Zwemmer
 from inschrijvingen.regels import leeftijd, parse_invoer_tijd, programma_voor, toon_tijd
+from inschrijvingen.rollen import zet_rollen
 
 VK = Path(__file__).parent / "fixtures" / "vk_kb_jeugd.lxf"
 
@@ -76,11 +77,9 @@ class LenexTest(TestCase):
 class StroomTest(TestCase):
     def setUp(self):
         self.sec = User.objects.create_user("sec@khzs.be", "sec@khzs.be", "geheim123!")
-        self.sec.profiel.rol = Profiel.SECRETARIS
-        self.sec.profiel.save()
+        zet_rollen(self.sec, [Profiel.SECRETARIS])
         self.tr = User.objects.create_user("tr@khzs.be", "tr@khzs.be", "geheim123!")
-        self.tr.profiel.rol = Profiel.TRAINER
-        self.tr.profiel.save()
+        zet_rollen(self.tr, [Profiel.TRAINER])
         self.c = self.client
         self.c.force_login(self.sec)
         r = self.c.post("/wedstrijd/nieuw/", {"bestand": upload(VK.read_bytes(), "vk.lxf")})

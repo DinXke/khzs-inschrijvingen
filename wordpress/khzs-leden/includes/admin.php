@@ -50,7 +50,9 @@ function admin_pagina(): void
         $tellers[$r] = 0;
     }
     foreach (get_users(['fields' => 'all']) as $u) {
-        $tellers[rol($u)]++;
+        foreach (rollen_van($u) as $r) {
+            $tellers[$r]++;
+        }
     }
     ?>
     <div class="wrap">
@@ -76,7 +78,7 @@ function admin_pagina(): void
             <p class="description">Een uitgeschakelde module verdwijnt uit de app; haar gegevens blijven bewaard.</p></td></tr>
           <tr><th scope="row">Registreren</th>
             <td><label><input type="checkbox" name="khzs_registratie" value="1" <?php checked(get_option('khzs_registratie', 1)); ?>> Ouders en zwemmers mogen zelf een account aanmaken in de app</label>
-            <p class="description">Nieuwe accounts krijgen de standaardrol van WordPress (<code><?= esc_html(get_option('default_role')) ?></code>) en de app-rol Zwemmer.</p></td></tr>
+            <p class="description">Nieuwe accounts krijgen de standaardrol van WordPress (<code><?= esc_html(get_option('default_role')) ?></code>) en de app-rollen die ze aanduiden: zwemmer en ouder meteen, de andere na goedkeuring (anders Zwemmer).</p></td></tr>
           <tr><th scope="row">App installeren</th>
             <td><label><input type="checkbox" name="khzs_pwa_melding" value="1" <?php checked(get_option('khzs_pwa_melding', 1)); ?>> Toon bezoekers een melding om de app op hun beginscherm te zetten</label><br>
             <label><input type="checkbox" name="khzs_pwa_enkel_gsm" value="1" <?php checked(get_option('khzs_pwa_enkel_gsm', 1)); ?>> Enkel op gsm en tablet</label><br>
@@ -88,7 +90,7 @@ function admin_pagina(): void
       </form>
       <h2>Rollen in de app</h2>
       <p>Rollen stel je in via <a href="<?= esc_url(app_url('gebruikers/')) ?>">Gebruikers in de app</a> of op het profiel van een gebruiker in WordPress.
-        WordPress-beheerders zijn altijd beheerder in de app.</p>
+        Een account kan meerdere rollen hebben; leden vragen rollen aan via <em>Mijn rollen</em>. WordPress-beheerders zijn altijd beheerder in de app.</p>
       <ul><?php foreach (ROLLEN as $r => $l): ?><li><?= esc_html($l) ?>: <?= (int) $tellers[$r] ?></li><?php endforeach; ?></ul>
       <h2>Geplande taken</h2>
       <ul>
@@ -112,11 +114,11 @@ function profiel_veld(\WP_User $u): void
     ?>
     <h2>KHZS Leden</h2>
     <input type="hidden" name="khzs_rol_veld" value="1">
-    <table class="form-table" role="presentation"><tr><th><label for="khzs_rol">Rol in de app</label></th><td>
-      <?php if ($wpbeheer): ?>Beheerder (WordPress-beheerders zijn altijd beheerder)<?php else: ?>
-      <select name="khzs_rol" id="khzs_rol"><?php foreach (ROLLEN as $r => $l): ?>
-        <option value="<?= esc_attr($r) ?>" <?php selected(rol($u), $r); ?>><?= esc_html($l) ?></option><?php endforeach; ?></select>
-      <?php endif; ?>
+    <table class="form-table" role="presentation"><tr><th>Rollen in de app</th><td>
+      <?php $eigen = bewaarde_rollen($u->ID); foreach (ROLLEN as $r => $l): ?>
+        <label style="display:block"><input type="checkbox" name="khzs_rollen[]" value="<?= esc_attr($r) ?>" <?php checked(in_array($r, $eigen, true) || ($r === BEHEERDER && $wpbeheer)); ?> <?php disabled($r === BEHEERDER && $wpbeheer); ?>> <?= esc_html($l) ?></label>
+      <?php endforeach; ?>
+      <?php if ($wpbeheer): ?><p class="description">WordPress-beheerders zijn altijd beheerder in de app.</p><?php endif; ?>
     </td></tr>
     <?php if (current_user_can('manage_options')): ?>
     <tr><th>Penningmeester</th><td><label><input type="checkbox" name="khzs_penningmeester" value="1" <?php checked(get_user_meta($u->ID, 'khzs_penningmeester', true), '1'); ?>> Ziet tarieven en verloning van de trainers</label></td></tr>
@@ -133,20 +135,18 @@ function profiel_bewaar(int $uid): void
     if (current_user_can('manage_options') && isset($_POST['khzs_rol_veld'])) {
         update_user_meta($uid, 'khzs_penningmeester', empty($_POST['khzs_penningmeester']) ? '0' : '1');
     }
-    if (!current_user_can('promote_users') || !isset($_POST['khzs_rol'])) {
+    if (!current_user_can('promote_users') || !isset($_POST['khzs_rol_veld'])) {
         return;
     }
-    $r = sanitize_key(wp_unslash($_POST['khzs_rol']));
-    if (isset(ROLLEN[$r])) {
-        update_user_meta($uid, 'khzs_rol', $r);
-    }
+    $rollen = array_intersect(array_keys(ROLLEN), array_map('sanitize_key', (array) wp_unslash($_POST['khzs_rollen'] ?? [])));
+    zet_rollen($uid, $rollen ?: [ZWEMMER]);
 }
 
 add_action('personal_options_update', __NAMESPACE__ . '\\profiel_bewaar');
 add_action('edit_user_profile_update', __NAMESPACE__ . '\\profiel_bewaar');
 
-// Kolom "App-rol" in de gebruikerslijst.
-add_filter('manage_users_columns', fn($c) => $c + ['khzs_rol' => 'App-rol']);
+// Kolom "App-rollen" in de gebruikerslijst.
+add_filter('manage_users_columns', fn($c) => $c + ['khzs_rol' => 'App-rollen']);
 add_filter('manage_users_custom_column', function ($v, $kolom, $uid) {
-    return $kolom === 'khzs_rol' ? esc_html(ROLLEN[rol((int) $uid)] ?? '') : $v;
+    return $kolom === 'khzs_rol' ? esc_html(implode(', ', array_map(fn($r) => ROLLEN[$r], rollen_van((int) $uid)))) : $v;
 }, 10, 3);

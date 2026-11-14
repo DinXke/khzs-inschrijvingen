@@ -1,5 +1,5 @@
 <?php namespace KHZS; defined('ABSPATH') || exit; ?>
-<h1>Meldingen</h1>
+<div class="rij tussen"><h1>Meldingen</h1><a class="knop secundair" href="<?= esc_url(app_url('rollen/')) ?>">Mijn rollen</a></div>
 <?php if (is_demo()): ?>
 <div class="kaart"><h2 style="margin-top:0">Op dit toestel</h2>
   <p class="klein">In de demo staan pushmeldingen uit. In de echte app zet je ze hier aan voor je gsm of computer.</p></div>

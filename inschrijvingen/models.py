@@ -16,24 +16,90 @@ SLAG_NAAM = dict(SLAG)
 
 
 class Profiel(models.Model):
-    """Rol van een account. Elk nieuw account is een zwemmer(-ouder)."""
+    """Voorkeuren van een account. De rollen staan in Rol (meerdere per account); `rol` is de hoofdrol:
+    de hoogste rol van het account, bijgehouden door rollen.zet_rollen() (voor weergave en oude backups)."""
 
-    ZWEMMER, TRAINER, SECRETARIS, BEHEERDER = "zwemmer", "trainer", "secretaris", "beheerder"
-    ROLLEN = [(ZWEMMER, "Zwemmer"), (TRAINER, "Trainer"), (SECRETARIS, "Sportsecretaris"), (BEHEERDER, "Beheerder")]
+    ZWEMMER, OUDER, TRAINER, SECRETARIS, BESTUURDER, BEHEERDER = (
+        "zwemmer", "ouder", "trainer", "secretaris", "bestuurder", "beheerder")
+    # Volgorde = van hoog naar laag; de eerste rol die een account heeft, is de hoofdrol.
+    # Een nieuwe rol: hier toevoegen, en in de groepen hieronder als ze rechten geeft.
+    ROLLEN = [(BEHEERDER, "Beheerder"), (SECRETARIS, "Sportsecretaris"), (TRAINER, "Trainer"), (BESTUURDER, "Bestuurder"),
+              (OUDER, "Ouder"), (ZWEMMER, "Zwemmer")]
     # Rollen met de rechten van het sportsecretariaat; de beheerder kan daarnaast backups en beheer.
     SECRETARIAAT = (SECRETARIS, BEHEERDER)
     STAF = (TRAINER, SECRETARIS, BEHEERDER)
+    # Wie rollen toekent, afneemt en aanvragen behandelt (scherm Gebruikers).
+    ROLBEHEER = (SECRETARIS, BESTUURDER, BEHEERDER)
+    # Rollen die een lid zelf krijgt, zonder goedkeuring: ze geven enkel toegang tot de eigen zwemmers.
+    ZONDER_GOEDKEURING = (ZWEMMER, OUDER)
+    # Rollen met eigen zwemmers: zij krijgen de meldingen voor zwemmers (nieuwe wedstrijd, deadline).
+    GEZIN = (ZWEMMER, OUDER)
+    # Rollen die een lid kan aanvragen (beheerder wordt enkel toegekend).
+    AANVRAAGBAAR = (ZWEMMER, OUDER, TRAINER, SECRETARIS, BESTUURDER)
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profiel")
-    rol = models.CharField(max_length=20, choices=ROLLEN, default=ZWEMMER)
+    rol = models.CharField("hoofdrol", max_length=20, choices=ROLLEN, default=ZWEMMER)
     # Pushmeldingen (per account in te stellen)
     push_nieuwe_wedstrijd = models.BooleanField("Nieuwe wedstrijd open voor inschrijving", default=True)
     push_deadline = models.BooleanField("Herinnering: 1 dag voor de deadline", default=True)
     push_wijziging = models.BooleanField("Trainer/secretariaat wijzigt mijn inschrijving", default=True)
     push_nieuwe_inschrijving = models.BooleanField("(staf) Nieuwe inschrijving om na te kijken", default=False)
+    push_rolaanvraag = models.BooleanField("(bestuur) Nieuwe rolaanvraag om te behandelen", default=True)
 
     def __str__(self):
         return f"{self.user} ({self.get_rol_display()})"
+
+
+ROL_NAAM = dict(Profiel.ROLLEN)
+
+
+class Rol(models.Model):
+    """Eén rol van een account. Een account kan meerdere rollen hebben (bv. ouder én trainer)."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="app_rollen")
+    rol = models.CharField(max_length=20, choices=Profiel.ROLLEN)
+    door = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    sinds = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("user", "rol")]
+        verbose_name_plural = "rollen"
+
+    def __str__(self):
+        return f"{self.user}: {self.get_rol_display()}"
+
+
+class Rolaanvraag(models.Model):
+    """Een lid vraagt een rol aan; een bestuurder, sportsecretaris of beheerder keurt goed, keurt af of geeft een andere rol."""
+
+    OPEN, GOEDGEKEURD, AFGEKEURD, ANDERE_ROL, INGETROKKEN = "open", "goedgekeurd", "afgekeurd", "andere_rol", "ingetrokken"
+    STATUS = [(OPEN, "Wacht op goedkeuring"), (GOEDGEKEURD, "Goedgekeurd"), (AFGEKEURD, "Afgekeurd"),
+              (ANDERE_ROL, "Andere rol gekregen"), (INGETROKKEN, "Ingetrokken")]
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="rolaanvragen")
+    rol = models.CharField("gevraagde rol", max_length=20, choices=Profiel.ROLLEN)
+    motivatie = models.CharField(max_length=300, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS, default=OPEN)
+    toegekende_rol = models.CharField(max_length=20, choices=Profiel.ROLLEN, blank=True)
+    reden = models.CharField("reden of toelichting", max_length=300, blank=True)
+    behandeld_door = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                                       related_name="+")
+    behandeld_op = models.DateTimeField(null=True, blank=True)
+    # Heeft het lid de beslissing gezien? (melding in de app)
+    gelezen = models.BooleanField(default=False)
+    aangemaakt = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-aangemaakt"]
+        verbose_name_plural = "rolaanvragen"
+
+    def __str__(self):
+        return f"{self.user}: {self.get_rol_display()} ({self.get_status_display()})"
+
+    @property
+    def beslissing(self):
+        from .rollen import beslissing
+        return beslissing(self)
 
 
 def account_verwijderd(collector, field, sub_objs, using):
@@ -290,7 +356,8 @@ class Melding(models.Model):
     def door_naam(self):
         if not self.door:
             return "De club"
-        rol = getattr(getattr(self.door, "profiel", None), "get_rol_display", lambda: "")()
+        from .rollen import hoofdrol
+        rol = ROL_NAAM.get(hoofdrol(self.door), "")
         naam = self.door.first_name or self.door.username
         return f"{rol} {naam}".strip()
 
