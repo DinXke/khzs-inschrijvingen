@@ -910,6 +910,30 @@ class TrainersTest(Basis):
             self.assertTrue(r.headers["Location"].endswith("/leden/wedstrijden/"))
 
 
+
+class TabbalkTest(Basis):
+    """Onderbalk op de gsm: hoogstens 5 knoppen; bij veel menu-items de rest en Afmelden onder 'Meer'."""
+
+    def balk(self, html):
+        balk = re.search(r'<nav class="tabbalk">(.*?)</nav>', html, re.S).group(1)
+        return re.findall(r"</svg>([^<]+)</(?:a|button)>", balk)
+
+    def test_weinig_items_geen_meer(self):
+        gebruiker("ouder@x.be")
+        html = self.c.login("ouder@x.be").get("wedstrijden/").text
+        self.assertEqual(self.balk(html), ["Wedstrijden", "Profiel", "Uitleg", "Meldingen", "Afmelden"])
+        self.assertNotIn("meer-blad", html)
+
+    def test_veel_items_onder_meer_met_backup(self):
+        html = self.c.login("admin", "admin123").get("wedstrijden/").text
+        self.assertEqual(self.balk(html), ["Wedstrijden", "Zwemmers", "Trainingen", "Verloning", "Meer"])
+        blad = re.search(r'<div class="meer-blad".*?</div>', html, re.S).group(0)
+        meer = re.findall(r"</svg>([^<]+)</a>", blad)
+        self.assertEqual(meer, ["Gebruikers", "Uitleg", "Meldingen", "Backup", "Afmelden"])
+        # Actieve pagina onder 'Meer': de knop Meer licht op.
+        self.assertIn('class="actief" id="meer-knop"', self.c.get("gebruikers/").text)
+
+
 DEMO = BASIS + "/leden-demo/"
 DEMO_DAG = "2026-11-14"
 
