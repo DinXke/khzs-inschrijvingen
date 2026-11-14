@@ -9,6 +9,7 @@
     {% for field in form %}{% if field.name != "koppelcode" %}{% include "_veld.html" %}{% endif %}{% endfor %}
   </div>
   <h2>2. Zwemmer(s)</h2>
+  <label class="kaart" style="display:flex;gap:.6rem;align-items:center;cursor:pointer;margin-bottom:12px"><input type="checkbox" id="zelf" name="zelf" {% if request.POST.zelf %}checked{% endif %} style="width:auto"> <span><b>Ik zwem zelf</b> <span class="klein">(bv. masters) — je eigen gegevens komen in het eerste zwemmerblok</span></span></label>
   <div class="kaart">{% with field=form.koppelcode %}{% include "_veld.html" %}{% endwith %}</div>
   {{ zwemmers.management_form }}{{ zwemmers.non_form_errors }}
   <div id="zwemmers">
@@ -54,6 +55,29 @@
     nieuw.querySelector("input[type=text]")?.focus();
   });
   lijst.addEventListener("click", e => { if (e.target.closest(".weg")) { e.target.closest(".zwemmer-blok").remove(); hernummer(); } });
+  // "Ik zwem zelf": eigen voor- en achternaam in het eerste zwemmerblok, en mee laten veranderen.
+  const zelf = document.getElementById("zelf");
+  const eigen = () => [document.getElementById("id_voornaam").value, document.getElementById("id_naam").value];
+  function vulZelf() {
+    const b = lijst.querySelector(".zwemmer-blok");
+    if (!b) return;
+    const vn = b.querySelector("[name$='-voornaam']"), nm = b.querySelector("[name$='-naam']");
+    let label = b.querySelector(".zelf-label");
+    if (!label) { label = document.createElement("span"); label.className = "zelf-label klein"; b.querySelector("strong").append(label); }
+    label.textContent = zelf.checked ? " (jijzelf)" : "";
+    if (zelf.checked) { [vn.value, nm.value] = eigen(); }
+  }
+  zelf.addEventListener("change", () => {
+    const b = lijst.querySelector(".zwemmer-blok");
+    if (!zelf.checked && b) {
+      const vn = b.querySelector("[name$='-voornaam']"), nm = b.querySelector("[name$='-naam']");
+      if (vn.value === eigen()[0] && nm.value === eigen()[1]) { vn.value = ""; nm.value = ""; }
+    }
+    vulZelf();
+    if (zelf.checked) lijst.querySelector(".zwemmer-blok [name$='-geboortedatum']")?.focus();
+  });
+  ["id_voornaam", "id_naam"].forEach(id => document.getElementById(id).addEventListener("input", () => { if (zelf.checked) vulZelf(); }));
+  if (zelf.checked) vulZelf();
 })();
 </script>
 {% endblock %}

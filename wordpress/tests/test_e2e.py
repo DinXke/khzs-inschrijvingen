@@ -754,6 +754,23 @@ class KoppelTest(StroomTest):
         self.assertContains(r, "mama@o.be, papa@o.be")
 
 
+class ZelfZwemmerTest(Basis):
+    def test_mezelf_toevoegen(self):
+        gebruiker("an@test.be", first_name="An")
+        exe("UPDATE wp_usermeta m JOIN wp_users u ON u.ID=m.user_id SET m.meta_value='Vos' WHERE u.user_login='an@test.be' AND m.meta_key='last_name'")
+        k = Klant().login("an@test.be")
+        self.assertContains(k.get("zwemmers/"), "+ Mezelf")
+        r = k.get("zwemmers/nieuw/", zelf=1)
+        self.assertContains(r, 'value="An"')
+        self.assertContains(r, 'value="Vos"')
+        k.post("zwemmers/nieuw/", {"voornaam": "An", "naam": "Vos", "geboortedatum": "1985-04-01", "geslacht": "F"}, query={"zelf": 1})
+        self.assertEqual(een("SELECT voornaam FROM {p}zwemmers"), "An")
+        self.assertNotContains(k.get("zwemmers/"), "+ Mezelf")
+
+    def test_registratie_toont_vinkje(self):
+        self.assertContains(self.c.get("registreren/"), "Ik zwem zelf")
+
+
 class TrainersTest(Basis):
     """Module trainers: rooster, vaste trainers, afmelden/overnemen, afgelast, uren en verloning."""
 

@@ -40,6 +40,12 @@ Vereisten: WordPress 6.2+, PHP 8.0+ met de extensies `zip`, `simplexml`, `dom` e
 
 **Penningmeester** staat los van de app-rol, want het kan ook een ouder zijn. Een beheerder duidt die aan bij *Gebruikers* in de app of op het WordPress-profiel. De penningmeester ziet **Verloning**: de tarieven en het overzicht per maand.
 
+## Zelf zwemmer
+
+Ook volwassenen die zelf zwemmen (bv. masters) kunnen zichzelf toevoegen:
+- **Bij registratie**: het vinkje *Ik zwem zelf* vult het eerste zwemmerblok met je eigen voor- en achternaam.
+- **Achteraf**: met *+ Mezelf* bij *Mijn zwemmers*. Die knop verdwijnt zodra je jezelf hebt toegevoegd.
+
 ## Zwemmer delen met meerdere accounts
 
 Een zwemmer kan bij meerdere accounts horen, bv. bij gescheiden ouders.

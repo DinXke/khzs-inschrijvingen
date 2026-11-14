@@ -681,3 +681,19 @@ class KoppelTest(StroomTest):
         self.c.force_login(self.tr)
         self.c.post(f"/zwemmers/{z.pk}/account/", {"email": "papa@o.be"})
         self.assertTrue(z.heeft_account(papa))
+
+
+class ZelfZwemmerTest(TestCase):
+    def test_mezelf_toevoegen(self):
+        u = User.objects.create_user("an@test.be", "an@test.be", "geheim123!", first_name="An", last_name="Vos")
+        self.client.force_login(u)
+        self.assertContains(self.client.get("/zwemmers/"), "+ Mezelf")
+        r = self.client.get("/zwemmers/nieuw/?zelf=1")
+        self.assertContains(r, 'value="An"')
+        self.assertContains(r, 'value="Vos"')
+        self.client.post("/zwemmers/nieuw/?zelf=1", {"voornaam": "An", "naam": "Vos", "geboortedatum": "1985-04-01", "geslacht": "F"})
+        self.assertTrue(Zwemmer.objects.filter(account=u, voornaam="An").exists())
+        self.assertNotContains(self.client.get("/zwemmers/"), "+ Mezelf")
+
+    def test_registratie_toont_vinkje(self):
+        self.assertContains(self.client.get("/registreren/"), "Ik zwem zelf")

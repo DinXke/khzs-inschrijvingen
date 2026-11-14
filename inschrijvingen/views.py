@@ -139,20 +139,29 @@ def mijn_zwemmers(request):
         zwemmers = Zwemmer.objects.select_related("account")
         if q:
             zwemmers = zwemmers.filter(Q(naam__icontains=q) | Q(voornaam__icontains=q))
-        return render(request, "zwemmers.html", {"zwemmers": zwemmers, "q": q, "alle": True})
-    return render(request, "zwemmers.html", {"zwemmers": Zwemmer.objects.van(request.user)})
+        return render(request, "zwemmers.html", {"zwemmers": zwemmers, "q": q, "alle": True, "zelf_ontbreekt": zelf_ontbreekt(request.user)})
+    return render(request, "zwemmers.html", {"zwemmers": Zwemmer.objects.van(request.user), "zelf_ontbreekt": zelf_ontbreekt(request.user)})
+
+
+def zelf_ontbreekt(user):
+    """Toon ‘Mezelf toevoegen’ zolang er geen zwemmer met de naam van dit account bij het account hoort."""
+    if not user.first_name:
+        return True
+    return not Zwemmer.objects.van(user).filter(voornaam__iexact=user.first_name, naam__iexact=user.last_name).exists()
 
 
 @login_required
 def zwemmer_nieuw(request):
-    form = ZwemmerForm(request.POST or None)
+    zelf = request.GET.get("zelf") == "1"
+    initieel = {"voornaam": request.user.first_name, "naam": request.user.last_name} if zelf else None
+    form = ZwemmerForm(request.POST or None, initial=initieel)
     if request.method == "POST" and form.is_valid():
         z = form.save(commit=False)
         z.account = request.user
         z.save()
         messages.success(request, f"{z} toegevoegd.")
         return redirect("zwemmer", pk=z.pk)
-    return render(request, "zwemmer_form.html", {"form": form, "titel": "Zwemmer toevoegen"})
+    return render(request, "zwemmer_form.html", {"form": form, "titel": "Mezelf toevoegen als zwemmer" if zelf else "Zwemmer toevoegen"})
 
 
 @login_required
