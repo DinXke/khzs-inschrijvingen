@@ -281,3 +281,52 @@ Nog na te vragen voor het bouwen:
 - Push bij elk bericht of enkel bij vastgepinde, en kan je een kanaal dempen?
 - Hoe lang blijven berichten bewaard, en wie mag berichten verwijderen?
 
+
+## AVG / GDPR (branch `feature/avg`, bovenop `feature/ploegen`)
+
+Vraag van de eigenaar: *"zaken als AVG melding/pagina, GDPR, cookie regeling?"* Gebouwd in Django én WordPress, met dezelfde werking.
+
+**Inventaris van de persoonsgegevens**
+
+| Gegevens | Django | WordPress | Wie ziet het |
+|---|---|---|---|
+| Account: naam, e-mail, wachtwoordhash, laatste aanmelding | `auth_user` | `wp_users`, user meta `khzs_laatst_aangemeld` | zelf, rolbeheer, beheer |
+| Rollen, rolaanvragen (met motivatie en reden), penningmeester | `Rol`, `Rolaanvraag`, `Profiel.rol` | user meta `khzs_rollen`, tabel `khzs_rolaanvragen` | zelf, rolbeheer |
+| Akkoord privacyverklaring (datum, versie) | `Profiel.privacy_*` | user meta `khzs_privacy_*` | beheer |
+| Zwemmers: naam, geboortedatum (vaak minderjarig), geslacht, licentie, Swimrankings-ID, toestemming ouder | `Zwemmer` | `khzs_zwemmers` | gekoppelde accounts, staf |
+| Gekoppelde accounts en koppelcodes | `extra_accounts`, `koppelcode` | `khzs_zwemmer_accounts` | gekoppelde accounts, staf |
+| Ploegen, trainers van een ploeg, ploegaanvragen | `Ploeg`, `PloegLid` | `khzs_ploegen`, `_ploeg_trainers`, `_ploegleden` | zie *Ploegen* hierboven |
+| Beste tijden, deelname, inschrijvingen, meldingen van wijzigingen | `BesteTijd`, `Deelname`, `Inschrijving`, `Melding` | `khzs_tijden`, `_deelnames`, `_inschrijvingen`, `_meldingen` | gekoppelde accounts, staf; inschrijvingen ook naar organisator en federatie (Lenex) |
+| Pushmeldingen: endpoint, sleutels, browser, voorkeuren | `PushAbonnement`, `Profiel.push_*` | `khzs_push`, user meta `khzs_push_*` | beheer; pushdiensten (Google, Mozilla, Apple, Microsoft) krijgen versleutelde berichten |
+| Trainers: vaste trainingen, afmeldingen en vervangingen, uren, tarieven, uitbetalingen | (niet in Django) | `khzs_tr_*` | staf; tarieven en verloning enkel penningmeester en beheer |
+| Backups | zip + `pg_dump`, 30 dagen | zip in de privémap, 30 dagen | beheer |
+| Logboeken (IP-adressen) | nginx/gunicorn, logrotate | hosting van de website | beheer, hosting |
+
+**Cookies en opslag**: allemaal strikt noodzakelijk, dus **geen cookiebanner** nodig voor de app. Een vermelding in de privacyverklaring volstaat.
+- Django: `sessionid` (90 dagen), `csrftoken`, `messages`.
+- WordPress: `wordpress_logged_in_…`/`wordpress_sec_…` (14 dagen), `wordpress_test_cookie`, `khzs_f` (melding voor wie niet aangemeld is); in de demo enkel `khzs_demo_sessie`.
+- Lokale opslag: `thema` (licht/donker), `khzs_pwa_weg` (‘Niet nu’ bij de installatiemelding, ook op de rest van de website).
+- Service worker: cache van opmaak, logo en offlinepagina; pushabonnement.
+- Geen statistieken, trackers, externe lettertypes of scripts. Cloudflare kan `__cf_bm` zetten (beveiliging, strikt noodzakelijk). **Let op**: de rest van www.khzs.be (thema, andere plugins, ingesloten video's…) valt hierbuiten en kan wel een cookiebanner vragen.
+
+**Beslissingen**
+- **Privacyverklaring** in de app (`/privacy/`, in WordPress `/leden/privacy/`), zonder aanmelden. Het is een sjabloon in duidelijk Vlaams; de club laat het juridisch nakijken. De gegevens van de club zijn instelbaar: Django via `PRIVACY_*` in `/etc/khzs.env`, WordPress via *Instellingen → KHZS Leden*.
+- **Versie**: wie de huidige versie nog niet aanvaardde (ook alle bestaande accounts), ziet een melding met een link; op de privacypagina bevestigen ze met één knop. Een nieuwe versie instellen vraagt iedereen opnieuw te lezen.
+- **Registratie**: verplicht vinkje voor de privacyverklaring. **Toestemming van een ouder of voogd** bij elke nieuwe zwemmer jonger dan 18 jaar (ook in het stappenplan); voor bestaande minderjarige zwemmers vraagt de zwemmerpagina het achteraf. Rechtsgrond in de tekst: overeenkomst en gerechtvaardigd belang; toestemming voor pushmeldingen.
+- **Rechten in de app** (*Mijn gegevens*, link bij *Meldingen* en *Uitleg*): download als JSON, en account verwijderen met wachtwoord en het woord VERWIJDER. Gedeelde zwemmers blijven bij het andere account; de rest verdwijnt mee.
+- **Bewaarplicht boekhouding** (enkel WordPress, module Trainers): wie trainingen gaf of vergoed werd, wordt *afgesloten* in plaats van verwijderd. Geen aanmelden meer, e-mail en andere gegevens weg, enkel de naam bij uren en uitbetalingen. 10 jaar na het boekjaar van de laatste prestatie (`BOEKHOUDING_JAREN`, filter `khzs_bewaarplicht`) wist de opkuis het account en de trainersgegevens.
+- **Niet zelf te verwijderen**: beheerders van de website (WordPress), accounts met `/beheer/` (Django), auteurs van berichten op de website, en de demo. De demo toont alle AVG-functies maar verwijdert niets en verstuurt niets.
+- **Opkuis**: Django `manage.py opkuis`, dagelijks mee met de herinneringen (`update.sh` installeert geen nieuwe timers); WordPress WP-Cron `khzs_opkuis` om 03:00. Termijnen: meldingen, behandelde aanvragen en het logboek van herinneringen 365 dagen; pushabonnementen na 365 dagen zonder aanmelden; verlopen koppelcodes; verlopen sessies (Django).
+- WordPress: de gegevens van de app zitten ook in *Extra → Persoonsgegevens exporteren*. Modules haken in met de filters `khzs_mijn_zwemmer`, `khzs_mijn_gegevens`, `khzs_bewaarplicht`, `khzs_opkuis_aantallen` en de actie `khzs_bewaartermijn_voorbij` (zie `includes/avg.php`).
+
+**Technisch**
+- Django: `inschrijvingen/avg.py`, migratie `0014_avg`, sjablonen `privacy.html` en `mijn_gegevens.html`, commando `opkuis`. Tests: `test_avg.py` (12). In `herinneringen` staat het aanmaken van een herinnering nu in een savepoint, anders breekt een dubbele herinnering de opkuis erna.
+- WordPress: `includes/avg.php`, `views/privacy.php` en `views/mijn_gegevens.php`, kolommen `toestemming_op`/`toestemming_door` in `khzs_zwemmers` (`DB_VERSIE` 6). Tests: `AvgTest` in `test_e2e.py`.
+- `export_wordpress` neemt het akkoord en de toestemming mee.
+- **Bij het samenvoegen**: andere branches kunnen ook `DB_VERSIE` verhogen; neem dan de hoogste en controleer dat `installeer_db()` alle kolommen heeft. De Django-migratie `0014_avg` hangt af van `0013_ploegen`.
+
+**Nog te doen door de club** (vragen aan de eigenaar)
+- De gegevens van de club invullen: juridische naam (vzw), adres, ondernemingsnummer, contactadres voor privacyvragen.
+- Staat er al een privacyverklaring of cookieverklaring op www.khzs.be? Dan best op elkaar afstemmen en naar elkaar linken.
+- De tekst laten nakijken, en de bewaartermijn voor de boekhouding (nu 10 jaar) laten bevestigen door de penningmeester of boekhouder.
+- Verwerkersovereenkomsten nakijken met de hosting en Cloudflare, en het register van verwerkingsactiviteiten van de club aanvullen met deze app.

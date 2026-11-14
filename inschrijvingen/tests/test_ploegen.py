@@ -144,5 +144,5 @@ class PloegenTest(TestCase):
     def test_kind_met_ploeg_in_het_stappenplan(self):
         self.client.force_login(self.andere)
         self.client.post("/welkom/?stap=kinderen", {"actie": "kind", "voornaam": "Mo", "naam": "Q", "geboortedatum": "2014-05-05",
-                                                    "geslacht": "M", "ploeg": self.b.pk})
+                                                    "geslacht": "M", "ploeg": self.b.pk, "toestemming": "on"})
         self.assertEqual(PloegLid.objects.get(zwemmer__voornaam="Mo").status, PloegLid.OPEN)

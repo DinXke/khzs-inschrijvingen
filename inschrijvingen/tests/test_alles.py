@@ -30,14 +30,14 @@ OUD = b"""<?xml version="1.0" encoding="ISO-8859-1"?>
 def registreer(client, email, voornaam="Ann", naam="Peeters"):
     """Account aanmaken; daarna volgt het stappenplan (welkom)."""
     r = client.post("/registreren/", {"email": email, "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!",
-                                      "voornaam": voornaam, "naam": naam})
+                                      "voornaam": voornaam, "naam": naam, "privacy": "on"})
     assert r.status_code == 302 and r["Location"] == "/welkom/", r.content[:2000]
     return r
 
 
 def kind(client, voornaam, naam, gd, geslacht, ploeg=""):
     return client.post("/welkom/?stap=kinderen", {"actie": "kind", "voornaam": voornaam, "naam": naam, "geboortedatum": gd,
-                                                  "geslacht": geslacht, "ploeg": ploeg})
+                                                  "geslacht": geslacht, "ploeg": ploeg, "toestemming": "on"})
 
 
 def upload(data, naam="x.lxf"):

@@ -94,7 +94,8 @@ def inschrijving(zid, nid, status="ingediend", tijd_hon=None, baan=""):
 
 def registreer(k, email, voornaam="Ann", naam="Peeters"):
     """Account aanmaken; daarna volgt het stappenplan (welkom)."""
-    r = k.post("registreren/", {"email": email, "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!", "voornaam": voornaam, "naam": naam})
+    r = k.post("registreren/", {"email": email, "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!", "voornaam": voornaam, "naam": naam,
+                                "privacy": "1"})
     assert r.status_code == 302 and r.headers["Location"].endswith("/leden/welkom/"), r.text[:2000]
     k.nonce = None
     return r
@@ -102,7 +103,7 @@ def registreer(k, email, voornaam="Ann", naam="Peeters"):
 
 def kind(k, voornaam, naam, gd, geslacht, ploeg=""):
     return k.post("welkom/", {"actie": "kind", "voornaam": voornaam, "naam": naam, "geboortedatum": gd, "geslacht": geslacht,
-                              "ploeg": ploeg}, query={"stap": "kinderen"})
+                              "ploeg": ploeg, "toestemming": "1"}, query={"stap": "kinderen"})
 
 
 class Klant:
@@ -629,7 +630,7 @@ class RegistratieTest(Basis):
     def test_bestaand_email(self):
         gebruiker("dubbel@test.be")
         r = self.c.post("registreren/", {"email": "dubbel@test.be", "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!",
-                                         "voornaam": "A", "naam": "B"})
+                                         "voornaam": "A", "naam": "B", "privacy": "1"})
         self.assertContains(r, "Er bestaat al een account")
 
     def test_login_fout(self):
@@ -1353,7 +1354,7 @@ class DemoTest(Basis):
         echt = gebruiker("ouder@x.be")
         zwemmer(echt, "Echt", "Kind")
         n = demo_aantal("zwemmers")
-        self.d.post("zwemmers/nieuw/", {"voornaam": "Nieuw", "naam": "Kind", "geboortedatum": "2015-01-01", "geslacht": "F"})
+        self.d.post("zwemmers/nieuw/", {"voornaam": "Nieuw", "naam": "Kind", "geboortedatum": "2015-01-01", "geslacht": "F", "toestemming": "1"})
         self.assertEqual(demo_aantal("zwemmers"), n + 1)
         r = self.d.post("demo/terugzetten/")
         self.assertEqual(r.status_code, 302)
@@ -1370,7 +1371,7 @@ class DemoTest(Basis):
 
     def test_na_update_opnieuw_opgebouwd(self):
         n = demo_aantal("zwemmers")
-        self.d.post("zwemmers/nieuw/", {"voornaam": "Nieuw", "naam": "Kind", "geboortedatum": "2015-01-01", "geslacht": "F"})
+        self.d.post("zwemmers/nieuw/", {"voornaam": "Nieuw", "naam": "Kind", "geboortedatum": "2015-01-01", "geslacht": "F", "toestemming": "1"})
         self.assertEqual(demo_aantal("zwemmers"), n + 1)
         self.assertContains(self.d.get("wedstrijden/"), "Clubmeeting ZCT")  # zelfde versie: niets teruggezet
         self.assertEqual(demo_aantal("zwemmers"), n + 1)
@@ -1386,6 +1387,198 @@ class DemoTest(Basis):
         self.assertEqual(r.status_code, 404)
         self.assertNotIn("Aanmelden", r.text)
         self.assertEqual(requests.get(DEMO + "aanmelden/").status_code, 200)
+
+
+def optie(naam, waarde=None):
+    """Optie van WordPress zetten (of wissen met None)."""
+    exe(f"DELETE FROM wp_options WHERE option_name='{naam}'")
+    if waarde is not None:
+        exe(f"INSERT INTO wp_options (option_name, option_value, autoload) VALUES ('{naam}', '{waarde}', 'yes')")
+    hulp("cache")
+
+
+class AvgTest(Basis):
+    """AVG: privacyverklaring, akkoord, toestemming ouder, gegevens downloaden, account verwijderen of afsluiten, opkuis."""
+
+    LEES = "Lees hoe de club met je gegevens omgaat"
+
+    def tearDown(self):
+        for o in ("khzs_privacy_verantwoordelijke", "khzs_privacy_adres", "khzs_privacy_email", "khzs_privacy_versie", "khzs_privacy_extra"):
+            optie(o)
+
+    def gezin(self):
+        self.ouder = gebruiker("ouder@test.be", first_name="Ann")
+        self.papa = gebruiker("papa@test.be", first_name="Piet")
+        self.vreemde = gebruiker("vreemde@test.be")
+        self.lien = zwemmer(self.ouder, "Lien")
+        exe(f"INSERT INTO {{p}}zwemmer_accounts (zwemmer_id, user_id, aangemaakt) VALUES ({self.lien}, {self.papa}, NOW())")
+        self.bram = zwemmer(self.ouder, "Bram")
+        self.anders = zwemmer(self.vreemde, "Anders")
+        tijd(self.lien, 50, "FREE", "SCM", 3312)
+        exe(f"INSERT INTO {{p}}push (user_id, endpoint, endpoint_hash, p256dh, auth, toestel, aangemaakt) "
+            f"VALUES ({self.ouder}, 'https://push.example/1', SHA2('https://push.example/1', 256), 'x', 'y', 'Firefox', NOW())")
+        return Klant().login("ouder@test.be")
+
+    def test_pagina_zonder_aanmelden_en_gelinkt(self):
+        r = self.c.get("privacy/")
+        self.assertEqual(r.status_code, 200)
+        for tekst in ("Hasseltse Zwemvereniging Spartacus", "Gegevensbeschermingsautoriteit", "wordpress_logged_in_", "khzs_pwa_weg",
+                      "Uren, tarieven en uitbetalingen"):
+            self.assertContains(r, tekst)
+        self.assertNotContains(r, "Ik heb de privacyverklaring gelezen en ga akkoord")  # knop enkel aangemeld
+        self.assertContains(self.c.get("aanmelden/"), "/leden/privacy/")
+        self.assertContains(self.c.get("registreren/"), "/leden/privacy/")
+
+    def test_instelbare_gegevens(self):
+        for o, w in (("khzs_privacy_verantwoordelijke", "Club X vzw"), ("khzs_privacy_adres", "Zwembadlaan 1, 3500 Hasselt"),
+                     ("khzs_privacy_email", "privacy@club.be"), ("khzs_privacy_versie", "2027-01"), ("khzs_privacy_extra", "Onze DPO is Jan.")):
+            optie(o, w)
+        r = self.c.get("privacy/")
+        for tekst in ("Club X vzw", "Zwembadlaan 1, 3500 Hasselt", "mailto:privacy@club.be", "versie 2027-01", "Onze DPO is Jan."):
+            self.assertContains(r, tekst)
+
+    def test_registratie_vraagt_akkoord(self):
+        velden = {"email": "nieuw@test.be", "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!", "voornaam": "Ann", "naam": "P"}
+        r = self.c.post("registreren/", velden)
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Je moet de privacyverklaring aanvaarden")
+        self.assertIsNone(een("SELECT ID FROM wp_users WHERE user_login='nieuw@test.be'"))
+        r = self.c.post("registreren/", {**velden, "privacy": "1"})
+        self.assertEqual(r.status_code, 302)
+        uid = int(een("SELECT ID FROM wp_users WHERE user_login='nieuw@test.be'"))
+        self.assertEqual(hulp("meta", id=uid, key="khzs_privacy_versie")["v"], "2026-11-14")
+        self.assertTrue(hulp("meta", id=uid, key="khzs_privacy_akkoord")["v"])
+        self.c.nonce = None
+        self.assertNotContains(self.c.get("welkom/"), self.LEES)
+
+    def test_bestaand_account_en_nieuwe_versie(self):
+        gebruiker("oud@test.be", rol="ouder")
+        k = Klant().login("oud@test.be")
+        self.assertContains(k.get("meldingen/"), self.LEES)
+        r = k.post("privacy/")
+        self.assertTrue(r.headers["Location"].endswith("/leden/privacy/mijn-gegevens/"))
+        self.assertNotContains(k.get("meldingen/"), self.LEES)
+        optie("khzs_privacy_versie", "2099-01-01")
+        self.assertContains(k.get("meldingen/"), self.LEES)
+        self.assertContains(k.get("privacy/mijn-gegevens/"), "Er is een nieuwe versie")
+
+    def test_toestemming_minderjarige(self):
+        gebruiker("ouder@test.be", rol="ouder", first_name="Ann")
+        k = Klant().login("ouder@test.be")
+        velden = {"actie": "kind", "voornaam": "Mo", "naam": "Q", "geboortedatum": "2014-05-05", "geslacht": "M"}
+        r = k.post("welkom/", velden, query={"stap": "kinderen"})
+        self.assertContains(r, "toestemming van een ouder of voogd nodig")
+        self.assertEqual(int(een("SELECT COUNT(*) FROM {p}zwemmers")), 0)
+        k.post("welkom/", {**velden, "toestemming": "1"}, query={"stap": "kinderen"})
+        z = sql("SELECT * FROM {p}zwemmers")[0]
+        self.assertTrue(z["toestemming_op"])
+        self.assertEqual(z["toestemming_door"], z["account_id"])
+        r = k.post("zwemmers/nieuw/", {"voornaam": "Lot", "naam": "Q", "geboortedatum": "2016-01-01", "geslacht": "F"})
+        self.assertContains(r, "toestemming van een ouder of voogd nodig")
+        k.post("zwemmers/nieuw/", {"voornaam": "Ben", "naam": "Q", "geboortedatum": "1990-01-01", "geslacht": "M"})  # meerderjarig
+        self.assertIsNone(een("SELECT toestemming_op FROM {p}zwemmers WHERE voornaam='Ben'"))
+
+    def test_toestemming_achteraf(self):
+        k = self.gezin()
+        self.assertContains(k.get(f"zwemmers/{self.bram}/"), "Ik geef toestemming")
+        k.post(f"zwemmers/{self.bram}/", {"actie": "toestemming"})
+        self.assertTrue(een(f"SELECT toestemming_op FROM {{p}}zwemmers WHERE id={self.bram}"))
+        self.assertNotContains(k.get(f"zwemmers/{self.bram}/"), "Ik geef toestemming")
+        gebruiker("tr@test.be", rol="trainer")
+        self.assertNotContains(Klant().login("tr@test.be").get(f"zwemmers/{self.lien}/"), "Ik geef toestemming")
+
+    def test_download(self):
+        k = self.gezin()
+        r = k.get("privacy/mijn-gegevens.json")
+        self.assertIn("attachment", r.headers["Content-Disposition"])
+        d = r.json()
+        self.assertEqual(d["account"]["e-mail"], "ouder@test.be")
+        self.assertEqual(sorted(z["voornaam"] for z in d["zwemmers"]), ["Bram", "Lien"])
+        lien = next(z for z in d["zwemmers"] if z["voornaam"] == "Lien")
+        self.assertEqual(lien["beste_tijden"][0]["tijd"], "33.12")
+        self.assertEqual(lien["accounts"], ["Ann", "Piet"])
+        self.assertEqual(d["toestellen_met_pushmeldingen"][0]["toestel"], "Firefox")
+        self.assertNotIn("p256dh", r.text)
+        self.assertEqual(Klant().get("privacy/mijn-gegevens.json").status_code, 302)  # niet aangemeld
+
+    def test_verwijderen_met_gedeelde_zwemmer(self):
+        k = self.gezin()
+        r = k.get("privacy/mijn-gegevens/")
+        self.assertContains(r, "Deze zwemmers verdwijnen mee")
+        self.assertContains(r, "Bram P")
+        self.assertContains(r, "Deze zwemmers blijven")
+        k.post("privacy/verwijderen/", {"bevestig": "VERWIJDER", "wachtwoord": "fout"})
+        k.post("privacy/verwijderen/", {"bevestig": "nee", "wachtwoord": "geheim123!"})
+        self.assertTrue(een(f"SELECT ID FROM wp_users WHERE ID={self.ouder}"))
+        r = k.post("privacy/verwijderen/", {"bevestig": "VERWIJDER", "wachtwoord": "geheim123!"})
+        self.assertTrue(r.headers["Location"].endswith("/leden/aanmelden/"))
+        self.assertIsNone(een(f"SELECT ID FROM wp_users WHERE ID={self.ouder}"))
+        self.assertIsNone(een(f"SELECT id FROM {{p}}zwemmers WHERE id={self.bram}"))
+        self.assertEqual(int(een(f"SELECT account_id FROM {{p}}zwemmers WHERE id={self.lien}")), self.papa)
+        self.assertEqual(int(een(f"SELECT COUNT(*) FROM {{p}}tijden WHERE zwemmer_id={self.lien}")), 1)
+        self.assertTrue(een(f"SELECT id FROM {{p}}zwemmers WHERE id={self.anders}"))
+        self.assertEqual(int(een("SELECT COUNT(*) FROM {p}push")), 0)
+        self.assertEqual(k.get("zwemmers/").status_code, 302)  # afgemeld
+
+    def test_trainer_wordt_afgesloten_en_later_gewist(self):
+        uid = gebruiker("tr@test.be", rol="trainer", first_name="Tom")
+        exe("UPDATE wp_usermeta SET meta_value='Peeters' WHERE meta_key='last_name' AND user_id=%d" % uid)
+        exe(f"INSERT INTO {{p}}tr_uitbetaald (user_id, maand, trainingen, minuten, bedrag_cent, door_id, op) VALUES ({uid}, '2026-09', 8, 720, 12000, NULL, NOW())")
+        exe(f"INSERT INTO {{p}}push (user_id, endpoint, endpoint_hash, p256dh, auth, toestel, aangemaakt) "
+            f"VALUES ({uid}, 'https://push.example/t', SHA2('https://push.example/t', 256), 'x', 'y', '', NOW())")
+        k = Klant().login("tr@test.be")
+        self.assertContains(k.get("privacy/mijn-gegevens/"), "Bewaarplicht")
+        self.assertIn("trainer", k.get("privacy/mijn-gegevens.json").json())
+        k.post("privacy/verwijderen/", {"bevestig": "VERWIJDER", "wachtwoord": "geheim123!"})
+        u = sql(f"SELECT user_login, user_email, display_name FROM wp_users WHERE ID={uid}")[0]
+        self.assertEqual(u, {"user_login": f"afgesloten-{uid}", "user_email": f"afgesloten-{uid}@verwijderd.invalid", "display_name": "Tom Peeters"})
+        self.assertEqual(hulp("meta", id=uid, key="khzs_bewaren_tot")["v"], "2037-01-01")
+        self.assertEqual(int(een("SELECT COUNT(*) FROM {p}tr_uitbetaald")), 1)  # boekhouding blijft
+        self.assertEqual(int(een("SELECT COUNT(*) FROM {p}push")), 0)
+        r = Klant().s.post(APP + "aanmelden/", data={"username": f"afgesloten-{uid}", "password": "geheim123!"}, allow_redirects=False)
+        self.assertEqual(r.status_code, 200)  # aanmelden kan niet meer
+        gebruiker("bestuur@test.be", rol="bestuurder")
+        self.assertNotContains(Klant().login("bestuur@test.be").get("gebruikers/"), "afgesloten-")
+        # Na de bewaartermijn wist de opkuis het account en de bewaarde gegevens.
+        exe(f"UPDATE wp_usermeta SET meta_value='2020-01-01' WHERE meta_key='khzs_bewaren_tot' AND user_id={uid}")
+        self.assertEqual(hulp("eval", f="avg_opkuis")["v"]["afgesloten_accounts"], 1)
+        self.assertIsNone(een(f"SELECT ID FROM wp_users WHERE ID={uid}"))
+        self.assertEqual(int(een("SELECT COUNT(*) FROM {p}tr_uitbetaald")), 0)
+
+    def test_beheerder_niet_zelf(self):
+        gebruiker("baas@test.be", wprol="administrator")
+        k = Klant().login("baas@test.be")
+        self.assertContains(k.get("privacy/mijn-gegevens/"), "Vraag het aan een andere beheerder")
+        k.post("privacy/verwijderen/", {"bevestig": "VERWIJDER", "wachtwoord": "geheim123!"})
+        self.assertTrue(een("SELECT ID FROM wp_users WHERE user_login='baas@test.be'"))
+
+    def test_opkuis(self):
+        k = self.gezin()  # aanmelden zet khzs_laatst_aangemeld: het toestel van de ouder blijft
+        exe("INSERT INTO {p}meldingen (zwemmer_id, wedstrijd_id, door_id, tekst, gelezen, aangemaakt) VALUES "
+            f"({self.lien}, 1, NULL, 'oud', 1, NOW() - INTERVAL 400 DAY), ({self.lien}, 1, NULL, 'nieuw', 0, NOW())")
+        exe("INSERT INTO {p}rolaanvragen (user_id, rol, status, behandeld_op, aangemaakt) VALUES "
+            f"({self.ouder}, 'trainer', 'afgekeurd', NOW() - INTERVAL 400 DAY, NOW() - INTERVAL 401 DAY), "
+            f"({self.ouder}, 'bestuurder', 'open', NULL, NOW() - INTERVAL 400 DAY)")
+        exe(f"INSERT INTO {{p}}push (user_id, endpoint, endpoint_hash, p256dh, auth, toestel, aangemaakt) "
+            f"VALUES ({self.vreemde}, 'https://push.example/oud', SHA2('https://push.example/oud', 256), 'x', 'y', '', NOW() - INTERVAL 400 DAY)")
+        exe(f"UPDATE {{p}}zwemmers SET koppelcode='ABCDEFGH', koppelcode_tot=NOW() - INTERVAL 1 DAY WHERE id={self.lien}")
+        n = hulp("eval", f="avg_opkuis")["v"]
+        self.assertEqual((n["koppelcodes"], n["meldingen"], n["rolaanvragen"], n["pushabonnementen"]), (1, 1, 1, 1))
+        self.assertEqual([r["tekst"] for r in sql("SELECT tekst FROM {p}meldingen")], ["nieuw"])
+        self.assertEqual([r["status"] for r in sql("SELECT status FROM {p}rolaanvragen")], ["open"])
+        self.assertEqual([r["endpoint"] for r in sql("SELECT endpoint FROM {p}push")], ["https://push.example/1"])
+        self.assertEqual(een(f"SELECT koppelcode FROM {{p}}zwemmers WHERE id={self.lien}"), "")
+        self.assertEqual(hulp("eval", f="avg_opkuis")["v"]["meldingen"], 0)
+
+    def test_demo_toont_maar_verwijdert_niet(self):
+        if requests.get(DEMO + "aanmelden/").status_code != 200:
+            self.skipTest("Demo staat uit")
+        d = DemoKlant().login()
+        self.assertContains(d.get("privacy/"), "Dit is de demo met verzonnen gegevens")
+        self.assertContains(d.get("privacy/mijn-gegevens/"), "In de demo kan je je account niet verwijderen")
+        self.assertEqual(d.get("privacy/mijn-gegevens.json").json()["account"]["gebruikersnaam"], "demo")
+        d.post("privacy/verwijderen/", {"bevestig": "VERWIJDER", "wachtwoord": "demo"})
+        self.assertEqual(d.get("wedstrijden/").status_code, 200)  # nog altijd aangemeld
 
 
 if __name__ == "__main__":

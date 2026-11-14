@@ -1,3 +1,4 @@
+from . import avg
 from .models import Profiel, Rolaanvraag
 from .regels import rol
 from . import ploegen
@@ -17,6 +18,7 @@ def rollen(request):
         "ziet_ploegen": ploegen.ziet_alle_ploegen(u),
         "open_ploegaanvragen": 0,
         "ploegbeslissingen": [],
+        "privacy_lezen": avg.moet_lezen(u),
     }
     if u.is_authenticated:
         if ctx["is_rolbeheerder"]:

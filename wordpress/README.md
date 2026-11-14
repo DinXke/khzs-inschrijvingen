@@ -143,6 +143,28 @@ Daarna in de app (als WordPress-beheerder): **Backup → Backup terugzetten**, k
 - Ontbrekende accounts worden aangemaakt, en **bestaande wachtwoorden blijven werken**.
 - Toestellen moeten pushmeldingen opnieuw aanzetten.
 
+## Privacy (AVG)
+
+De app heeft een privacyverklaring op `/leden/privacy/`, voor iedereen leesbaar (ook zonder aanmelden) en gelinkt vanaf *Aanmelden*, *Profiel aanmaken* en *Uitleg*.
+- **Gegevens van de club**: vul ze in onder *Instellingen → KHZS Leden → Privacyverklaring (AVG)*: verwerkingsverantwoordelijke, adres, ondernemingsnummer, contactadres en eventueel een aanvullende tekst.
+- **Sjabloon**: de tekst (`views/privacy.php`) is een sjabloon in duidelijk Vlaams. **Laat hem juridisch nakijken** voor je de app openstelt.
+- **Versie**: verander je de inhoud, zet dan een nieuwe *Versie*. Leden zien dan een melding om de verklaring opnieuw te lezen en te bevestigen.
+- **Registratie**: een vinkje voor de privacyverklaring (datum en versie in de user meta `khzs_privacy_akkoord` en `khzs_privacy_versie`). Wie een zwemmer jonger dan 18 jaar toevoegt, bevestigt de toestemming van een ouder of voogd (`toestemming_op` en `toestemming_door` bij de zwemmer). Voor bestaande minderjarige zwemmers vraagt de zwemmerpagina die toestemming achteraf.
+- **Mijn gegevens** (`/leden/privacy/mijn-gegevens/`, link bij *Meldingen*):
+  - alles downloaden als JSON (account, rollen, voorkeuren, zwemmers, ploegen, tijden, inschrijvingen, meldingen, en voor trainers hun trainingen, uren en vergoedingen);
+  - het account verwijderen, met het wachtwoord en het woord VERWIJDER. Een gedeelde zwemmer blijft bij het andere account; de andere zwemmers verdwijnen mee.
+  - **Bewaarplicht**: gaf iemand trainingen of kreeg die een vergoeding, dan wordt het account *afgesloten* in plaats van verwijderd. Aanmelden kan niet meer, e-mail en andere gegevens verdwijnen, enkel de naam blijft bij de uren en uitbetalingen. Na 10 jaar na het boekjaar (`BOEKHOUDING_JAREN`) wist de opkuis alles.
+  - Beheerders van de website, auteurs van berichten en de demo kunnen hun account niet zelf verwijderen.
+- **Exporttool van WordPress**: *Extra → Persoonsgegevens exporteren* neemt de gegevens van de app mee.
+- **Opkuis** (dagelijks om 03:00, WP-Cron `khzs_opkuis`):
+  - wijzigingen aan inschrijvingen (meldingen) na 365 dagen;
+  - behandelde rolaanvragen en afgekeurde ploegaanvragen na 365 dagen;
+  - pushabonnementen van accounts die 365 dagen niet aanmeldden;
+  - verlopen koppelcodes;
+  - het logboek van verstuurde herinneringen na 365 dagen;
+  - afgesloten accounts na hun bewaartermijn.
+- **Cookies**: de app zet enkel strikt noodzakelijke cookies (aanmelden van WordPress, `khzs_f` voor een melding na afmelden, in de demo `khzs_demo_sessie`) en gebruikt de lokale opslag voor het thema en voor ‘Niet nu’ bij de installatiemelding. Er zijn geen trackers of statistieken, dus er is geen cookiebanner nodig voor de app. **De rest van de website** (thema, andere plugins, bv. statistieken of ingesloten video's) kan wel cookies zetten waarvoor toestemming nodig is: dat valt buiten de plugin.
+
 ## Verschillen met de Django-versie
 
 - Accounts en "wachtwoord vergeten" lopen via WordPress.
@@ -162,6 +184,7 @@ khzs-leden/
     db.php                    gedeelde tabellen (zwemmers, push), privémap, hulpfuncties
     app.php                   routes, menu, weergave, meldingen, toegang
     kern-acties.php           aanmelden, gebruikers, meldingen, backup, PWA
+    avg.php                   privacyverklaring, akkoord, mijn gegevens, account verwijderen, opkuis
     push.php  backup.php  xlsx.php  velden.php  admin.php  pwa.php
     demo.php                  demo op /leden-demo/: eigen tabellen, accounts en cookie, terugzetten
     demo-data.php             demodata (ploegen en uren van khzs.be, zwemschool, wedstrijden, trainers)

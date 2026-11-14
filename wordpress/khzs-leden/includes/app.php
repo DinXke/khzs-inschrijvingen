@@ -165,7 +165,8 @@ function toon(string $sjabloon, array $ctx = [], string $titel = 'KHZS Leden', s
         'is_rolbeheerder' => mag_rollen_beheren(), 'pagina' => $GLOBALS['khzs_route'] ?? '', 'meldingen_flash' => flash_lezen(),
         // Melding in de app: beslissingen over eigen rolaanvragen die het lid nog niet gezien heeft.
         'rolbeslissingen' => $ingelogd ? ongelezen_rolbeslissingen(get_current_user_id()) : [],
-        'ploegbeslissingen' => $ingelogd ? ongelezen_ploegbeslissingen(get_current_user_id()) : []];
+        'ploegbeslissingen' => $ingelogd ? ongelezen_ploegbeslissingen(get_current_user_id()) : [],
+        'privacy_lezen' => privacy_lezen()];
     extract($ctx, EXTR_SKIP);
     $inhoud_sjabloon = sjabloon($sjabloon);
     include KHZS_PAD . 'views/_layout.php';

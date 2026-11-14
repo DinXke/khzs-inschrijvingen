@@ -2,11 +2,12 @@ from collections import defaultdict
 from functools import wraps
 
 from django.contrib import messages
-from django.contrib.auth import login
+from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Min, Q
+from django.conf import settings
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -21,7 +22,7 @@ from django.http import FileResponse, Http404
 from django.http import JsonResponse
 from django.urls import reverse
 
-from . import koppelen, lenex, ploegen, push, rollen
+from . import avg, koppelen, lenex, ploegen, push, rollen
 from .export import excel_overzicht
 from .forms import (BesteTijdForm, BijlageForm, MeldingenForm, PloegForm, RegistratieForm, SecretarisInstellingenForm,
                     TrainerInstellingenForm, UploadForm, ZwemmerForm, ZwemmerMetPloegForm)
@@ -80,6 +81,7 @@ def registreren(request):
     form = RegistratieForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         user = form.save()
+        avg.akkoord(user)
         if rollen.rollen_van(user) == {Profiel.ZWEMMER}:
             rollen.zet_rollen(user, [])  # nog geen rol: die volgt uit de antwoorden in het stappenplan
         login(request, user, backend="django.contrib.auth.backends.ModelBackend")
@@ -94,6 +96,8 @@ def nieuwe_zwemmer(form, user, zelf):
     """Bewaart een zwemmer uit ZwemmerMetPloegForm: account, gezinsrol en eventueel een ploegaanvraag."""
     z = form.save(commit=False)
     z.account = user
+    if form.cleaned_data.get("toestemming"):
+        z.toestemming_op, z.toestemming_door = timezone.now(), user
     z.save()
     rollen.zorg_gezinsrol(user, zelf=zelf)
     if form.cleaned_data.get("ploeg"):
@@ -243,6 +247,10 @@ def zwemmer(request, pk):
     form = ZwemmerForm(request.POST or None, instance=z, prefix="z")
     tijdform = BesteTijdForm(prefix="t", initial={"baan": "SCM"})
     if request.method == "POST":
+        if request.POST.get("actie") == "toestemming" and z.heeft_account(request.user):
+            avg.toestemming(z, request.user)
+            messages.success(request, "Toestemming bewaard. Bedankt!")
+            return redirect("zwemmer", pk=z.pk)
         if "z-voornaam" in request.POST and form.is_valid():
             form.save()
             messages.success(request, "Gegevens bewaard.")
@@ -266,6 +274,7 @@ def zwemmer(request, pk):
                                             "kies_ploegen": Ploeg.objects.filter(actief=True).exclude(pk__in=al),
                                             "accounts": z.accounts, "koppelcode": koppelen.toon(koppelen.geldige_code(z) or ""),
                                             "koppelcode_tot": z.koppelcode_tot,
+                                            "toestemming_nodig": z.minderjarig and not z.toestemming_op and z.heeft_account(request.user),
                                             "tijden": z.tijden.all(), "inschrijvingen": inschrijvingen})
 
 
@@ -989,6 +998,54 @@ def backup_download(request, naam):
     except FileNotFoundError:
         raise Http404
     return FileResponse(pad.open("rb"), as_attachment=True, filename=pad.name)
+
+
+# ---------- privacy (AVG) ----------
+
+def privacy(request):
+    """Privacyverklaring: voor iedereen, ook zonder aanmelden. Aangemeld: de huidige versie aanvaarden."""
+    if request.method == "POST" and request.user.is_authenticated:
+        avg.akkoord(request.user)
+        messages.success(request, "Bedankt. Je hebt de privacyverklaring gelezen en aanvaard.")
+        return redirect("mijn_gegevens")
+    return render(request, "privacy.html", {"gegevens": avg.instellingen(), "moet_lezen": avg.moet_lezen(request.user),
+                                            "bewaar": {"meldingen": avg.MELDINGEN_DAGEN, "aanvragen": avg.AANVRAGEN_DAGEN,
+                                                       "push": avg.PUSH_ONGEBRUIKT_DAGEN},
+                                            "sessie_dagen": settings.SESSION_COOKIE_AGE // 86400})
+
+
+@login_required
+def mijn_gegevens(request):
+    """Rechten van betrokkenen: wat je aanvaardde, je gegevens downloaden en je account verwijderen."""
+    weg, blijft = avg.gevolgen(request.user)
+    return render(request, "mijn_gegevens.html", {"profiel": getattr(request.user, "profiel", None), "versie": avg.versie(),
+                                                  "weg": weg, "blijft": blijft,
+                                                  "geblokkeerd": avg.kan_niet_verwijderen(request.user)})
+
+
+@login_required
+def mijn_gegevens_download(request):
+    data = json.dumps(avg.mijn_gegevens(request.user), ensure_ascii=False, indent=2)
+    resp = HttpResponse(data, content_type="application/json; charset=utf-8")
+    resp["Content-Disposition"] = f'attachment; filename="khzs-mijn-gegevens-{timezone.localdate():%Y%m%d}.json"'
+    return resp
+
+
+@login_required
+@require_POST
+def account_verwijderen(request):
+    u = request.user
+    if request.POST.get("bevestig") != "VERWIJDER" or not u.check_password(request.POST.get("wachtwoord", "")):
+        messages.error(request, "Typ VERWIJDER en je wachtwoord om te bevestigen.")
+        return redirect("mijn_gegevens")
+    try:
+        avg.verwijder_account(u)
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect("mijn_gegevens")
+    logout(request)
+    messages.success(request, "Je account en je gegevens zijn verwijderd.")
+    return redirect("login")
 
 
 # ---------- uitleg ----------

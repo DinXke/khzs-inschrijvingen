@@ -26,6 +26,28 @@
 - Backup: `khzs-backup.timer` maakt elke nacht om 02:30 een volledige app-backup (zip: `dumpdata` + media) in `/opt/khzs/backups/app` (30 dagen). Daarnaast om 03:15 een `pg_dump` in `/opt/khzs/backups/pg`. Beheer via `/backup/` (enkel de rol Beheerder) of `manage.py backup`.
 - Instellingen en geheimen: `/etc/khzs.env` (niet in git). SMTP invullen voor de mails bij een vergeten wachtwoord.
 
+## Privacy (AVG)
+
+- **Privacyverklaring** op `/privacy/` (sjabloon `templates/privacy.html`), zonder aanmelden te lezen en gelinkt vanaf de aanmeldpagina, de registratie en *Uitleg*. **Het is een sjabloon: laat het juridisch nakijken door de club.**
+- **Gegevens van de club** in `/etc/khzs.env`:
+
+  | Variabele | Inhoud |
+  |---|---|
+  | `PRIVACY_VERANTWOORDELIJKE` | juridische naam van de club (leeg = `CLUB_NAAM`) |
+  | `PRIVACY_ADRES` | maatschappelijke zetel |
+  | `PRIVACY_ONDERNEMINGSNUMMER` | optioneel |
+  | `PRIVACY_EMAIL` | contact voor privacyvragen |
+  | `PRIVACY_VERSIE` | standaard `2026-11-14`; verander het na een inhoudelijke wijziging, dan krijgen leden een melding |
+  | `PRIVACY_EXTRA` | optionele aanvullende tekst onderaan |
+
+  Na een wijziging: `systemctl restart khzs`.
+- **Akkoord**: een vinkje bij de registratie (`Profiel.privacy_akkoord` en `privacy_versie`). Wie de huidige versie nog niet aanvaardde, ziet bovenaan een melding.
+- **Toestemming van een ouder** voor een zwemmer jonger dan 18 jaar, bij het toevoegen (`Zwemmer.toestemming_op` en `toestemming_door`, migratie `0014_avg`). Voor bestaande minderjarige zwemmers vraagt de zwemmerpagina die toestemming achteraf.
+- **Mijn gegevens** (`/privacy/mijn-gegevens/`, link bij *Meldingen*): alles downloaden als JSON, en het account verwijderen (wachtwoord en het woord VERWIJDER). Gedeelde zwemmers gaan naar het andere account, de andere verdwijnen mee. Accounts met toegang tot `/beheer/` verwijder je niet zelf.
+- **Opkuis**: `manage.py opkuis` draait elke dag mee met `manage.py herinneringen` (de bestaande timer). Ze wist meldingen, behandelde aanvragen en het logboek van herinneringen na 365 dagen, pushabonnementen van accounts die 365 dagen niet aanmeldden, verlopen koppelcodes en verlopen sessies. Termijnen in `inschrijvingen/avg.py`.
+- **Cookies**: enkel strikt noodzakelijk (`sessionid` 90 dagen, `csrftoken`, `messages`), plus de lokale opslag `thema` en de cache van de service worker. Geen trackers, dus geen cookiebanner.
+- **Logboeken**: nginx en gunicorn bewaren IP-adressen volgens logrotate (op Debian 14 dagen).
+
 ## Documentatie bijwerken
 
 ```

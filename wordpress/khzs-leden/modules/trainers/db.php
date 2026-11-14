@@ -14,6 +14,44 @@ add_action('khzs_gebruiker_verwijderd', function (int $uid) {
     db()->query(db()->prepare("DELETE FROM " . t('tr_wijzigingen') . " WHERE user_id=%d AND datum>%s", $uid, $vandaag));
 });
 
+/**
+ * AVG: wie trainingen gaf of vergoed werd, valt onder de bewaarplicht van de boekhouding. Verwijdert zo iemand het
+ * account, dan wordt het afgesloten (includes/avg.php) en blijven naam, uren en vergoedingen tot BOEKHOUDING_JAREN na
+ * het boekjaar van de laatste prestatie. Daarna wist de opkuis alles.
+ */
+add_filter('khzs_bewaarplicht', function ($tot, int $uid) {
+    $vandaag = vandaag()->format('Y-m-d');
+    $laatst = max([
+        (string) db()->get_var(db()->prepare("SELECT MAX(CONCAT(maand, '-01')) FROM " . t('tr_uitbetaald') . " WHERE user_id=%d", $uid)),
+        (string) db()->get_var(db()->prepare("SELECT MAX(datum) FROM " . t('tr_wijzigingen') . " WHERE user_id=%d AND datum<=%s", $uid, $vandaag)),
+        (string) db()->get_var(db()->prepare("SELECT MAX(LEAST(COALESCE(tot, %s), %s)) FROM " . t('tr_vast') . " WHERE user_id=%d AND van<=%s", $vandaag, $vandaag, $uid, $vandaag)),
+        (string) db()->get_var(db()->prepare("SELECT MAX(LEAST(geldig_vanaf, %s)) FROM " . t('tr_tarieven') . " WHERE user_id=%d", $vandaag, $uid)),
+    ]);
+    if ($laatst === '') {
+        return $tot;
+    }
+    return max((string) $tot, ((int) substr($laatst, 0, 4) + 1 + BOEKHOUDING_JAREN) . '-01-01');
+}, 10, 2);
+
+add_action('khzs_bewaartermijn_voorbij', function (int $uid) {
+    foreach (['tr_vast', 'tr_wijzigingen', 'tr_tarieven', 'tr_uitbetaald'] as $tab) {
+        db()->delete(t($tab), ['user_id' => $uid]);
+    }
+});
+
+add_filter('khzs_mijn_gegevens', function (array $d, int $uid) {
+    $vast = db()->get_results(db()->prepare("SELECT m.naam, m.weekdag, m.start, m.einde, v.van, v.tot FROM " . t('tr_vast') . " v JOIN "
+        . t('tr_momenten') . " m ON m.id=v.moment_id WHERE v.user_id=%d ORDER BY v.van", $uid), ARRAY_A);
+    $wijzigingen = db()->get_results(db()->prepare("SELECT w.datum, m.naam AS training, w.soort, w.reden FROM " . t('tr_wijzigingen') . " w LEFT JOIN "
+        . t('tr_momenten') . " m ON m.id=w.moment_id WHERE w.user_id=%d ORDER BY w.datum", $uid), ARRAY_A);
+    $tarieven = db()->get_results(db()->prepare("SELECT soort, bedrag_cent, geldig_vanaf, opmerking FROM " . t('tr_tarieven') . " WHERE user_id=%d ORDER BY geldig_vanaf", $uid), ARRAY_A);
+    $uitbetaald = db()->get_results(db()->prepare("SELECT maand, trainingen, minuten, bedrag_cent, op FROM " . t('tr_uitbetaald') . " WHERE user_id=%d ORDER BY maand", $uid), ARRAY_A);
+    if ($vast || $wijzigingen || $tarieven || $uitbetaald) {
+        $d['trainer'] = ['vaste_trainingen' => $vast, 'afmeldingen_en_vervangingen' => $wijzigingen, 'tarieven' => $tarieven, 'uitbetalingen' => $uitbetaald];
+    }
+    return $d;
+}, 10, 2);
+
 function schema_trainers(string $c): array
 {
     return [

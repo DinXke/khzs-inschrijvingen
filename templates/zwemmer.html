@@ -1,6 +1,9 @@
 {% extends "base.html" %}{% load zwem %}{% block titel %}{{ z }}{% endblock %}
 {% block inhoud %}
 <h1>{{ z.voornaam }} {{ z.naam }}</h1>
+{% if toestemming_nodig %}<form method="post" class="kaart">{% csrf_token %}<input type="hidden" name="actie" value="toestemming">
+  <p style="margin-top:0"><b>Toestemming van een ouder of voogd</b>: {{ z.voornaam }} is jonger dan 18 jaar. Bevestig dat je ouder of voogd bent (of hun toestemming hebt) en akkoord gaat dat de club deze gegevens verwerkt zoals beschreven in de <a href="{% url 'privacy' %}">privacyverklaring</a>.</p>
+  <button class="mini">Ik geef toestemming</button></form>{% endif %}
 <div class="grid twee">
   <div>
     <h2>Beste tijden</h2>

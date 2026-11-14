@@ -52,6 +52,9 @@ class Profiel(models.Model):
     push_rolaanvraag = models.BooleanField("(bestuur) Nieuwe rolaanvraag om te behandelen", default=True)
     push_ploegaanvraag = models.BooleanField("(staf) Nieuwe ploegaanvraag om te behandelen", default=True)
     push_beslissing = models.BooleanField("Mijn aanvraag voor een rol of ploeg is behandeld", default=True)
+    # AVG: wanneer het lid de privacyverklaring aanvaardde, en welke versie (settings.PRIVACY["versie"]).
+    privacy_akkoord = models.DateTimeField("privacyverklaring aanvaard op", null=True, blank=True)
+    privacy_versie = models.CharField("versie van de privacyverklaring", max_length=20, blank=True)
 
     def __str__(self):
         return f"{self.user} ({self.get_rol_display() or 'geen rol'})"
@@ -145,6 +148,10 @@ class Zwemmer(models.Model):
     licentie = models.CharField("licentienummer", max_length=30, blank=True)
     swimrankings_id = models.CharField("Swimrankings-ID", max_length=20, blank=True,
                                        help_text="Het getal achter athleteId= in de link van je Swimrankings-pagina")
+    # AVG: toestemming van een ouder of voogd voor een minderjarige zwemmer (wanneer en door welk account).
+    toestemming_op = models.DateTimeField("toestemming ouder op", null=True, blank=True)
+    toestemming_door = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                                         related_name="+")
 
     objects = ZwemmerQuerySet.as_manager()
 
@@ -162,6 +169,11 @@ class Zwemmer(models.Model):
 
     def heeft_account(self, user):
         return user.is_authenticated and (self.account_id == user.pk or self.extra_accounts.filter(pk=user.pk).exists())
+
+    @property
+    def minderjarig(self):
+        from .avg import minderjarig
+        return minderjarig(self.geboortedatum)
 
     @property
     def swimrankings_url(self):
