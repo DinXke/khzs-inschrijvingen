@@ -1160,5 +1160,207 @@ class DemoTest(Basis):
         self.assertEqual(requests.get(DEMO + "aanmelden/").status_code, 200)
 
 
+KALENDER_LXF = b"""<?xml version="1.0" encoding="UTF-8"?>
+<LENEX version="3.0"><MEETS><MEET name="Lentemeeting Hasselt" city="Hasselt" course="SCM" deadline="2027-02-20"
+ organizer="HZS Spartacus" organizer.url="https://www.khzs.be">
+<FACILITY name="Kapermolen" city="Hasselt" street="Kapermolenpark 1" zip="3500" nation="BEL"/>
+<POOL name="Zwembad Kapermolen"/>
+<FEES><FEE value="550"/></FEES>
+<SESSIONS>
+<SESSION number="1" date="2027-03-06" daytime="09:00" warmupfrom="08:00" endtime="12:30"><EVENTS>
+<EVENT eventid="1" number="1" gender="F"><SWIMSTYLE distance="50" stroke="FREE" relaycount="1"/></EVENT></EVENTS></SESSION>
+<SESSION number="2" date="2027-03-07" daytime="14:00"><EVENTS>
+<EVENT eventid="2" number="2" gender="M"><SWIMSTYLE distance="100" stroke="BACK" relaycount="1"/></EVENT></EVENTS></SESSION>
+</SESSIONS></MEET></MEETS></LENEX>"""
+
+
+def tec_evenementen():
+    r = requests.post(f"{BASIS}/?khzs_test=tec_evenementen", json={}, timeout=30)
+    r.raise_for_status()
+    return r.json()
+
+
+class KalenderTest(Basis):
+    """Synchronisatie van de wedstrijden met de evenementenkalender (The Events Calendar). Overgeslagen zonder die plugin."""
+
+    @classmethod
+    def setUpClass(cls):
+        if not hulp("tec")["actief"]:
+            raise unittest.SkipTest("The Events Calendar is niet actief op de testsite (testsite.sh installeert die plugin).")
+
+    def setUp(self):
+        super().setUp()
+        hulp("tec_leeg")
+        self.sec = gebruiker("sec@khzs.be", "secretaris")
+        self.c.login("sec@khzs.be")
+        self.c.vandaag = "2026-11-14"
+        self.instellingen()
+        r = self.c.post("wedstrijd/nieuw/", files={"bestand": ("lente.lxf", KALENDER_LXF)})
+        self.assertEqual(r.status_code, 302, r.text[:2000])
+        self.w = int(een("SELECT id FROM {p}wedstrijden"))
+
+    def instellingen(self, **extra):
+        data = {"actie": "instellingen", "aan": "1", "statussen[]": ["open", "gesloten", "doorgestuurd"], "categorie": "Wedstrijden",
+                "publiceren": "publish"}
+        data.update(extra)
+        r = self.c.post("kalender/", data)
+        self.assertEqual(r.status_code, 302, r.text[:2000])
+
+    def zet(self, status="open", naam="Lentemeeting Hasselt", info=""):
+        r = self.c.post(f"wedstrijd/{self.w}/instellingen/", {"naam": naam, "deadline": "2027-02-20", "dagen_secretaris": 3,
+                                                             "status": status, "info": info})
+        self.assertEqual(r.status_code, 302, r.text[:2000])
+
+    def evenement(self):
+        ev = [e for e in tec_evenementen() if str(e["meta"].get("_khzs_wedstrijd_id")) == str(self.w)]
+        self.assertLessEqual(len(ev), 1)
+        return ev[0] if ev else None
+
+    def test_aanmaken_wijzigen_en_enkel_publieke_info(self):
+        self.assertEqual(tec_evenementen(), [], "een concept komt niet op de kalender")
+        self.zet("open", info="Busvertrek 7u aan het zwembad.")
+        ev = self.evenement()
+        self.assertIsNotNone(ev)
+        self.assertEqual(ev["status"], "publish")
+        self.assertEqual(ev["titel"], "Lentemeeting Hasselt")
+        self.assertEqual(ev["meta"]["_EventStartDate"], "2027-03-06 09:00:00")
+        self.assertEqual(ev["meta"]["_EventEndDate"], "2027-03-07 17:00:00")  # geen einduur in Lenex: start + 3 uur
+        self.assertEqual(ev["locatie"], "Zwembad Kapermolen")
+        self.assertEqual(ev["stad"], "Hasselt")
+        self.assertEqual(ev["organisator"], "HZS Spartacus")
+        self.assertEqual(ev["categorieen"], ["Wedstrijden"])
+        self.assertTrue(ev["meta"]["_EventURL"].endswith(f"/leden/wedstrijd/{self.w}/"))
+        for t in ("Inschrijven via de ledenapp", "inzwemmen 08:00", "start 09:00", "zaterdag 6 maart 2027", "25 m-bad", "HZS Spartacus"):
+            self.assertIn(t, ev["inhoud"])
+        # Nooit kosten, interne deadlines of de info (die staat standaard uit).
+        for t in ("€", "5,50", "20/02", "Busvertrek"):
+            self.assertNotIn(t, ev["inhoud"])
+        # Wijziging in de app: hetzelfde evenement wordt bijgewerkt.
+        self.zet("gesloten", naam="Lentemeeting HZS")
+        ev2 = self.evenement()
+        self.assertEqual((ev2["id"], ev2["titel"]), (ev["id"], "Lentemeeting HZS"))
+        # Info voor zwemmers enkel als die publiek mag.
+        self.instellingen(info="1")
+        self.zet("gesloten", naam="Lentemeeting HZS", info="Busvertrek 7u aan het zwembad.")
+        self.assertIn("Busvertrek", self.evenement()["inhoud"])
+        self.assertContains(self.c.get(f"wedstrijd/{self.w}/instellingen/"), "Op de websitekalender: gepubliceerd.")
+        # Nieuwe Lenex-versie: bijgewerkt.
+        r = self.c.post(f"wedstrijd/{self.w}/opnieuw/", files={"bestand": ("lente.lxf", KALENDER_LXF.replace(b"2027-03-07", b"2027-03-08"))})
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(self.evenement()["meta"]["_EventEndDate"], "2027-03-08 17:00:00")
+
+    def test_concept_annuleert_en_verwijderen(self):
+        self.zet("open")
+        ev = self.evenement()
+        self.zet("concept")
+        ev2 = self.evenement()
+        self.assertEqual((ev2["id"], ev2["status"], ev2["meta"].get("_tribe_events_status")), (ev["id"], "publish", "canceled"))
+        self.zet("open")
+        self.assertEqual(self.evenement()["meta"].get("_tribe_events_status"), "scheduled")
+        r = self.c.post(f"wedstrijd/{self.w}/verwijderen/")
+        self.assertEqual(r.status_code, 302)
+        self.assertIsNone(self.evenement(), "koppeling is weg")
+        ev3 = [e for e in tec_evenementen() if e["id"] == ev["id"]][0]
+        self.assertEqual((ev3["status"], ev3["meta"]["_tribe_events_status"], str(ev3["meta"]["_khzs_was_wedstrijd_id"])),
+                         ("publish", "canceled", str(self.w)))
+
+    def test_concept_evenement_naar_prullenbak_en_terug(self):
+        self.instellingen(publiceren="draft")
+        self.zet("open")
+        ev = self.evenement()
+        self.assertEqual(ev["status"], "draft")
+        self.zet("concept")
+        self.assertEqual(self.evenement()["status"], "trash")
+        self.zet("open")
+        ev2 = self.evenement()
+        self.assertEqual((ev2["id"], ev2["status"]), (ev["id"], "draft"))
+
+    def test_voorbij_evenement_blijft_staan(self):
+        self.zet("doorgestuurd")
+        ev = self.evenement()
+        self.c.vandaag = "2027-04-01"
+        self.c.post(f"wedstrijd/{self.w}/verwijderen/")
+        ev2 = [e for e in tec_evenementen() if e["id"] == ev["id"]][0]
+        self.assertEqual(ev2["status"], "publish")
+        self.assertNotEqual(ev2["meta"].get("_tribe_events_status"), "canceled")
+
+    def test_handmatige_wijziging_niet_overschreven(self):
+        self.zet("open")
+        ev = self.evenement()
+        hulp("tec_wijzig", ID=ev["id"], post_content="Met de hand aangepast door de webmaster.")
+        self.zet("open", naam="Andere naam")
+        ev2 = self.evenement()
+        self.assertEqual(ev2["titel"], "Lentemeeting Hasselt")
+        self.assertEqual(ev2["inhoud"], "Met de hand aangepast door de webmaster.")
+        self.assertIn("_khzs_conflict", ev2["meta"])
+        self.assertContains(self.c.get("kalender/"), "Met de hand gewijzigd op de website")
+        self.assertContains(self.c.get(f"wedstrijd/{self.w}/instellingen/"), "met de hand gewijzigd op de website")
+        # Statuswijzigingen gelden wel (annuleren raakt de inhoud niet).
+        self.zet("concept", naam="Andere naam")
+        self.assertEqual(self.evenement()["meta"].get("_tribe_events_status"), "canceled")
+        self.zet("open", naam="Andere naam")
+        # Overschrijven met de app.
+        self.c.post("kalender/", {"actie": "overschrijven", "evenement": ev["id"]})
+        ev3 = self.evenement()
+        self.assertEqual(ev3["titel"], "Andere naam")
+        self.assertIn("Inschrijven via de ledenapp", ev3["inhoud"])
+        self.assertNotIn("_khzs_conflict", ev3["meta"])
+        # Opnieuw met de hand gewijzigd en ‘niet meer bijwerken’: de app blijft eraf.
+        hulp("tec_wijzig", ID=ev["id"], post_title="Eigen titel")
+        self.zet("open", naam="Nog een naam")
+        self.c.post("kalender/", {"actie": "vast", "evenement": ev["id"]})
+        self.zet("concept", naam="Nog een naam")
+        ev4 = self.evenement()
+        self.assertEqual((ev4["titel"], ev4["meta"].get("_tribe_events_status")), ("Eigen titel", "scheduled"))
+        self.assertContains(self.c.get("kalender/"), "Wordt niet meer bijgewerkt vanuit de app.")
+
+    def test_knop_alles_synchroniseren(self):
+        self.instellingen(aan="")
+        self.zet("open")
+        self.assertEqual(tec_evenementen(), [], "synchronisatie staat uit")
+        self.instellingen()
+        r = self.c.post("kalender/", {"actie": "alles"})
+        self.assertEqual(r.status_code, 302)
+        self.assertContains(self.c.get("kalender/"), "Gesynchroniseerd: 1 aangemaakt.")
+        self.assertIsNotNone(self.evenement())
+        # Een wedstrijd die verdwijnt zonder hook (bv. een teruggezette backup): de knop annuleert het evenement.
+        exe(f"DELETE FROM {{p}}wedstrijden WHERE id={self.w}")
+        self.c.post("kalender/", {"actie": "alles"})
+        self.assertContains(self.c.get("kalender/"), "1 geannuleerd")
+        # Enkel voor het secretariaat.
+        gebruiker("tr@khzs.be", "trainer")
+        self.c.login("tr@khzs.be")
+        self.assertEqual(self.c.get("kalender/").status_code, 403)
+
+    def test_publieke_bijlage(self):
+        self.zet("open")
+        self.c.post(f"wedstrijd/{self.w}/bijlage/", {"naam": "Voorprogramma"}, files={"bestand": ("vp.pdf", b"%PDF-1.4 vp")})
+        self.c.post(f"wedstrijd/{self.w}/bijlage/", {"naam": "Busregeling"}, files={"bestand": ("bus.pdf", b"%PDF-1.4 bus")})
+        vp, bus = [int(b["id"]) for b in sql("SELECT id FROM {p}bijlagen ORDER BY id")]
+        self.assertNotIn("Voorprogramma", self.evenement()["inhoud"])
+        r = self.c.post(f"bijlage/{vp}/publiek/", {"publiek": "1"})
+        self.assertEqual(r.status_code, 302)
+        inhoud = self.evenement()["inhoud"]
+        self.assertIn("Voorprogramma", inhoud)
+        self.assertIn(f"/leden/bijlage/{vp}/", inhoud)
+        self.assertNotIn("Busregeling", inhoud)
+        anoniem = requests.get(APP + f"bijlage/{vp}/", allow_redirects=False)
+        self.assertEqual((anoniem.status_code, anoniem.content), (200, b"%PDF-1.4 vp"))
+        self.assertEqual(requests.get(APP + f"bijlage/{bus}/", allow_redirects=False).status_code, 302)
+        # Wedstrijd terug naar concept: ook de bijlage is niet meer publiek.
+        self.zet("concept")
+        self.assertEqual(requests.get(APP + f"bijlage/{vp}/", allow_redirects=False).status_code, 302)
+        self.zet("open")
+        self.c.post(f"bijlage/{vp}/verwijderen/")
+        self.assertNotIn("Voorprogramma", self.evenement()["inhoud"])
+
+    def test_nooit_in_de_demo(self):
+        demo_terugzetten()
+        self.assertEqual(tec_evenementen(), [])
+        d = DemoKlant().login()
+        self.assertNotIn("Websitekalender", d.get("wedstrijden/").text)
+        self.assertEqual(tec_evenementen(), [])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

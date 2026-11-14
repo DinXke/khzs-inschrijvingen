@@ -27,7 +27,7 @@ De app staat op `https://jouwsite.be/leden/`. De oudere adressen `/inschrijvinge
    - of zelf registreren mag
    - de installatiemelding
 
-Vereisten: WordPress 6.2+, PHP 8.0+ met de extensies `zip`, `simplexml`, `dom` en `openssl`. Er zijn geen andere plugins nodig.
+Vereisten: WordPress 6.2+, PHP 8.0+ met de extensies `zip`, `simplexml`, `dom` en `openssl`. Er zijn geen andere plugins nodig. Met The Events Calendar komen de wedstrijden ook op de kalender van de website.
 
 ## Rollen
 
@@ -72,6 +72,33 @@ Een zwemmer kan bij meerdere accounts horen, bv. bij gescheiden ouders.
   - Export naar Excel: een blad per trainer en een blad met detail.
 
 De loonberekening zelf (bv. wettelijke plafonds van vrijwilligersvergoedingen of het statuut verenigingswerk) gebeurt niet in de plugin. De export is bedoeld voor de boekhouding of het sociaal secretariaat.
+
+## Websitekalender (The Events Calendar)
+
+Staat op de site de plugin **The Events Calendar**, dan zet de app de wedstrijden automatisch op de evenementenkalender en houdt ze bij.
+Zonder die plugin gebeurt er niets. In de demo nooit.
+
+- **Instellen**: in de app via *Wedstrijden → 📅 Websitekalender* (sportsecretariaat en beheerders). In wp-admin (*Instellingen → KHZS Leden*) staan de stand en de knop *Nu alles synchroniseren*.
+  - synchronisatie aan of uit (standaard **uit**)
+  - welke statussen op de website komen (standaard open, gesloten en doorgestuurd; concept niet)
+  - de evenementcategorie (standaard *Wedstrijden*; wordt aangemaakt als ze niet bestaat)
+  - nieuwe evenementen meteen publiceren of als concept, zodat de webmaster ze eerst nakijkt
+  - of de *info voor zwemmers* mee op de website mag (standaard niet)
+  - de knop **Nu alles synchroniseren**
+- **Wanneer**: bij een nieuwe Lenex of een nieuwe versie, bij het bewaren van de instellingen of de info van een wedstrijd, bij een bijlage die bijkomt, verdwijnt of publiek wordt, en bij het verwijderen.
+- **Wat gaat mee** (enkel publieke informatie):
+  - de naam, de sessies met datum, inzwemmen en start, het zwembad als locatie (met adres uit de Lenex), de badlengte en de organisator;
+  - het begin is de start van de eerste sessie; het einde is het einduur uit de Lenex, of anders de start van de laatste sessie + 3 uur;
+  - bijlagen die je bij de wedstrijd als **publiek** (🌐) aanduidt; die kan iedereen dan zonder aanmelden downloaden;
+  - een link *Inschrijven via de ledenapp*.
+  - **Nooit**: inschrijvingen, zwemmers, de deadlines van zwemmers, trainers of het secretariaat, of kosten.
+- **Met de hand gewijzigd op de website**: de app overschrijft dat niet. Het evenement verschijnt bij *Websitekalender* met de keuze *Overschrijven met de app* of *Niet meer bijwerken*.
+- **Niet meer publiek of verwijderd**:
+  - een gepubliceerd evenement dat nog moet komen, krijgt de status *Geannuleerd*;
+  - een evenement dat nooit gepubliceerd was, gaat naar de prullenbak;
+  - een voorbij evenement blijft staan.
+  - Komt de wedstrijd terug op een publieke status, dan wordt hetzelfde evenement opnieuw actief.
+- Bestaande locaties en organisatoren worden nooit aangepast, enkel gekoppeld op naam.
 
 ## App installeren (PWA)
 

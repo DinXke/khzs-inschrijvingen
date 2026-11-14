@@ -191,6 +191,55 @@ Daarna nog drie bijsturingen:
     - PR #8 mergen en daarna `DEMO_TAK=main` zetten in `.env` op CT 139;
     - het tunneltoken vernieuwen: het stond in de chat.
 
+## Websitekalender: wedstrijden synchroon met The Events Calendar (branch `wordpress/kalender-sync`)
+
+Vraag van de eigenaar: *"we hebben de kalender/evenementen op de website al, kunnen daar automatisch de wedstrijden van de app in gestoken/synchroon gehouden worden? Alle informatie van de wedstrijd die publiek is ook naar een evenement toe, die ook synchroon houden als er zaken veranderen enzo of weg gaan"*.
+
+**Beslissingen**
+- **In de plugin, met de PHP-API** van The Events Calendar (`tribe_events()`, `tribe_create_venue()`, `tribe_create_organizer()`), geen REST-calls naar de eigen site. Alles staat in `modules/inschrijvingen/kalender.php` en de view `kalender.php`.
+  - Zonder The Events Calendar (`tec_actief()`) gebeurt er niets; in de demo nooit (`is_demo()`, `demo_enkel()` en een controle op `khzsdemo` in de tabelnaam).
+  - Standaard **uit**: na installatie op www.khzs.be zet iemand het bewust aan.
+- **Haken** (klein gehouden in de bestaande code):
+  - `do_action('khzs_wedstrijd_bewaard', $wid)` in `importeer()` (nieuwe Lenex en nieuwe versie), `v_instellingen()`, `v_nakijken()` (info), bij een bijlage toevoegen of verwijderen;
+  - `do_action('khzs_wedstrijd_verwijderd', $wid)` in `verwijder_wedstrijd()`;
+  - `do_action('khzs_bijlage_verwijderd', $id)`.
+  - Andere modules of latere code kunnen dezelfde haken gebruiken.
+- **Koppeling**: post-meta `_khzs_wedstrijd_id` op het evenement. Geen nieuwe kolom, dus geen databaseversie en geen botsing met andere PR's.
+  - Na het verwijderen van een wedstrijd: `_khzs_was_wedstrijd_id`.
+  - *Nu alles synchroniseren* kijkt ook evenementen na waarvan de wedstrijd niet meer bestaat (bv. na een teruggezette backup).
+- **Handmatige wijzigingen**: na elke synchronisatie bewaart de app een vingerafdruk (`_khzs_vingerafdruk`) van wat de app beheert: titel, tekst, begin, einde, hele dag, locatie, website-link en organisator.
+  - Verschilt die bij de volgende synchronisatie, dan wordt **niets overschreven**. Het evenement krijgt `_khzs_conflict` en staat in de app bij *Websitekalender*, met *Overschrijven met de app* of *Niet meer bijwerken* (`_khzs_vast`).
+  - Statuswijzigingen (annuleren en terug actief) gelden wel, want die raken de inhoud niet. Een evenement met `_khzs_vast` blijft volledig onaangeroerd.
+  - Een evenement dat iemand op de website zelf in de prullenbak gooide, haalt de app niet terug.
+  - Categorieën: de app voegt haar categorie toe en laat andere staan; die tellen niet mee in de vingerafdruk.
+  - Locaties en organisatoren worden op naam gezocht en enkel aangemaakt als ze niet bestaan, nooit gewijzigd.
+- **Niet meer publiek of verwijderd** (keuze uitgelegd):
+  - Een **gepubliceerd** evenement dat nog moet komen, krijgt de status *Geannuleerd* (`_tribe_events_status = canceled`, een functie van The Events Calendar zelf). Bezoekers, gedeelde links en agenda-abonnementen (iCal) zien dan dat het niet doorgaat, in plaats van een evenement dat zonder uitleg verdwijnt.
+  - Een evenement dat **nooit gepubliceerd** was (concept), heeft niemand gezien: dat gaat naar de prullenbak (`_khzs_weg_door_app`), en komt terug als de wedstrijd opnieuw publiek wordt.
+  - Een **voorbij** evenement blijft staan: het heeft plaatsgevonden en hoort bij de historiek.
+  - Wordt de wedstrijd opnieuw publiek, dan wordt hetzelfde evenement weer actief (`scheduled`).
+- **Publieke informatie**:
+  - wel: naam, sessies (datum, inzwemmen, start), zwembad als locatie, badlengte, organisator;
+  - het adres van het zwembad, de organisator en de einduren komen uit het bewaarde Lenex-bestand (`kalender_lenex()`), want die staan niet in de database;
+  - het einde is het einduur van de laatste sessie uit de Lenex, of anders de start van de laatste sessie + 3 uur;
+  - nooit inschrijvingen, zwemmers, deadlines of kosten. De laatste inschrijfdatum van de organisator gaat ook niet mee: die is enkel voor het secretariaat.
+  - *Info voor zwemmers*: standaard **niet**, want die kan intern zijn (bv. busregeling). Aan te zetten bij *Websitekalender*.
+  - Bijlagen: enkel als je ze per bijlage als **publiek** (🌐) aanduidt (optie `khzs_kalender_bijlagen`, een lijst van id's). Zo'n bijlage kan iedereen zonder aanmelden downloaden via `/leden/bijlage/<id>/`, zolang de wedstrijd een publieke status heeft.
+- **Instellingen**: opties `khzs_kalender_aan`, `_statussen`, `_categorie`, `_publiceren`, `_info`, `_bijlagen`, `_fout` (laatste fout) en `_laatst`. Ze staan in de app op `/leden/kalender/` (sportsecretariaat en beheerders). In wp-admin staan de stand en de knop.
+- **Fouten** breken de app nooit: `kalender_sync()` vangt alles op, schrijft naar het PHP-foutlog en toont de laatste fout bij *Websitekalender*.
+- **Django synchroniseert niet**: dit geldt enkel voor de plugin. Zie het open punt hieronder.
+
+**Stand**
+- `KalenderTest` in `tests/test_e2e.py` (8 scenario's) met The Events Calendar 6.18.4: aanmaken, wijzigen, nieuwe Lenex, statuswijziging, annuleren, prullenbak, voorbij, handmatige wijziging, de knop, publieke bijlagen en de demo. Van de 94 tests slagen er 93; één test werd al vóór deze wijziging overgeslagen.
+  - `testsite.sh` installeert The Events Calendar via wpackagist (`KHZS_TEC=0` slaat dat over). Zonder die plugin worden de tests overgeslagen.
+- Nog **niet** op www.khzs.be geprobeerd.
+
+**Open bij de eigenaar**
+- **Django**: moet de productieversie ook synchroniseren tot de plugin in gebruik is? Dat kan via de REST-API van The Events Calendar met een applicatiewachtwoord.
+  - Advies: **nee**. Twee schrijvers op dezelfde kalender botsen zodra de plugin live gaat, en een applicatiewachtwoord is een extra geheim op de server.
+  - Wil de club de kalender nu al vullen, dan is een tijdelijke eenrichtingssynchronisatie vanuit Django mogelijk, met dezelfde regels en dezelfde meta-sleutels. Zo neemt de plugin de evenementen later naadloos over.
+- Bij de installatie: eerst met *Nieuwe evenementen: als concept* proberen, de categorie nakijken, en daarna *Nu alles synchroniseren*.
+
 ## Werken aan de plugin
 
 ```bash

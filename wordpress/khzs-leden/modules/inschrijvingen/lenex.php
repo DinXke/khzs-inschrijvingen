@@ -476,6 +476,7 @@ function importeer(array $meet, string $bestand, ?int $wid = null): int
         }
     }
     db()->query('COMMIT');
+    do_action('khzs_wedstrijd_bewaard', $wid);
     return $wid;
 }
 
