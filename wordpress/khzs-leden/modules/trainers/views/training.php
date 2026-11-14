@@ -47,6 +47,8 @@ $badge = ['ja' => ['goedgekeurd', '✓ aanwezig'], 'nee' => ['afgekeurd', '✗ n
   <?php endforeach; ?>
 </div>
 
+<?php include __DIR__ . '/_zwemmers.php'; ?>
+
 <?php if ($mag && !$b->afgelast): ?>
 <div class="kaart">
   <?php if (!$voorbij && ($b->aanwezig[$uid][0] ?? '') === 'vast'): ?>

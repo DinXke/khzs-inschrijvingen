@@ -3,6 +3,7 @@ $basis = fn(array $q = []) => app_url('trainers/overzicht/', ['maand' => $maand]
 $vandaag = vandaag()->format('Y-m-d'); ?>
 <div class="rij tussen"><h1>Overzicht trainers</h1>
   <div class="rij"><a class="knop secundair" href="<?= esc_url(app_url('trainers/kalender/')) ?>">🗓️ Kalender</a><a class="knop secundair" href="<?= esc_url(app_url('trainers/planning/')) ?>">📅 Planning</a>
+  <?php if (tr_zw_ploegen()): ?><a class="knop secundair" href="<?= esc_url(app_url('trainers/zwemmers/')) ?>">🏊 Zwemmers</a><?php endif; ?>
   <?php if (is_penningmeester()): ?><a class="knop secundair" href="<?= esc_url(app_url('trainers/uren/', ['maand' => $maand])) ?>">Verloning</a><?php endif; ?>
   <?php if (tr_mag_beheren()): ?><a class="knop secundair" href="<?= esc_url(app_url('trainers/beheer/')) ?>">Trainingen beheren</a><?php endif; ?></div></div>
 <div class="kaart tr-week">

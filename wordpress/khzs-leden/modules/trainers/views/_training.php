@@ -36,6 +36,9 @@ $_knop = function (string $actie, string $label, string $klasse = 'mini secundai
           echo ' <span class="badge afgekeurd">vervanger gezocht voor ' . e(tr_voornaam($id)) . '</span>';
       }
     ?></span>
+    <?php if (tr_zw_kan($b) && ($_zp = tr_zw_ploegen_van($b))): $_t = tr_zw_telling($b, $_zp); ?>
+      <a class="klein tr-zw-telling" href="<?= esc_url(tr_training_url($_m, $b->datum) . '#zwemmers') ?>"><?= $_t ? '🏊 ' . $_t[0] . '/' . $_t[1] . ' zwemmers aanwezig' : '🏊 <u>Zwemmers aanduiden</u>' ?></a>
+    <?php endif; ?>
   </div>
   <div class="tr-status">
     <?php if ($b->afgelast): ?><span class="badge concept">Afgelast: <?= e($b->afgelast) ?></span>

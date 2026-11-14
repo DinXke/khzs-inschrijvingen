@@ -61,6 +61,10 @@ $blok = function (object $b, bool $kort) use ($uid, $wie, $merk, $ploegnaam): st
     if ($b->open) {
         $h .= '<span class="tr-k-gezocht">vervanger gezocht</span>';
     }
+    if (tr_zw_kan($b) && ($zp = tr_zw_ploegen_van($b))) {
+        $t = tr_zw_telling($b, $zp);
+        $h .= '<span class="tr-k-klein">🏊 ' . ($t ? $t[0] . '/' . $t[1] . ' zwemmers' : 'zwemmers aanduiden') . '</span>';
+    }
     return $h . '</a>';
 };
 // Velden van app_url() die in een GET-formulier mee moeten (zonder mooie permalinks staat het pad in de query).
@@ -68,6 +72,7 @@ parse_str((string) wp_parse_url(app_url('trainers/kalender/'), PHP_URL_QUERY), $
 ?>
 <div class="rij tussen"><h1>Kalender</h1>
   <div class="rij"><a class="knop secundair" href="<?= esc_url(app_url('trainers/')) ?>">Mijn trainingen</a>
+  <?php if (tr_zw_ploegen()): ?><a class="knop secundair" href="<?= esc_url(app_url('trainers/zwemmers/')) ?>">🏊 Zwemmers</a><?php endif; ?>
   <?php if ($beheer): ?><a class="knop secundair" href="<?= esc_url(app_url('trainers/overzicht/')) ?>">Overzicht trainers</a><?php endif; ?></div></div>
 
 <div class="kaart tr-k-balk">

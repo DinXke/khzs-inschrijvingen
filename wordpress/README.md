@@ -108,6 +108,20 @@ Een zwemmer kan bij meerdere accounts horen, bv. bij gescheiden ouders.
   - Een trainer ziet standaard de eigen trainingen en kan naar *Alle trainingen*. Het bestuur en het secretariaat zien standaard alles en filteren op een trainer of een ploeg.
   - Een training openen (tik op het blokje) gaat naar de trainingspagina om te bevestigen, af te melden of aan te passen. In de dagweergave staan die knoppen meteen bij de training.
   - Op de gsm staan de dagen van de week onder elkaar (lege dagen verborgen) en toont de maand per dag gekleurde streepjes; tik op een dag voor de dagweergave. Geen externe bibliotheken: eigen HTML en CSS (`views/kalender.php`, `views/_stijl.php`).
+- **Aanwezigheid van zwemmers** (*wie was er?*): een trainer duidt bij een training aan welke zwemmers er waren, eventueel met **te laat**, **vroeger weg** of **ziek**. Zwemmers en ouders bevestigen zelf niets en krijgen geen vraag of melding. Ze zien wel hun eigen statistiek (zie verder).
+  - De lijst komt uit de ploegen die aan de training gekoppeld zijn (*Trainingen beheren*). Een training zonder ploeg heeft geen lijst.
+  - Aanduiden mag **eender welke** trainer van de competitie voor de ploegen van de competitie, eender welke trainer van de zwemschool voor die van de zwemschool, en het bestuur, het secretariaat en de beheerder voor alles. Niet enkel wie op de training ingepland staat. Bij een training voor ploegen van beide soorten ziet elke trainer enkel de eigen soort.
+  - Snel op de gsm: op de trainingspagina (*Zwemmers*) staat iedereen aangevinkt. Vink af wie er niet was en tik *Bewaar*. Naast elke naam kies je eventueel *te laat*, *vroeger weg* of *ziek*: te laat en vroeger weg tellen als aanwezig (het vinkje gaat aan), ziek als afwezig (het vinkje gaat uit). Er zijn ook knoppen *Iedereen aanwezig* en *Niemand*. Dat kan vanaf de dag van de training, niet op een afgelaste training. Opnieuw bewaren past de lijst aan; *Aanduiding wissen* zet ze terug op niet aangeduid.
+  - In *Mijn trainingen* staat *Zwemmers aanduiden* met de eigen trainingen van de voorbije week waarop dat nog niet gebeurde. De lijsten en de kalender tonen per training *🏊 12/15* of *Zwemmers aanduiden*.
+  - **Statistiek voor trainers en bestuur** (*Trainingen → 🏊 Zwemmers*, `/leden/trainers/zwemmers/`), over een periode (standaard het lopende seizoen) en voor één of alle ploegen die je mag zien:
+    - kerncijfers: % aanwezig, % zonder ziek, aangeduide trainingen, zwemmers, gemiddeld aantal zwemmers per training, keer te laat, vroeger weg en ziek;
+    - tabellen met een gestapelde balk en de cijfers per soort: per ploeg, per maand, per training, per weekdag en per zwemmer;
+    - de verdeling van de zwemmers (90 % of meer, 75–90 %, 50–75 %, minder dan 50 %);
+    - een **Excel-export** met de bladen *Per zwemmer*, *Per ploeg*, *Per maand*, *Per training* en *Detail*.
+    Enkel aangeduide trainingen tellen mee. Te laat en vroeger weg tellen als aanwezig, ziek als afwezig, behalve in *% zonder ziek*.
+  - **Statistiek per zwemmer** (`/leden/aanwezigheid/<id>/`): kerncijfers, de huidige en de langste reeks na elkaar aanwezig (ziek onderbreekt de reeks niet), laatst aanwezig, het gemiddelde van de ploeg, per maand, per training, per weekdag, een tijdlijn met een blokje per training en de lijst van alle trainingen.
+    - De **zwemmer** ziet enkel de eigen statistiek, een **ouder** die van de eigen kinderen (gekoppelde accounts). Op de pagina van de zwemmer (*Profiel*) staat een kaartje *Trainingen* met het percentage en een link.
+    - Trainers zien de zwemmers van de ploegen die ze mogen zien, en enkel de trainingen van die ploegen; het bestuur ziet alles. Vanuit de statistiek van de trainers klik je door op een zwemmer.
 - **Afmelden en vervangen** (één specifieke training):
   - Een trainer die niet kan, tikt *Kan niet* en geeft eventueel een reden. Collega's krijgen een pushmelding en zien de training bij *Vervanger gezocht*.
   - Wie *Ik neem over* tikt, wordt vervanger. De afgemelde trainer krijgt daarvan een melding.
