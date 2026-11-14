@@ -420,26 +420,51 @@ Vraag van de eigenaar: elke zwemmer kiest in welke ploeg hij of zij zwemt, met m
 - **WordPress**: tabellen `khzs_ploegen`, `khzs_ploeg_trainers`, `khzs_ploegleden` (`DB_VERSIE` 5), `includes/ploegen.php`, `views/ploegen.php` en `views/ploeg.php`, stappenplan in de module Inschrijvingen (`v_welkom`). Menu-item *Ploegen* (sleutel 45; 40 is *Verloning*). Tests: `PloegenTest` (8) en de omgezette registratietests; samen 92, alle geslaagd (Docker, zoals bij de rollen).
 - `export_wordpress` neemt de ploegen, trainers en leden mee.
 
-## Communicatiemodule: wensen (nog niet gebouwd)
+## Communicatiemodule (branch `wordpress/communicatie`)
 
-Wat de eigenaar tot nu toe vroeg (14/11/2026):
+Wensen van de eigenaar (14/11/2026), verzameld in de loop van de dag:
+- chatten zoals WhatsApp per kanaal, met vastgepinde berichten (trainers en bestuur);
+- opbouw zoals Discord: *"enkele grote secties (algemeen, competitie, zwemschool) met daaronder kanalen per ploeg bijvoorbeeld, algemeen, wedstrijden en daaronder eventueel nog aparte threads (per wedstrijd, per onderwerp van de competitie)"*;
+- een kanaal of thread per wedstrijd met de trainers, het bestuur en de deelnemers met hun ouders, dat de deelname vanzelf volgt;
+- aankondigingen bovenaan (*Informatief*, *Dringend*, *Aankondiging*, *Vraag naar hulp*), met bij een hulpvraag ja / nee / misschien en met hoeveel personen, een lijst en een Excel voor het bestuur;
+- enkel webpush, met een schakelaar per soort melding en dempen per kanaal;
+- alles beheren in de app, goed op de gsm; geen externe bibliotheken, polling volstaat.
 
-- **Kanalen per ploeg**, WhatsApp-achtig: een chat met berichten in tijdsvolgorde, en eventueel threads binnen een ploeg.
-- **Kanaal per wedstrijd**: alle trainers, bestuurders en beheerders, plus de zwemmers die ingeschreven zijn of *Interesse* of *Ik doe mee* kozen, met hun gekoppelde ouders of accounts. Het lidmaatschap volgt de deelname vanzelf.
-- **Wie ziet wat**: trainers, bestuurders en beheerders zien alle kanalen en kunnen er overal lezen en posten. Zwemmers en ouders zien enkel de kanalen van hun eigen ploegen en wedstrijden (zie `lezers_van`).
-- **Vastpinnen**: trainers en bestuurders kunnen berichten bovenaan vastpinnen.
-- **Reacties**: per bericht instellen of leden mogen reageren.
-- **Ook gevraagd**: berichten per ploeg, pushmelding per bericht, reacties of chat, prikbord met bijlagen.
-- **Meldingen**: enkel webpush, geen Telegram. Elk soort melding (nieuw bericht in een kanaal, vastgepind bericht…) krijgt een eigen schakelaar onder *Meldingen*.
+**Beslissingen van de eigenaar** (14/11/2026, gevraagd voor het bouwen):
+- Wie *Ik doe niet mee* kiest of geweigerd wordt, **blijft in de wedstrijdthread** (tabel `com_wedstrijdzwemmers`: wie er ooit in kwam, blijft).
+- Een **trainer van de zwemschool** ziet enkel wat niet over de competitie gaat: geen sectie Competitie, geen wedstrijden, geen competitieploegen (wel als ouder van een zwemmer daar).
+- **Leden posten: instelbaar per kanaal** (*zwemmers en ouders mogen posten*). Threads nemen de instelling van hun kanaal over.
+- **Foto's en pdf's enkel voor trainers en bestuur** (5 MB, foto's verkleind tot 1600 px, in de privémap).
+- **Bewerken en verwijderen**: eigen berichten, plus moderatie (verwijderen) door wie het kanaal als staf ziet.
+- **Bewaren 2 jaar**, vastgepinde berichten blijven; wedstrijdthreads een jaar na de wedstrijd naar het archief.
+- **Enkel in de plugin**, niet in Django (zoals de trainersmodule en de websitekalender).
 
-Nog na te vragen voor het bouwen:
+**Zelf gekozen** (staat ook in de PR):
+- **Eén tabel voor kanalen en threads** (`com_kanalen`, `ouder_id` = kanaal van de thread). `toegang`: `iedereen`, `competitie`, `zwemschool`, `ploeg`, `wedstrijd`, `staf` of `erven` (thread volgt zijn kanaal). `functie`: `ploeg` (automatisch kanaal van een ploeg) of `wedstrijden` (het kanaal waaronder de wedstrijdthreads komen).
+- **Standaardopbouw** bij het eerste gebruik (`com_standaard_opbouw()`): Algemeen (*Algemeen*: leden lezen enkel; *Trainers en bestuur*), Competitie (*Competitie algemeen*, *Wedstrijden*), Zwemschool (*Zwemschool algemeen*).
+- **Synchroon zonder extra haken in de inschrijvingen** (`com_sync()`, één keer per verzoek, bij Berichten en na `khzs_wedstrijd_bewaard`): ploegen zonder kanaal krijgen er een (naam en archief volgen de ploeg), wedstrijden die niet meer in concept staan krijgen een thread, en de deelnemers (interesse, ik doe mee, of een inschrijving) komen met `INSERT IGNORE` in `com_wedstrijdzwemmers`. Een verwijderde ploeg of wedstrijd zet het kanaal in het archief.
+- **Bestuur** in deze module = sportsecretaris, bestuurder en beheerder (zoals `PLOEGBEHEER`): zij beheren secties, kanalen en alle aankondigingen. Een trainer beheert het kanaal van de eigen ploeg (beschrijving, leden posten, archief) en maakt daar aankondigingen.
+- **Staf in een kanaal** (lezen, posten, vastpinnen, threads, bijlagen, berichten van anderen verwijderen): wie alle ploegen ziet (`ALLE_PLOEGEN`), de trainer van die ploeg, en de trainer van de zwemschool buiten de competitie. Threads maken enkel de staf.
+- **Meldingen voor nieuwe berichten gaan naar wie bij het kanaal hoort** (`com_is_lid()`), niet naar iedereen die het ziet: anders krijgt een bestuurder elk bericht van elke ploeg. Wedstrijd: deelnemers, trainers van de competitie en het secretariaat. Wie alleen meekijkt, kan het kanaal volgen (🔔). Per kanaal en account: `com_status.meldingen` (NULL = standaard, 1 = aan, 0 = gedempt); een thread zonder eigen keuze volgt de keuze voor zijn kanaal.
+- **Vermeldingen** (`@Voornaam Naam`) enkel uit `com_vermeldbaar()`: wie er schreef, trainers en bestuur, en de leden van de ploeg of wedstrijd, gefilterd op wie het kanaal ziet. Geen lijst van alle leden voor iedereen (AVG). Een vermelding komt door, ook in een gedempt kanaal of met de voorkeur voor gewone berichten uit.
+- **Pushmelding met `tag`** per kanaal: `stuur()` in `includes/push.php` kreeg een optionele parameter `$extra`, die mee in het bericht gaat. De service worker kende `tag` al.
+- **Polling elke 8 seconden** (`berichten/kanaal/<id>/nieuw/?na=<id>`) zolang de pagina zichtbaar is; versturen met `fetch` en de header `X-KHZS-Ajax` (antwoord in JSON). Bewerken, verwijderen en vastpinnen herladen de pagina.
+- **Ongelezen**: `com_status.gelezen_tot`. Het getal bij *Berichten* telt enkel kanalen met meldingen aan, plus nieuwe aankondigingen (user meta `khzs_com_aank_gezien`). Daarvoor kreeg een menu-item een optioneel zesde element (callable met een aantal) in `views/_layout.php`, met `.tab-badge` in `app.css` (vóór de svg, zodat de test van de onderbalk de labels blijft vinden).
+- **Aankondigingen**: voor iedereen (`kanaal_id` 0) of voor wie een kanaal ziet. Op het overzicht hoogstens drie (dringend eerst). Leden zien bij een hulpvraag enkel de totalen, het bestuur en de maker ook de namen en de Excel (`maak_xlsx`).
+- **Menu**: *Berichten* staat op plaats 15 (na *Wedstrijden*). Op de gsm schuift daardoor *Meldingen* bij een ouder onder *Meer*; de test van de onderbalk is aangepast.
+- **Knop *💬 Wedstrijdchat*** op de pagina van een wedstrijd via een nieuwe actie `khzs_wedstrijd_knoppen` in `modules/inschrijvingen/views/wedstrijd.php`.
+- **Bestaande installaties**: de module staat aan als `khzs_modules` nooit bewaard werd, anders zet je ze aan in wp-admin.
+- **Tabellen** via een eigen `COM_DB_VERSIE` (zoals `TR_DB_VERSIE`), dus `DB_VERSIE` van de kern bleef 6.
 
-- Mogen zwemmers en ouders zelf berichten starten, of enkel reageren (als dat aanstaat)?
-- Foto's en bijlagen in berichten: ja of nee, en hoe groot?
-- Verdwijnt wie *Ik doe niet mee* kiest of geweigerd wordt uit het wedstrijdkanaal (met of zonder de oude berichten)?
-- Push bij elk bericht of enkel bij vastgepinde, en kan je een kanaal dempen?
-- Hoe lang blijven berichten bewaard, en wie mag berichten verwijderen?
+**Getest**: `CommunicatieTest` (8 scenario's: opbouw en wie ziet wat; posten, meldingen, dempen, volgen, vermelden en het getal in het menu; versturen zonder herladen en vernieuwen; bewerken, verwijderen, vastpinnen en bijlagen; threads en beheer; de wedstrijdthread die de deelname volgt, met archief; aankondigingen en hulpvraag met Excel; voorkeuren en AVG), `DemoTest.test_berichten` en de aangepaste `TabbalkTest`, op een Docker-testsite. Met de browser nagekeken op gsm-formaat in de demo: overzicht, chat, @-suggesties, versturen zonder herladen, lijst van een hulpvraag.
 
+**Niet gedaan** (mogelijke volgende stappen):
+- reacties (emoji) en antwoorden op een bepaald bericht;
+- leesbevestiging per bericht (*gezien door*);
+- zoeken in berichten;
+- een thread per onderwerp door leden zelf laten starten;
+- een kanaal per wedstrijd dat ook de officials of de chauffeurs bevat (nu enkel deelnemers en staf);
+- testen op een echt toestel (pushmeldingen met `tag`, iPhone).
 
 ## AVG / GDPR (branch `feature/avg`, bovenop `feature/ploegen`)
 

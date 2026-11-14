@@ -53,7 +53,7 @@ function demo_enkel(): bool
 /** Versie van de code van de demo: verandert ze (update van de plugin), dan wordt de demo opnieuw opgebouwd. */
 function demo_code_versie(): string
 {
-    return VERSIE . '|' . DB_VERSIE . '|' . (defined(__NAMESPACE__ . '\TR_DB_VERSIE') ? TR_DB_VERSIE : '') . '|' . md5_file(KHZS_PAD . 'includes/demo-data.php');
+    return VERSIE . '|' . DB_VERSIE . '|' . demo_module_versies() . '|' . md5_file(KHZS_PAD . 'includes/demo-data.php');
 }
 
 function demo_slug(): string
@@ -296,14 +296,24 @@ function demo_accounttabellen(): void
     }
 }
 
+/** De tabelversies van de modules, samen; verandert er één, dan maakt de demo zijn tabellen opnieuw aan. */
+function demo_module_versies(): string
+{
+    $v = [];
+    foreach (['TR_DB_VERSIE', 'COM_DB_VERSIE'] as $c) {
+        $v[] = defined(__NAMESPACE__ . '\\' . $c) ? constant(__NAMESPACE__ . '\\' . $c) : '';
+    }
+    return implode('.', $v);
+}
+
 /** Zet de demo terug naar de begintoestand: alle demotabellen leeg en opnieuw vullen. Werkt ook buiten de demo (cron). */
 function demo_terugzetten(): void
 {
     $was = is_demo();
     demo_start();
     try {
-        // Ook als enkel een module nieuwe tabellen heeft (TR_DB_VERSIE): de optie van de module geldt voor de echte site.
-        $tr = defined(__NAMESPACE__ . '\TR_DB_VERSIE') ? TR_DB_VERSIE : '';
+        // Ook als enkel een module nieuwe tabellen heeft (TR_DB_VERSIE, COM_DB_VERSIE): de optie van de module geldt voor de echte site.
+        $tr = demo_module_versies();
         if (get_option('khzs_db_versie') !== DB_VERSIE || get_option('khzs_demo_tr_db_versie') !== $tr) {
             installeer_db(); // in de demo: enkel de demotabellen
             update_option('khzs_demo_tr_db_versie', $tr, false);

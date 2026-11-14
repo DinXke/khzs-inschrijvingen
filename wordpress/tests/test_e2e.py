@@ -1951,6 +1951,317 @@ class WebshopTest(Basis):
             hulp("cache")
 
 
+PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+
+
+class CommunicatieTest(Basis):
+    """Module communicatie: secties, kanalen per ploeg en per wedstrijd, threads, vastpinnen, meldingen, aankondigingen en hulpvragen."""
+
+    def setUp(self):
+        super().setUp()
+        self.bestuur = gebruiker("bestuur@khzs.be", first_name="Bea")
+        exe(f"INSERT INTO wp_usermeta (user_id, meta_key, meta_value) VALUES ({self.bestuur}, 'khzs_rollen', 'bestuurder')")
+        self.tr_c = gebruiker("trc@khzs.be", "trainer", first_name="Tom")
+        self.tr_z = gebruiker("trz@khzs.be", "trainer_zwemschool", first_name="Nina")
+        self.ouder = gebruiker("ouder@khzs.be", "ouder", first_name="Ann")
+        self.papa = gebruiker("papa@khzs.be", "ouder", first_name="Jan")
+        self.andere = gebruiker("andere@khzs.be", "ouder", first_name="Els")
+        self.lien = zwemmer(self.ouder, "Lien", "P")
+        exe(f"INSERT INTO {{p}}zwemmer_accounts (zwemmer_id, user_id, aangemaakt) VALUES ({self.lien}, {self.papa}, NOW())")
+        self.bram = zwemmer(self.andere, "Bram", "Q", geslacht="M")
+        self.b = Klant().login("bestuur@khzs.be")
+        self.b.post("ploegen/", {"naam": "A-groep", "trainers[]": [self.tr_c], "actief": "on", "soort": "competitie"})
+        self.b.post("ploegen/", {"naam": "Dolfijnen", "trainers[]": [self.tr_z], "actief": "on", "soort": "zwemschool"})
+        self.pa = int(een("SELECT id FROM {p}ploegen WHERE naam='A-groep'"))
+        self.pz = int(een("SELECT id FROM {p}ploegen WHERE naam='Dolfijnen'"))
+        exe(f"INSERT INTO {{p}}ploegleden (zwemmer_id, ploeg_id, status, aangemaakt) VALUES ({self.lien}, {self.pa}, 'goedgekeurd', NOW()), "
+            f"({self.bram}, {self.pz}, 'goedgekeurd', NOW())")
+        self.assertEqual(self.b.get("berichten/").status_code, 200)  # bouwt de secties en de kanalen van de ploegen op
+        self.o = Klant().login("ouder@khzs.be")
+        self.tc = Klant().login("trc@khzs.be")
+
+    def kanaal(self, naam):
+        return int(een(f"SELECT id FROM {{p}}com_kanalen WHERE naam='{naam}'"))
+
+    def schrijf(self, k, kanaal, tekst, **extra):
+        return k.post(f"berichten/kanaal/{kanaal}/", {"actie": "plaats", "tekst": tekst, **extra})
+
+    def berichten(self, kanaal):
+        return [r["tekst"] for r in sql(f"SELECT tekst FROM {{p}}com_berichten WHERE kanaal_id={kanaal} ORDER BY id")]
+
+    def abonneer(self, *wie):
+        for login, uid in wie:
+            Klant().login(login).json("meldingen/abonneer/", {"endpoint": f"https://push.example/{uid}", "keys": {"p256dh": "x", "auth": "y"}})
+        self.geen_push()
+
+    def geen_push(self):
+        hulp("exec", sql="DELETE FROM wp_options WHERE option_name='khzs_test_push'")
+        hulp("cache")
+
+    def pushes(self):
+        return [(int(p["endpoint"].rsplit("/", 1)[1]), p["bericht"]) for p in hulp("push")]
+
+    def tekst(self, r):
+        """Tekst van de inhoud (zonder het menu)."""
+        main = re.search(r"<main.*?</main>", r.text, re.S).group(0)
+        return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", main))
+
+    def test_opbouw_en_wie_ziet_wat(self):
+        self.assertEqual([r["naam"] for r in sql("SELECT naam FROM {p}com_secties ORDER BY volgorde")], ["Algemeen", "Competitie", "Zwemschool"])
+        self.assertEqual(een(f"SELECT s.soort FROM {{p}}com_kanalen k JOIN {{p}}com_secties s ON s.id=k.sectie_id WHERE k.ploeg_id={self.pz}"), "zwemschool")
+        alle = ["Algemeen", "Trainers en bestuur", "Competitie algemeen", "Wedstrijden", "Zwemschool algemeen", "A-groep", "Dolfijnen"]
+        verwacht = {
+            "bestuur@khzs.be": alle,
+            "trc@khzs.be": alle,
+            # Trainer van de zwemschool: niets van de competitie.
+            "trz@khzs.be": ["Algemeen", "Trainers en bestuur", "Zwemschool algemeen", "Dolfijnen"],
+            "ouder@khzs.be": ["Algemeen", "Competitie algemeen", "Wedstrijden", "A-groep"],
+            "papa@khzs.be": ["Algemeen", "Competitie algemeen", "Wedstrijden", "A-groep"],
+            "andere@khzs.be": ["Algemeen", "Zwemschool algemeen", "Dolfijnen"],
+        }
+        for login, zien in verwacht.items():
+            k = Klant().login(login)
+            t = self.tekst(k.get("berichten/"))
+            for naam in alle:
+                self.assertEqual(f" {naam} " in t, naam in zien, f"{login} en {naam}")
+                self.assertEqual(k.get(f"berichten/kanaal/{self.kanaal(naam)}/").status_code, 200 if naam in zien else 403, f"{login} en {naam}")
+        # Het kanaal van een ploeg volgt de ploeg: naam en archief.
+        self.b.post(f"ploegen/{self.pa}/", {"actie": "bewaar", "naam": "A-ploeg", "soort": "competitie", "trainers[]": [self.tr_c]})
+        self.o.get("berichten/")
+        self.assertEqual(een(f"SELECT CONCAT(naam, gearchiveerd) FROM {{p}}com_kanalen WHERE ploeg_id={self.pa}"), "A-ploeg1")
+        self.assertIn("Dit kanaal is gearchiveerd", self.o.get(f"berichten/kanaal/{self.kanaal('A-ploeg')}/").text)
+
+    def test_posten_meldingen_en_dempen(self):
+        alg, a = self.kanaal("Algemeen"), self.kanaal("A-groep")
+        self.abonneer(("trc@khzs.be", self.tr_c), ("papa@khzs.be", self.papa), ("bestuur@khzs.be", self.bestuur),
+                      ("trz@khzs.be", self.tr_z), ("ouder@khzs.be", self.ouder))
+        # Algemeen: enkel trainers en bestuur posten.
+        self.assertIn("In dit kanaal posten enkel trainers en bestuur", self.o.get(f"berichten/kanaal/{alg}/").text)
+        self.schrijf(self.o, alg, "Mag ik?")
+        self.assertEqual(self.berichten(alg), [])
+        self.schrijf(self.b, alg, "Welkom allemaal")
+        self.assertEqual(self.berichten(alg), ["Welkom allemaal"])
+        self.assertEqual({u for u, _ in self.pushes()}, {self.tr_c, self.papa, self.tr_z, self.ouder})  # iedereen behalve de schrijver
+        # Ploegkanaal: de leden en de trainer van de ploeg krijgen een melding, het bestuur (dat alles ziet) niet.
+        self.geen_push()
+        r = self.schrijf(self.o, a, "Lien is woensdag ziek.")
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual({u for u, _ in self.pushes()}, {self.tr_c, self.papa})
+        p = dict(self.pushes())[self.papa]
+        self.assertEqual((p["titel"], p["tekst"], p["tag"]), ("A-groep", "Ann: Lien is woensdag ziek.", f"khzs-kanaal-{a}"))
+        self.assertTrue(p["url"].endswith(f"/leden/berichten/kanaal/{a}/#b{een('SELECT MAX(id) FROM {p}com_berichten')}"))
+        # Papa dempt het kanaal, het bestuur volgt het.
+        Klant().login("papa@khzs.be").post(f"berichten/kanaal/{a}/", {"actie": "meldingen", "aan": "0"})
+        self.b.post(f"berichten/kanaal/{a}/", {"actie": "meldingen", "aan": "1"})
+        self.geen_push()
+        self.schrijf(self.o, a, "Ze is weer beter.")
+        self.assertEqual({u for u, _ in self.pushes()}, {self.tr_c, self.bestuur})
+        # Vermelding: ook met de voorkeur voor gewone berichten uit, en in een gedempt kanaal.
+        self.o.post("meldingen/", {"push_com_vermelding": "on"})  # de rest uit, ook push_com_bericht
+        self.o.post(f"berichten/kanaal/{a}/", {"actie": "meldingen", "aan": "0"})
+        self.geen_push()
+        self.schrijf(self.tc, a, "@Ann beterschap aan Lien!")
+        mid = int(een("SELECT MAX(id) FROM {p}com_berichten"))
+        self.assertEqual(een(f"SELECT user_id FROM {{p}}com_vermeldingen WHERE bericht_id={mid}"), str(self.ouder))
+        push = dict(self.pushes())
+        self.assertEqual(push[self.ouder]["titel"], "Tom vermeldde je in A-groep")
+        self.assertIn(self.bestuur, push)
+        self.assertIn('<span class="com-vermeld">@Ann</span>', self.o.get(f"berichten/kanaal/{a}/").text)
+        # Ongelezen: getal bij Berichten (enkel kanalen met meldingen aan); het kanaal openen zet het op nul.
+        papa = Klant().login("papa@khzs.be")
+        papa.get(f"berichten/kanaal/{alg}/")
+        self.assertNotIn('class="tab-badge"', papa.get("uitleg/").text)  # A-groep is gedempt
+        self.schrijf(self.b, alg, "Nog een bericht")
+        self.assertIn('<span class="tab-badge">1</span>', papa.get("uitleg/").text)
+        papa.get(f"berichten/kanaal/{alg}/")
+        self.assertNotIn('class="tab-badge"', papa.get("uitleg/").text)
+
+    def test_versturen_zonder_herladen_en_vernieuwen(self):
+        a = self.kanaal("A-groep")
+        r = self.o.s.post(APP + f"berichten/kanaal/{a}/", data={"_khzs": self.o._nonce(), "actie": "plaats", "tekst": "Via fetch", "na": 0},
+                          headers={"X-KHZS-Ajax": "1"})
+        j = r.json()
+        self.assertTrue(j["ok"])
+        self.assertIn("Via fetch", j["html"])
+        self.assertIn("com-eigen", j["html"])
+        r = self.o.s.post(APP + f"berichten/kanaal/{self.kanaal('Algemeen')}/", data={"_khzs": self.o._nonce(), "actie": "plaats", "tekst": "x"},
+                          headers={"X-KHZS-Ajax": "1"})
+        self.assertEqual(r.status_code, 400)
+        self.assertIn("enkel trainers en bestuur", r.json()["fout"])
+        self.schrijf(self.tc, a, "Antwoord van de trainer")
+        j = self.o.get(f"berichten/kanaal/{a}/nieuw/", na=j["laatste"]).json()
+        self.assertIn("Antwoord van de trainer", j["html"])
+        self.assertIn("Trainer competitie", j["html"])  # rol naast de naam
+        self.assertNotIn("Via fetch", j["html"])
+        self.assertEqual(self.o.get(f"berichten/kanaal/{a}/nieuw/", na=j["laatste"]).json()["html"], "")
+        self.assertEqual(Klant().login("andere@khzs.be").get(f"berichten/kanaal/{a}/nieuw/", na=0).status_code, 403)
+
+    def test_bewerken_verwijderen_vastpinnen_en_bijlagen(self):
+        a = self.kanaal("A-groep")
+        self.schrijf(self.o, a, "Eerst")
+        mid = int(een("SELECT MAX(id) FROM {p}com_berichten"))
+        papa = Klant().login("papa@khzs.be")
+        self.assertEqual(papa.post(f"berichten/bericht/{mid}/", {"actie": "bewerken", "tekst": "Gehackt"}).status_code, 403)
+        self.assertEqual(self.o.post(f"berichten/bericht/{mid}/", {"actie": "vastpinnen"}).status_code, 403)
+        self.o.post(f"berichten/bericht/{mid}/", {"actie": "bewerken", "tekst": "Eerst (aangepast)"})
+        self.assertEqual(self.berichten(a), ["Eerst (aangepast)"])
+        self.assertIn("· bewerkt", papa.get(f"berichten/kanaal/{a}/").text)
+        self.tc.post(f"berichten/bericht/{mid}/", {"actie": "vastpinnen"})
+        self.assertIn("📌 Vastgepind (1)", papa.get(f"berichten/kanaal/{a}/").text)
+        self.tc.post(f"berichten/bericht/{mid}/", {"actie": "verwijderen"})  # moderatie door de trainer van de ploeg
+        r = papa.get(f"berichten/kanaal/{a}/")
+        self.assertIn("Bericht verwijderd", r.text)
+        self.assertNotIn("Vastgepind", r.text)
+        self.assertEqual(self.berichten(a), [""])
+        # Bijlagen: enkel trainers en bestuur, enkel foto's en pdf's, enkel te zien voor wie het kanaal ziet.
+        self.o.post(f"berichten/kanaal/{a}/", {"actie": "plaats", "tekst": "foto"}, files={"bijlage": ("foto.png", PNG, "image/png")})
+        self.assertEqual(self.berichten(a), [""])
+        self.tc.post(f"berichten/kanaal/{a}/", {"actie": "plaats", "tekst": "Uitslagen"}, files={"bijlage": ("uitslag.pdf", b"%PDF-1.4 test", "application/pdf")})
+        self.tc.post(f"berichten/kanaal/{a}/", {"actie": "plaats", "tekst": ""}, files={"bijlage": ("raar.exe", b"MZ....", "application/octet-stream")})
+        self.tc.post(f"berichten/kanaal/{a}/", {"actie": "plaats", "tekst": ""}, files={"bijlage": ("groep.png", PNG, "image/png")})
+        rijen = sql(f"SELECT id, bijlage_naam, bijlage_type FROM {{p}}com_berichten WHERE kanaal_id={a} AND bijlage<>'' ORDER BY id")
+        self.assertEqual([(r["bijlage_naam"], r["bijlage_type"]) for r in rijen], [("uitslag.pdf", "pdf"), ("groep.png", "png")])
+        r = papa.get(f"berichten/bijlage/{rijen[1]['id']}/")
+        self.assertEqual((r.status_code, r.headers["Content-Type"], r.content), (200, "image/png", PNG))
+        self.assertIn(f'<img class="com-foto" loading="lazy" src="{APP}berichten/bijlage/{rijen[1]["id"]}/"', papa.get(f"berichten/kanaal/{a}/").text)
+        self.assertEqual(Klant().login("andere@khzs.be").get(f"berichten/bijlage/{rijen[0]['id']}/").status_code, 403)
+        self.assertEqual(Klant().get(f"berichten/bijlage/{rijen[0]['id']}/").status_code, 302)  # niet aangemeld
+
+    def test_threads_en_beheer(self):
+        a, z = self.kanaal("A-groep"), self.kanaal("Dolfijnen")
+        # De trainer van de ploeg beheert het eigen kanaal; hier lezen de leden enkel.
+        self.assertEqual(self.tc.get(f"berichten/kanaal/{a}/instellingen/").status_code, 200)
+        self.assertEqual(self.tc.get(f"berichten/kanaal/{z}/instellingen/").status_code, 403)
+        self.assertEqual(self.o.get(f"berichten/kanaal/{a}/instellingen/").status_code, 403)
+        self.tc.post(f"berichten/kanaal/{a}/instellingen/", {"beschrijving": "Voor de A-groep"})
+        self.assertEqual(een(f"SELECT CONCAT(leden_posten, beschrijving) FROM {{p}}com_kanalen WHERE id={a}"), "0Voor de A-groep")
+        self.schrijf(self.o, a, "Kan niet")
+        self.assertEqual(self.berichten(a), [])
+        # Een automatisch kanaal kan je niet verwijderen.
+        self.b.post(f"berichten/kanaal/{a}/instellingen/", {"actie": "verwijderen"})
+        self.assertTrue(sql(f"SELECT id FROM {{p}}com_kanalen WHERE id={a}"))
+        # Thread in het ploegkanaal: dezelfde mensen zien hem.
+        self.tc.post(f"berichten/kanaal/{a}/", {"actie": "thread", "naam": "Stage Pasen", "tekst": "Info volgt"})
+        t = self.kanaal("Stage Pasen")
+        self.assertEqual(een(f"SELECT CONCAT(ouder_id, '/', toegang, '/', leden_posten) FROM {{p}}com_kanalen WHERE id={t}"), f"{a}/erven/0")
+        self.assertEqual(self.berichten(t), ["Info volgt"])
+        self.assertIn("Stage Pasen", self.tekst(self.o.get("berichten/")))
+        self.assertEqual(Klant().login("andere@khzs.be").get(f"berichten/kanaal/{t}/").status_code, 403)
+        self.assertEqual(self.o.post(f"berichten/kanaal/{a}/", {"actie": "thread", "naam": "Van een ouder"}).status_code, 403)
+        # Beheer: secties en kanalen, enkel voor het bestuur.
+        self.assertEqual(self.tc.get("berichten/beheer/").status_code, 403)
+        self.b.post("berichten/beheer/", {"actie": "sectie", "naam": "Vrijwilligers", "soort": "algemeen"})
+        s = int(een("SELECT id FROM {p}com_secties WHERE naam='Vrijwilligers'"))
+        self.b.post("berichten/beheer/", {"actie": "kanaal", "sectie_id": s, "naam": "Ouders Dolfijnen", "toegang": "ploeg", "ploeg_id": self.pz, "leden_posten": "on"})
+        k = self.kanaal("Ouders Dolfijnen")
+        self.assertEqual(Klant().login("andere@khzs.be").get(f"berichten/kanaal/{k}/").status_code, 200)
+        self.assertEqual(self.o.get(f"berichten/kanaal/{k}/").status_code, 403)
+        self.b.post("berichten/beheer/", {"actie": "sectie_verwijder", "id": s})
+        self.assertTrue(sql(f"SELECT id FROM {{p}}com_secties WHERE id={s}"))  # niet leeg
+        self.schrijf(self.b, k, "Even testen")
+        self.b.post(f"berichten/kanaal/{k}/instellingen/", {"actie": "verwijderen"})
+        self.assertFalse(sql(f"SELECT id FROM {{p}}com_kanalen WHERE id={k}"))
+        self.assertFalse(sql(f"SELECT id FROM {{p}}com_berichten WHERE kanaal_id={k}"))
+        self.b.post("berichten/beheer/", {"actie": "sectie_verwijder", "id": s})
+        self.assertFalse(sql(f"SELECT id FROM {{p}}com_secties WHERE id={s}"))
+
+    def test_wedstrijdthread_volgt_de_deelname(self):
+        w = exe("INSERT INTO {p}wedstrijden (naam, baan, deadline, status, info, aangemaakt) VALUES ('Testmeeting', 'SCM', '2026-12-01', 'concept', '', NOW())")["id"]
+        exe(f"INSERT INTO {{p}}sessies (wedstrijd_id, nummer, datum) VALUES ({w}, 1, '2026-12-05')")
+        self.b.get("berichten/")
+        self.assertFalse(sql("SELECT id FROM {p}com_kanalen WHERE naam='Testmeeting'"))  # concept: nog geen thread
+        exe(f"UPDATE {{p}}wedstrijden SET status='open' WHERE id={w}")
+        exe(f"INSERT INTO {{p}}deelnames (zwemmer_id, wedstrijd_id, keuze, gewijzigd) VALUES ({self.lien}, {w}, 'interesse', NOW())")
+        self.b.get("berichten/")
+        t = self.kanaal("Testmeeting")
+        self.assertEqual(een(f"SELECT CONCAT(toegang, '/', ouder_id) FROM {{p}}com_kanalen WHERE id={t}"), f"wedstrijd/{self.kanaal('Wedstrijden')}")
+        self.assertIn("zaterdag 5 december 2026", een(f"SELECT beschrijving FROM {{p}}com_kanalen WHERE id={t}"))
+        for login, ziet in (("ouder@khzs.be", 200), ("papa@khzs.be", 200), ("trc@khzs.be", 200), ("bestuur@khzs.be", 200),
+                            ("andere@khzs.be", 403), ("trz@khzs.be", 403)):
+            self.assertEqual(Klant().login(login).get(f"berichten/kanaal/{t}/").status_code, ziet, login)
+        # Bram doet mee: hij komt erbij. Wie 'Ik doe niet mee' kiest of geweigerd wordt, blijft erin.
+        exe(f"INSERT INTO {{p}}deelnames (zwemmer_id, wedstrijd_id, keuze, gewijzigd) VALUES ({self.bram}, {w}, 'doet_mee', NOW())")
+        exe(f"UPDATE {{p}}deelnames SET keuze='doet_niet_mee', geweigerd=1 WHERE zwemmer_id={self.lien}")
+        self.assertEqual(Klant().login("andere@khzs.be").get(f"berichten/kanaal/{t}/").status_code, 200)
+        self.assertEqual(self.o.get(f"berichten/kanaal/{t}/").status_code, 200)
+        # Meldingen: deelnemers en trainers van de competitie, niet het bestuur.
+        self.abonneer(("trc@khzs.be", self.tr_c), ("papa@khzs.be", self.papa), ("bestuur@khzs.be", self.bestuur), ("andere@khzs.be", self.andere))
+        self.schrijf(self.o, t, "Wie rijdt er mee?")
+        self.assertEqual({u for u, _ in self.pushes()}, {self.tr_c, self.papa, self.andere})
+        # Knop op de pagina van de wedstrijd.
+        self.assertIn(f'berichten/kanaal/{t}/">💬 Wedstrijdchat', self.o.get(f"wedstrijd/{w}/").text)
+        # Een jaar na de wedstrijd: archief, enkel nog lezen.
+        exe(f"UPDATE {{p}}sessies SET datum=CURDATE() - INTERVAL 400 DAY WHERE wedstrijd_id={w}")
+        self.assertEqual(hulp("eval", f="avg_opkuis")["v"]["wedstrijdthreads_gearchiveerd"], 1)
+        self.assertIn("Dit kanaal is gearchiveerd", self.o.get(f"berichten/kanaal/{t}/").text)
+        self.schrijf(self.o, t, "Te laat")
+        self.assertEqual(self.berichten(t), ["Wie rijdt er mee?"])
+
+    def test_aankondigingen_en_hulpvraag(self):
+        self.abonneer(("ouder@khzs.be", self.ouder), ("trz@khzs.be", self.tr_z), ("andere@khzs.be", self.andere), ("bestuur@khzs.be", self.bestuur))
+        self.assertEqual(self.o.post("berichten/aankondigingen/", {"soort": "info", "titel": "x", "kanaal_id": 0}).status_code, 403)
+        r = self.b.post("berichten/aankondigingen/", {"soort": "hulp", "titel": "Helpers pastadag", "tekst": "Wie helpt mee?", "kanaal_id": 0,
+                                                       "nodig": 5, "wanneer": "zaterdag 6 december"})
+        self.assertEqual(r.status_code, 302, r.text[:1000])
+        aid = int(een("SELECT id FROM {p}com_aankondigingen"))
+        self.assertEqual({u for u, _ in self.pushes()}, {self.ouder, self.tr_z, self.andere})
+        self.assertEqual(self.pushes()[0][1]["titel"], "🙋 Vraag naar hulp: Helpers pastadag")
+        # Bovenaan Berichten, met de knoppen; een nieuwe aankondiging geeft een getal in het menu tot je Berichten opent.
+        self.assertIn('<span class="tab-badge">1</span>', self.o.get("uitleg/").text)
+        r = self.o.get("berichten/")
+        self.assertIn("Helpers pastadag", r.text)
+        self.assertIn('name="antwoord" value="ja"', r.text)
+        self.assertNotIn('class="tab-badge"', self.o.get("uitleg/").text)
+        self.o.post(f"berichten/aankondiging/{aid}/", {"actie": "rsvp", "antwoord": "ja", "personen": 2, "opmerking": "Keuken"})
+        self.o.post(f"berichten/aankondiging/{aid}/", {"actie": "rsvp", "antwoord": "ja", "personen": 3, "opmerking": "Keuken"})
+        Klant().login("papa@khzs.be").post(f"berichten/aankondiging/{aid}/", {"actie": "rsvp", "antwoord": "misschien"})
+        Klant().login("andere@khzs.be").post(f"berichten/aankondiging/{aid}/", {"actie": "rsvp", "antwoord": "nee", "personen": 4})
+        rijen = sql(f"SELECT user_id, antwoord, personen FROM {{p}}com_rsvp WHERE aankondiging_id={aid} ORDER BY user_id")
+        self.assertEqual([(int(r["user_id"]), r["antwoord"], int(r["personen"])) for r in rijen],
+                         [(self.ouder, "ja", 3), (self.papa, "misschien", 1), (self.andere, "nee", 0)])
+        # Leden zien de totalen, niet de lijst; het bestuur ziet de lijst en downloadt ze als Excel.
+        r = self.o.get(f"berichten/aankondiging/{aid}/")
+        self.assertIn("3 van de 5 nodige personen komen", self.tekst(r))
+        self.assertNotIn("Wie komt helpen?", r.text)
+        self.assertEqual(self.o.get(f"berichten/aankondiging/{aid}/export.xlsx").status_code, 403)
+        r = self.b.get(f"berichten/aankondiging/{aid}/")
+        self.assertIn("Wie komt helpen?", r.text)
+        self.assertIn("Keuken", r.text)
+        x = self.b.get(f"berichten/aankondiging/{aid}/export.xlsx")
+        self.assertEqual(x.status_code, 200)
+        blad = zipfile.ZipFile(io.BytesIO(x.content)).read("xl/worksheets/sheet1.xml").decode()
+        for stuk in ("Ann", "ouder@khzs.be", "Misschien", "Totaal Ja", "<v>3</v>"):
+            self.assertIn(stuk, blad)
+        # Een trainer maakt een aankondiging voor zijn eigen ploeg, niet voor iedereen.
+        self.tc.post("berichten/aankondigingen/", {"soort": "dringend", "titel": "Voor iedereen", "kanaal_id": 0})
+        self.tc.post("berichten/aankondigingen/", {"soort": "dringend", "titel": "Training valt weg", "kanaal_id": self.kanaal("A-groep")})
+        self.assertEqual([r["titel"] for r in sql("SELECT titel FROM {p}com_aankondigingen ORDER BY id")], ["Helpers pastadag", "Training valt weg"])
+        self.assertIn("Training valt weg", self.o.get(f"berichten/kanaal/{self.kanaal('A-groep')}/").text)
+        self.assertNotIn("Training valt weg", Klant().login("andere@khzs.be").get("berichten/").text)
+        # Beëindigen: niet meer bovenaan, wel nog bij Aankondigingen.
+        self.b.post(f"berichten/aankondiging/{aid}/", {"actie": "beeindigen"})
+        self.assertNotIn("Helpers pastadag", self.o.get("berichten/").text)
+        self.assertIn("Helpers pastadag", self.o.get("berichten/aankondigingen/").text)
+        self.assertEqual(self.o.post(f"berichten/aankondiging/{aid}/", {"actie": "verwijderen"}).status_code, 403)
+        self.b.post(f"berichten/aankondiging/{aid}/", {"actie": "verwijderen"})
+        self.assertFalse(sql("SELECT id FROM {p}com_rsvp"))
+
+    def test_voorkeuren_en_avg(self):
+        r = self.o.get("meldingen/")
+        for label in ("Nieuw bericht in een kanaal", "Iemand vermeldt mij", "Nieuwe aankondiging", "Nieuwe vraag naar hulp"):
+            self.assertIn(label, r.text)
+        a = self.kanaal("A-groep")
+        self.schrijf(self.o, a, "Mijn bericht")
+        self.assertEqual(self.o.get("privacy/mijn-gegevens.json").json()["communicatie"]["berichten"][0]["tekst"], "Mijn bericht")
+        hulp("deluser", id=self.ouder)
+        self.assertEqual(self.berichten(a), [])
+        # Een nieuw lid begint zonder ongelezen berichten van vroeger.
+        self.schrijf(self.b, self.kanaal("Algemeen"), "Oud nieuws")
+        time.sleep(1.1)
+        gebruiker("nieuw@khzs.be", "ouder")
+        self.assertNotIn('class="tab-badge"', Klant().login("nieuw@khzs.be").get("uitleg/").text)
+
+
 class TabbalkTest(Basis):
     """Onderbalk op de gsm: hoogstens 5 knoppen; bij veel menu-items de rest en Afmelden onder 'Meer'."""
 
@@ -1958,18 +2269,19 @@ class TabbalkTest(Basis):
         balk = re.search(r'<nav class="tabbalk">(.*?)</nav>', html, re.S).group(1)
         return re.findall(r"</svg>([^<]+)</(?:a|button)>", balk)
 
-    def test_weinig_items_geen_meer(self):
+    def test_ouder_berichten_en_meer(self):
         gebruiker("ouder@x.be")
         html = self.c.login("ouder@x.be").get("wedstrijden/").text
-        self.assertEqual(self.balk(html), ["Wedstrijden", "Profiel", "Uitleg", "Meldingen", "Afmelden"])
-        self.assertNotIn("meer-blad", html)
+        self.assertEqual(self.balk(html), ["Wedstrijden", "Berichten", "Profiel", "Uitleg", "Meer"])
+        blad = re.search(r'<div class="meer-blad".*?</div>', html, re.S).group(0)
+        self.assertEqual(re.findall(r"</svg>([^<]+)</a>", blad), ["Meldingen", "Afmelden"])
 
     def test_veel_items_onder_meer_met_backup(self):
         html = self.c.login("admin", "admin123").get("wedstrijden/").text
-        self.assertEqual(self.balk(html), ["Wedstrijden", "Zwemmers", "Trainingen", "Verloning", "Meer"])
+        self.assertEqual(self.balk(html), ["Wedstrijden", "Berichten", "Zwemmers", "Trainingen", "Meer"])
         blad = re.search(r'<div class="meer-blad".*?</div>', html, re.S).group(0)
         meer = re.findall(r"</svg>([^<]+)</a>", blad)
-        self.assertEqual(meer, ["Ploegen", "Gebruikers", "Uitleg", "Meldingen", "Backup", "Afmelden"])
+        self.assertEqual(meer, ["Verloning", "Ploegen", "Gebruikers", "Uitleg", "Meldingen", "Backup", "Afmelden"])
         # Actieve pagina onder 'Meer': de knop Meer licht op.
         self.assertIn('class="actief" id="meer-knop"', self.c.get("gebruikers/").text)
 
@@ -2242,6 +2554,38 @@ class DemoTest(Basis):
         self.assertIn("Per maand", t)
         self.assertEqual(o.get(f"aanwezigheid/{lina}/").status_code, 403)
         self.assertIn("Per weekdag", self.tekst(self.d.get("trainers/zwemmers/")))
+
+    def test_berichten(self):
+        # Secties, kanalen per ploeg, een thread, wedstrijdthreads, aankondigingen van elke soort en een hulpvraag met antwoorden.
+        r = self.d.get("berichten/")
+        t = self.tekst(r)
+        for stuk in ("Algemeen", "Competitie", "Zwemschool", "Competitie 2", "Stage Pasen", "Clubmeeting ZCT", "Trainers en bestuur",
+                     "Helpers voor de pastadag", "Zwembad Kapermolen zaterdag dicht", "Juryleden en tijdopnemers", "+ 2 andere aankondigingen"):
+            self.assertIn(stuk, t)
+        self.assertNotIn("Clubfoto", t)  # afgelopen aankondiging
+        # Hoogstens drie bovenaan; de rest (en de afgelopen) bij Aankondigingen.
+        alle = self.tekst(self.d.get("berichten/aankondigingen/"))
+        for stuk in ("Nieuwjaarsreceptie", "Welkom in de nieuwe app", "Clubfoto"):
+            self.assertIn(stuk, alle)
+        self.assertIn("7 van de 15 nodige personen komen", t)
+        self.assertIn('class="tab-badge"', r.text)
+        self.assertGreaterEqual(demo_aantal("com_berichten"), 20)
+        self.assertEqual(demo_aantal("com_aankondigingen"), 6)
+        self.assertEqual(int(een("SELECT COUNT(DISTINCT soort) FROM wp_khzsdemo_com_aankondigingen")), 4)
+        # Vastgepind bericht en vermelding in een kanaal.
+        k = een("SELECT id FROM wp_khzsdemo_com_kanalen WHERE naam='Competitie 2'")
+        self.assertIn("📌 Vastgepind (1)", self.d.get(f"berichten/kanaal/{k}/").text)
+        staf = een("SELECT id FROM wp_khzsdemo_com_kanalen WHERE naam='Trainers en bestuur'")
+        self.assertIn('<span class="com-vermeld">@Lotte Janssens</span>', self.d.get(f"berichten/kanaal/{staf}/").text)
+        # Het bestuur ziet de lijst van de hulpvraag; een ouder enkel de totalen.
+        a = een("SELECT id FROM wp_khzsdemo_com_aankondigingen WHERE titel='Helpers voor de pastadag'")
+        self.assertIn("Wie komt helpen?", self.d.get(f"berichten/aankondiging/{a}/").text)
+        self.assertNotIn("Wie komt helpen?", DemoKlant().login("ouder", "ouder").get(f"berichten/aankondiging/{a}/").text)
+        # Een ouder van de zwemschool en de competitie: enkel de eigen ploegen.
+        o = self.tekst(DemoKlant().login("ouder", "ouder").get("berichten/"))
+        self.assertIn("Beloften", o)
+        self.assertNotIn("Competitie 2", o)
+        self.assertNotIn("Trainers en bestuur", o)
 
     def test_demo_uit(self):
         # Zonder KHZS_DEMO bestaat de demo niet, ook niet via een oude rewrite-regel (nooit de echte app op dit adres).

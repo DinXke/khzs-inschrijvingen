@@ -75,6 +75,9 @@ h3 { font-size: 1rem; margin: 1rem 0 .4rem; }
 .tabbalk button { background: none; border: 0; border-radius: 0; padding: 0; min-height: 0; font: inherit; font-size: .72rem; cursor: pointer; }
 .tabbalk a svg, .tabbalk button svg { width: 24px; height: 24px; }
 .tabbalk a.actief, .tabbalk button.actief { color: var(--primair); font-weight: 600; }
+.tabbalk a { position: relative; }
+.tab-badge { position: absolute; top: 6px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+  background: var(--fout); color: #fff; font-size: .68rem; font-weight: 700; line-height: 18px; text-align: center; }
 /* 'Meer' (gsm): paneel boven de onderbalk met de overige menu-items en Afmelden (ook boven de installatiemelding). */
 .meer-achtergrond { position: fixed; inset: 0; z-index: 100000; background: rgba(0, 0, 0, .35); }
 .meer-blad {

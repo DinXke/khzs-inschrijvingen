@@ -2,6 +2,8 @@
 $_pagina = $pagina; // niet $p: dat is de ploeg in views/ploeg.php
 $actief = fn(array $namen) => in_array($_pagina, $namen, true) ? 'actief' : '';
 $items = is_user_logged_in() ? menu() : [];
+// Getal bij een menu-item (optioneel zesde element: callable die een aantal geeft, bv. ongelezen berichten).
+$_badges = array_map(fn($i) => isset($i[5]) ? (int) ($i[5])() : 0, $items);
 $ingelogd = is_user_logged_in();
 ?><!doctype html>
 <html lang="nl">
@@ -27,7 +29,7 @@ $ingelogd = is_user_logged_in();
   <button type="button" class="thema-knop" id="thema" title="Licht / donker / automatisch" aria-label="Thema wisselen"></button>
   <?php if ($ingelogd): ?>
   <nav>
-    <?php foreach ($items as [$label, $pad, $namen, $icoon]): ?><a href="<?= esc_url(app_url($pad)) ?>" class="<?= $actief($namen) ?>"<?= $label === 'Meldingen' ? ' title="Meldingen"' : '' ?>><?= $label === 'Meldingen' ? '🔔' : e($label) ?><?php if ($label === 'Ploegen' && ($_n = count(te_behandelen_ploeg()))): ?> <span class="badge wacht" title="Ploegaanvragen"><?= $_n ?></span><?php endif; ?><?php if ($label === 'Gebruikers' && ($_n = aantal_open_rolaanvragen())): ?> <span class="badge wacht" title="Rolaanvragen"><?= $_n ?></span><?php endif; ?></a>
+    <?php foreach ($items as $_i => [$label, $pad, $namen, $icoon]): ?><a href="<?= esc_url(app_url($pad)) ?>" class="<?= $actief($namen) ?>"<?= $label === 'Meldingen' ? ' title="Meldingen"' : '' ?>><?= $label === 'Meldingen' ? '🔔' : e($label) ?><?php if ($_badges[$_i]): ?> <span class="badge wacht"><?= $_badges[$_i] ?></span><?php endif; ?><?php if ($label === 'Ploegen' && ($_n = count(te_behandelen_ploeg()))): ?> <span class="badge wacht" title="Ploegaanvragen"><?= $_n ?></span><?php endif; ?><?php if ($label === 'Gebruikers' && ($_n = aantal_open_rolaanvragen())): ?> <span class="badge wacht" title="Rolaanvragen"><?= $_n ?></span><?php endif; ?></a>
     <?php endforeach; ?>
     <?php if (club()['webshop']): ?><a href="<?= esc_url(club()['webshop']) ?>" target="_blank" rel="noopener">Webshop ↗</a><?php endif; ?>
     <?php if ($is_beheerder): ?><a href="<?= esc_url(app_url('backup/')) ?>" class="<?= $actief(['backups']) ?>">Backup</a><?php if (current_user_can('manage_options')): ?><a href="<?= esc_url(admin_url('options-general.php?page=khzs')) ?>">Beheer</a><?php endif; endif; ?>
@@ -54,8 +56,8 @@ $ingelogd = is_user_logged_in();
   $balk = $meer ? array_slice($gsm, 0, 4) : $gsm;
   $meer_actief = $actief(array_merge([], ...array_map(fn($i) => $i[2], $meer))); ?>
 <nav class="tabbalk">
-  <?php foreach ($balk as [$label, $pad, $namen, $icoon]): ?><a href="<?= esc_url(app_url($pad)) ?>" class="<?= $actief($namen) ?>">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><?= $icoon /* vaste svg uit de code */ ?></svg><?= e($label) ?></a>
+  <?php foreach ($balk as $_i => [$label, $pad, $namen, $icoon]): ?><a href="<?= esc_url(app_url($pad)) ?>" class="<?= $actief($namen) ?>">
+    <?php if (!empty($_badges[$_i])): ?><span class="tab-badge"><?= $_badges[$_i] > 99 ? '99+' : $_badges[$_i] ?></span><?php endif; ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><?= $icoon /* vaste svg uit de code */ ?></svg><?= e($label) ?></a>
   <?php endforeach; ?>
   <?php if ($meer): ?>
   <button type="button" class="<?= $meer_actief ?>" id="meer-knop" aria-expanded="false" aria-controls="meer-blad">

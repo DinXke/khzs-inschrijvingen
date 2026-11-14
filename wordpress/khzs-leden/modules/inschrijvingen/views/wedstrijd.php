@@ -9,6 +9,7 @@ $vast = $d && !$staf && ($d->geweigerd || $d->gefinaliseerd);
   <?php if ($staf): ?><div class="stap">Trainers tot<b><?= e(datum(deadline_trainer($w), 'D j M')) ?></b></div>
   <div class="stap">Organisator<b><?= e(datum($w->deadline, 'D j M')) ?></b></div><?php endif; ?>
 </div>
+<?php do_action('khzs_wedstrijd_knoppen', $w); // bv. de wedstrijdchat (module communicatie) ?>
 <?php include __DIR__ . '/_info_bijlagen.php'; ?>
 <?php if ($staf): ?><p><a href="<?= esc_url(app_url("wedstrijd/{$w->id}/nakijken/")) ?>">← Terug naar overzicht inschrijvingen</a></p><?php endif; ?>
 
