@@ -217,14 +217,13 @@ function programma_voor(object $zwemmer, object $w): array
 function mag_wijzigen($user, object $w, ?\DateTimeImmutable $dag = null): bool
 {
     $dag = $dag ?? vandaag();
-    $r = rol($user);
-    if (in_array($r, SECRETARIAAT, true)) {
+    if (heeft_rol(SECRETARIAAT, $user)) {
         return in_array($w->status, [W_OPEN, W_GESLOTEN], true);
     }
     if ($w->status !== W_OPEN) {
         return false;
     }
-    if ($r === TRAINER) {
+    if (heeft_rol([TRAINER], $user)) {
         return $dag <= deadline_trainer($w);
     }
     return $dag <= deadline_zwemmer($w);

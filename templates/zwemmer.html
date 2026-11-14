@@ -25,6 +25,21 @@
       <div class="melding-item{% if not m.gelezen %} nieuw{% endif %}"><div class="klein">{{ m.door_naam }} · {{ m.wedstrijd.naam }} · {{ m.aangemaakt|date:"j M H:i" }}</div>
       <ul>{% for r in m.regels %}<li>{{ r }}</li>{% endfor %}</ul></div>{% endfor %}
     </div>{% endif %}
+    <h2>Ploegen</h2>
+    <div class="kaart">
+      {% for l in lidmaatschappen %}<div class="rij tussen" style="padding:.3rem 0;border-bottom:1px solid var(--lijn)">
+        <span>{% if l.status == 'goedgekeurd' %}<a href="{% url 'ploeg' l.ploeg.pk %}">{{ l.ploeg }}</a>{% else %}{{ l.ploeg }}{% endif %}
+          {% if l.status == 'afgekeurd' and l.reden %}<br><span class="klein">{{ l.reden }}</span>{% endif %}</span>
+        <span class="rij"><span class="badge {% if l.status == 'goedgekeurd' %}ok{% elif l.status == 'open' %}wacht{% else %}fout{% endif %}">{{ l.get_status_display }}</span>
+          {% if l.status != 'afgekeurd' %}<form method="post" action="{% url 'ploeglid' l.pk %}" onsubmit="return confirm('{% if l.status == 'open' %}Aanvraag intrekken?{% else %}{{ z.voornaam|escapejs }} uit {{ l.ploeg|escapejs }} halen?{% endif %}')">{% csrf_token %}
+            <input type="hidden" name="terug" value="{{ request.path }}"><button name="actie" value="verwijderen" class="mini secundair" title="{% if l.status == 'open' %}Intrekken{% else %}Uit de ploeg{% endif %}">✕</button></form>{% endif %}</span>
+      </div>{% empty %}<p class="klein">{{ z.voornaam }} zit nog in geen enkele ploeg.</p>{% endfor %}
+      {% if kies_ploegen %}<form method="post" action="{% url 'zwemmer_ploeg' z.pk %}" class="rij" style="margin-top:.6rem;align-items:end">{% csrf_token %}
+        <div style="flex:1;min-width:180px"><label for="ploegkeuze">Ploeg kiezen</label>
+          <select id="ploegkeuze" name="ploeg" required><option value="">Kies…</option>{% for p in kies_ploegen %}<option value="{{ p.pk }}">{{ p }}</option>{% endfor %}</select></div>
+        <button class="mini">{% if is_staf %}Toevoegen{% else %}Aanvragen{% endif %}</button></form>
+        <p class="help">De trainer of het bestuur keurt de ploeg goed. Je krijgt een melding.</p>{% endif %}
+    </div>
     <h2>Inschrijvingen</h2>
     <div class="kaart">
       {% for i in inschrijvingen %}<div class="rij tussen" style="padding:.35rem 0;border-bottom:1px solid var(--lijn)">

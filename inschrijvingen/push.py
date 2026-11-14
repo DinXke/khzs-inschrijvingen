@@ -70,14 +70,18 @@ def users_met(voorkeur, rollen=None, deelname_aan=None):
     """Gebruikers met deze voorkeur aan en minstens één toestel. Met deelname_aan: enkel accounts met een
     zwemmer die voor die wedstrijd 'interesse' of 'ik doe mee' koos."""
     from django.contrib.auth.models import User
+    from django.db.models import Q
 
     from .models import Deelname
 
     qs = User.objects.filter(is_active=True, **{f"profiel__{voorkeur}": True}, push_abonnementen__isnull=False)
     if rollen:
-        qs = qs.filter(profiel__rol__in=rollen)
+        # Accounts zonder rollen (oude backup) tellen met hun hoofdrol; superusers zijn altijd beheerder.
+        q = Q(app_rollen__rol__in=rollen) | Q(app_rollen__isnull=True, profiel__rol__in=rollen)
+        if "beheerder" in rollen:
+            q |= Q(is_superuser=True)
+        qs = qs.filter(q)
     if deelname_aan is not None:
-        from django.db.models import Q
         zids = Deelname.objects.filter(wedstrijd=deelname_aan, keuze__in=Deelname.ACTIEF, geweigerd=False).values("zwemmer_id")
         qs = qs.filter(Q(zwemmers__in=zids) | Q(gedeelde_zwemmers__in=zids))
     return qs.distinct()

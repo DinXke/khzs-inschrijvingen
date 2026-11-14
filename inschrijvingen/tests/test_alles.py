@@ -10,6 +10,7 @@ from django.test import TestCase
 from inschrijvingen import lenex
 from inschrijvingen.models import BesteTijd, Inschrijving, Nummer, Profiel, Wedstrijd, Zwemmer
 from inschrijvingen.regels import leeftijd, parse_invoer_tijd, programma_voor, toon_tijd
+from inschrijvingen.rollen import rollen_van, zet_rollen
 
 VK = Path(__file__).parent / "fixtures" / "vk_kb_jeugd.lxf"
 
@@ -24,6 +25,19 @@ OUD = b"""<?xml version="1.0" encoding="ISO-8859-1"?>
 <EVENT eventid="3" number="3"><SWIMSTYLE distance="100" stroke="UNKNOWN" name="Kinderestafette"/></EVENT>
 <EVENT eventid="4" number="4" gender="F" round="FIN" preveventid="1"><SWIMSTYLE distance="50" stroke="FREE"/></EVENT>
 </EVENTS></SESSION></SESSIONS></MEET></MEETS></LENEX>"""
+
+
+def registreer(client, email, voornaam="Ann", naam="Peeters"):
+    """Account aanmaken; daarna volgt het stappenplan (welkom)."""
+    r = client.post("/registreren/", {"email": email, "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!",
+                                      "voornaam": voornaam, "naam": naam})
+    assert r.status_code == 302 and r["Location"] == "/welkom/", r.content[:2000]
+    return r
+
+
+def kind(client, voornaam, naam, gd, geslacht, ploeg=""):
+    return client.post("/welkom/?stap=kinderen", {"actie": "kind", "voornaam": voornaam, "naam": naam, "geboortedatum": gd,
+                                                  "geslacht": geslacht, "ploeg": ploeg})
 
 
 def upload(data, naam="x.lxf"):
@@ -76,11 +90,9 @@ class LenexTest(TestCase):
 class StroomTest(TestCase):
     def setUp(self):
         self.sec = User.objects.create_user("sec@khzs.be", "sec@khzs.be", "geheim123!")
-        self.sec.profiel.rol = Profiel.SECRETARIS
-        self.sec.profiel.save()
+        zet_rollen(self.sec, [Profiel.SECRETARIS])
         self.tr = User.objects.create_user("tr@khzs.be", "tr@khzs.be", "geheim123!")
-        self.tr.profiel.rol = Profiel.TRAINER
-        self.tr.profiel.save()
+        zet_rollen(self.tr, [Profiel.TRAINER])
         self.c = self.client
         self.c.force_login(self.sec)
         r = self.c.post("/wedstrijd/nieuw/", {"bestand": upload(VK.read_bytes(), "vk.lxf")})
@@ -102,12 +114,8 @@ class StroomTest(TestCase):
 
     def test_volledige_stroom(self):
         self.c.logout()
-        r = self.c.post("/registreren/", {
-            "email": "ouder@test.be", "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!",
-            "voornaam": "Ann", "naam": "Peeters",
-            "zw-TOTAL_FORMS": 1, "zw-INITIAL_FORMS": 0, "zw-MIN_NUM_FORMS": 1, "zw-MAX_NUM_FORMS": 10,
-            "zw-0-voornaam": "Lien", "zw-0-naam": "Peeters", "zw-0-geboortedatum": "2013-03-02", "zw-0-geslacht": "F",
-        })
+        registreer(self.c, "ouder@test.be")
+        r = kind(self.c, "Lien", "Peeters", "2013-03-02", "F")
         self.assertEqual(r.status_code, 302, r.content[:2000])
         z = Zwemmer.objects.get(voornaam="Lien")
         self.assertEqual(leeftijd(z, self.w), 13)
@@ -442,27 +450,26 @@ class BackupTest(StroomTest):
 
 
 class GezinTest(TestCase):
+    def setUp(self):
+        User.objects.create_user("eerste@test.be")  # het allereerste account wordt sportsecretaris
+
     def test_ouder_registreert_twee_kinderen(self):
-        r = self.client.post("/registreren/", {
-            "email": "gezin@test.be", "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!",
-            "voornaam": "Ann", "naam": "Peeters",
-            "zw-TOTAL_FORMS": 2, "zw-INITIAL_FORMS": 0, "zw-MIN_NUM_FORMS": 1, "zw-MAX_NUM_FORMS": 10,
-            "zw-0-voornaam": "Lien", "zw-0-naam": "Peeters", "zw-0-geboortedatum": "2013-03-02", "zw-0-geslacht": "F",
-            "zw-1-voornaam": "Bram", "zw-1-naam": "Peeters", "zw-1-geboortedatum": "2011-07-14", "zw-1-geslacht": "M",
-        })
-        self.assertEqual(r.status_code, 302)
+        registreer(self.client, "gezin@test.be")
+        kind(self.client, "Lien", "Peeters", "2013-03-02", "F")
+        kind(self.client, "Bram", "Peeters", "2011-07-14", "M")
         u = User.objects.get(username="gezin@test.be")
         self.assertEqual(u.first_name, "Ann")
         self.assertEqual(sorted(u.zwemmers.values_list("voornaam", flat=True)), ["Bram", "Lien"])
+        self.assertEqual(rollen_van(u), {Profiel.OUDER})
 
-    def test_minstens_een_zwemmer(self):
-        r = self.client.post("/registreren/", {
-            "email": "leeg@test.be", "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!",
-            "voornaam": "Ann", "naam": "P",
-            "zw-TOTAL_FORMS": 1, "zw-INITIAL_FORMS": 0, "zw-MIN_NUM_FORMS": 1, "zw-MAX_NUM_FORMS": 10,
-        })
-        self.assertEqual(r.status_code, 200)
-        self.assertFalse(User.objects.filter(username="leeg@test.be").exists())
+    def test_stappen_overslaan(self):
+        registreer(self.client, "leeg@test.be")
+        u = User.objects.get(username="leeg@test.be")
+        self.assertEqual(rollen_van(u), set())  # een nieuw account start zonder rol
+        for stap in ("zelf", "kinderen", "staf", "klaar"):
+            self.assertEqual(self.client.get(f"/welkom/?stap={stap}").status_code, 200)
+        self.assertContains(self.client.get("/rollen/"), "Nog geen rol")
+        self.assertEqual(self.client.get("/wedstrijden/").status_code, 200)
 
 
 class RolTest(StroomTest):
@@ -668,12 +675,11 @@ class KoppelTest(StroomTest):
         mama, papa, z = self._gezin()
         code = koppelen.nieuwe_code(z)
         self.c.logout()
-        r = self.c.post("/registreren/", {
-            "email": "plusmama@test.be", "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!", "voornaam": "Els", "naam": "V",
-            "koppelcode": koppelen.toon(code), "zw-TOTAL_FORMS": 1, "zw-INITIAL_FORMS": 0, "zw-MIN_NUM_FORMS": 0, "zw-MAX_NUM_FORMS": 10,
-        })
+        registreer(self.c, "plusmama@test.be", "Els", "V")
+        r = self.c.post("/welkom/?stap=kinderen", {"actie": "koppel", "code": koppelen.toon(code)})
         self.assertEqual(r.status_code, 302, r.content[:2000])
         self.assertTrue(z.heeft_account(User.objects.get(username="plusmama@test.be")))
+        self.assertEqual(rollen_van(User.objects.get(username="plusmama@test.be")), {Profiel.OUDER})
         self.assertEqual(Zwemmer.objects.count(), 1)
 
     def test_staf_koppelt_op_email(self):
@@ -684,6 +690,9 @@ class KoppelTest(StroomTest):
 
 
 class ZelfZwemmerTest(TestCase):
+    def setUp(self):
+        User.objects.create_user("eerste@test.be")  # het allereerste account wordt sportsecretaris
+
     def test_mezelf_toevoegen(self):
         u = User.objects.create_user("an@test.be", "an@test.be", "geheim123!", first_name="An", last_name="Vos")
         self.client.force_login(u)
@@ -695,5 +704,12 @@ class ZelfZwemmerTest(TestCase):
         self.assertTrue(Zwemmer.objects.filter(account=u, voornaam="An").exists())
         self.assertNotContains(self.client.get("/zwemmers/"), "+ Mezelf")
 
-    def test_registratie_toont_vinkje(self):
-        self.assertContains(self.client.get("/registreren/"), "Ik zwem zelf")
+    def test_welkom_zelf_zwemmer(self):
+        registreer(self.client, "an@test.be", "An", "Vos")
+        r = self.client.get("/welkom/")
+        self.assertContains(r, "Zwem je zelf?")
+        self.assertContains(r, 'value="An"')
+        self.client.post("/welkom/?stap=zelf", {"voornaam": "An", "naam": "Vos", "geboortedatum": "1985-04-01", "geslacht": "F"})
+        u = User.objects.get(username="an@test.be")
+        self.assertTrue(Zwemmer.objects.filter(account=u, voornaam="An").exists())
+        self.assertEqual(rollen_van(u), {Profiel.ZWEMMER})

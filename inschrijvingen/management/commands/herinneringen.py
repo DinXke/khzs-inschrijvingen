@@ -17,7 +17,7 @@ class Command(BaseCommand):
         morgen = vandaag() + timedelta(days=1)
         for w in Wedstrijd.objects.filter(status=Wedstrijd.OPEN):
             for soort, datum, rollen, tekst, url in (
-                ("zwemmer", w.deadline_zwemmer, [Profiel.ZWEMMER],
+                ("zwemmer", w.deadline_zwemmer, list(Profiel.GEZIN),
                  f"Morgen ({datum_str(w.deadline_zwemmer)}) is de laatste dag om in te schrijven.",
                  reverse("wedstrijd", args=[w.pk])),
                 ("trainer", w.deadline_trainer, list(Profiel.STAF),

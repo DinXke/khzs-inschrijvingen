@@ -1,83 +1,10 @@
 {% extends "base.html" %}{% block titel %}Profiel aanmaken{% endblock %}{% block mainklasse %}smal{% endblock %}
 {% block inhoud %}
 <h1>Profiel aanmaken</h1>
-<form method="post" id="registratie">{% csrf_token %}
-  <div class="kaart">
-    <h2 style="margin-top:0">1. Account</h2>
-    <p class="klein">Eén account per gezin: de ouder maakt het account aan en voegt daaronder al zijn of haar zwemmende kinderen toe. Zwem je zelf? Voeg jezelf dan toe als zwemmer.</p>
-    {{ form.non_field_errors }}
-    {% for field in form %}{% if field.name != "koppelcode" %}{% include "_veld.html" %}{% endif %}{% endfor %}
-  </div>
-  <h2>2. Zwemmer(s)</h2>
-  <label class="kaart" style="display:flex;gap:.6rem;align-items:center;cursor:pointer;margin-bottom:12px"><input type="checkbox" id="zelf" name="zelf" {% if request.POST.zelf %}checked{% endif %} style="width:auto"> <span><b>Ik zwem zelf</b> <span class="klein">(bv. masters) — je eigen gegevens komen in het eerste zwemmerblok</span></span></label>
-  <div class="kaart">{% with field=form.koppelcode %}{% include "_veld.html" %}{% endwith %}</div>
-  {{ zwemmers.management_form }}{{ zwemmers.non_form_errors }}
-  <div id="zwemmers">
-    {% for zf in zwemmers %}
-    <div class="kaart zwemmer-blok"><div class="rij tussen"><strong>Zwemmer <span class="nr">{{ forloop.counter }}</span></strong>
-      <button type="button" class="mini secundair weg" {% if forloop.first %}hidden{% endif %}>✕ Verwijder</button></div>
-      {{ zf.non_field_errors }}{% for field in zf %}{% include "_veld.html" %}{% endfor %}</div>
-    {% endfor %}
-  </div>
-  <template id="leeg-zwemmer"><div class="kaart zwemmer-blok"><div class="rij tussen"><strong>Zwemmer <span class="nr"></span></strong>
-    <button type="button" class="mini secundair weg">✕ Verwijder</button></div>
-    {% with field=None %}{% for field in zwemmers.empty_form %}{% include "_veld.html" %}{% endfor %}{% endwith %}</div></template>
-  <p><button type="button" class="secundair vol" id="nog-zwemmer">+ Nog een zwemmer (broer/zus)</button></p>
+<form method="post" id="registratie" class="kaart">{% csrf_token %}
+  <p class="klein">Eén account per gezin is genoeg. Na het aanmaken vragen we in een paar korte stappen of je zelf zwemt, of je kinderen hebt die zwemmen, en in welke ploeg.</p>
+  {% include "_form.html" %}
   <p><button class="vol">Profiel aanmaken</button></p>
 </form>
 <p class="leeg">Al een account? <a href="{% url 'login' %}">Aanmelden</a></p>
-{% endblock %}
-{% block scripts %}
-<script>
-(function () {
-  const lijst = document.getElementById("zwemmers");
-  const totaal = document.getElementById("id_zw-TOTAL_FORMS");
-  const sjabloon = document.getElementById("leeg-zwemmer").innerHTML;
-  // Velden na een verwijdering opnieuw nummeren zodat de formset aaneensluitend blijft.
-  function hernummer() {
-    const blokken = lijst.querySelectorAll(".zwemmer-blok");
-    blokken.forEach((b, i) => {
-      b.querySelector(".nr").textContent = i + 1;
-      b.querySelectorAll("[name], [id], [for]").forEach(el => {
-        for (const a of ["name", "id", "for"]) if (el.hasAttribute(a)) el.setAttribute(a, el.getAttribute(a).replace(/zw-(\d+|__prefix__)-/, `zw-${i}-`));
-      });
-      b.querySelector(".weg").hidden = blokken.length === 1;
-    });
-    totaal.value = blokken.length;
-  }
-  document.getElementById("nog-zwemmer").addEventListener("click", () => {
-    lijst.insertAdjacentHTML("beforeend", sjabloon);
-    hernummer();
-    const naam = document.getElementById("id_naam").value;
-    const nieuw = lijst.lastElementChild;
-    const nm = nieuw.querySelector("[name$='-naam']");
-    if (nm && !nm.value) nm.value = naam;
-    nieuw.querySelector("input[type=text]")?.focus();
-  });
-  lijst.addEventListener("click", e => { if (e.target.closest(".weg")) { e.target.closest(".zwemmer-blok").remove(); hernummer(); } });
-  // "Ik zwem zelf": eigen voor- en achternaam in het eerste zwemmerblok, en mee laten veranderen.
-  const zelf = document.getElementById("zelf");
-  const eigen = () => [document.getElementById("id_voornaam").value, document.getElementById("id_naam").value];
-  function vulZelf() {
-    const b = lijst.querySelector(".zwemmer-blok");
-    if (!b) return;
-    const vn = b.querySelector("[name$='-voornaam']"), nm = b.querySelector("[name$='-naam']");
-    let label = b.querySelector(".zelf-label");
-    if (!label) { label = document.createElement("span"); label.className = "zelf-label klein"; b.querySelector("strong").append(label); }
-    label.textContent = zelf.checked ? " (jijzelf)" : "";
-    if (zelf.checked) { [vn.value, nm.value] = eigen(); }
-  }
-  zelf.addEventListener("change", () => {
-    const b = lijst.querySelector(".zwemmer-blok");
-    if (!zelf.checked && b) {
-      const vn = b.querySelector("[name$='-voornaam']"), nm = b.querySelector("[name$='-naam']");
-      if (vn.value === eigen()[0] && nm.value === eigen()[1]) { vn.value = ""; nm.value = ""; }
-    }
-    vulZelf();
-    if (zelf.checked) lijst.querySelector(".zwemmer-blok [name$='-geboortedatum']")?.focus();
-  });
-  ["id_voornaam", "id_naam"].forEach(id => document.getElementById(id).addEventListener("input", () => { if (zelf.checked) vulZelf(); }));
-  if (zelf.checked) vulZelf();
-})();
-</script>
 {% endblock %}

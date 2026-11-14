@@ -31,12 +31,24 @@ Vereisten: WordPress 6.2+, PHP 8.0+ met de extensies `zip`, `simplexml`, `dom` e
 
 ## Rollen
 
+Een account kan **meerdere rollen** hebben (bv. ouder én trainer); de rechten tellen samen.
+
 | App-rol | Kan |
 |---|---|
-| Zwemmer | zijn of haar zwemmers inschrijven (iedereen met een account) |
+| Zwemmer | zijn of haar zwemmers inschrijven |
+| Ouder | hetzelfde als zwemmer: de eigen zwemmers inschrijven |
 | Trainer | inschrijvingen nakijken; in *Trainingen* aanduiden welke trainingen hij of zij geeft, afmelden, overnemen, eigen uren bekijken |
+| Bestuurder | leden en rollen beheren: rolaanvragen goedkeuren of afkeuren, rollen toekennen en afnemen (geen wedstrijden of inschrijvingen) |
 | Sportsecretaris | wedstrijden, export, rollen, trainingsrooster beheren, de planning van anderen corrigeren |
 | Beheerder | alles, plus backup (WordPress-beheerders zijn dit altijd) |
+
+**Rollen aanvragen**: bij het registreren of later via *Mijn rollen* (`/leden/rollen/`). Zwemmer en ouder krijg je meteen; trainer, sportsecretaris en bestuurder worden een aanvraag. Bestuurders, sportsecretarissen en beheerders zien de aanvragen bovenaan *Gebruikers* en kunnen goedkeuren, afkeuren (met reden) of een andere rol geven. Het lid krijgt een melding in de app en een pushmelding. Enkel een beheerder kan beheerders aanstellen of wijzigen.
+
+**Ploegen** (A-groep, B-groep, masters…) beheer je in de app onder *Ploegen* (`/leden/ploegen/`): bestuurders, sportsecretarissen en beheerders maken ploegen aan en duiden de trainers aan. De zwemmer of ouder kiest een ploeg bij de zwemmer; een trainer van die ploeg of het bestuur keurt goed of af. Trainers, bestuur en beheer zien alle ploegen, leden enkel de ploegen van hun zwemmers. Tabellen: `khzs_ploegen`, `khzs_ploeg_trainers`, `khzs_ploegleden`.
+
+**Registratie in stappen**: het formulier vraagt enkel het account. Daarna volgt `/leden/welkom/`: zwem je zelf, heb je kinderen die zwemmen (met ploeg of koppelcode), help je mee bij de club. Een nieuw account start zonder rol; zwemmer of ouder volgt uit de antwoorden.
+
+De rollen staan in de user meta `khzs_rollen` (komma-gescheiden); `khzs_rol` houdt de hoofdrol bij. Een account met enkel `khzs_rol` (van vóór de rollen) houdt die rol. Aanvragen staan in de tabel `khzs_rolaanvragen`.
 
 **Penningmeester** staat los van de app-rol, want het kan ook een ouder zijn. Een beheerder duidt die aan bij *Gebruikers* in de app of op het WordPress-profiel. De penningmeester ziet **Verloning**: de tarieven en het overzicht per maand.
 
@@ -122,6 +134,8 @@ khzs-leden/
   khzs-leden.php                    opstart, laadt kern en actieve modules, cron
   includes/                   kern
     kern.php                  rollen, penningmeester, modules, datums, bedragen
+    rollen.php                rolaanvragen: aanvragen, goedkeuren, afkeuren, andere rol; Mijn rollen
+    ploegen.php               ploegen, ploegaanvragen, wie hoort bij welke ploeg (basis voor communicatie)
     db.php                    gedeelde tabellen (zwemmers, push), privémap, hulpfuncties
     app.php                   routes, menu, weergave, meldingen, toegang
     kern-acties.php           aanmelden, gebruikers, meldingen, backup, PWA

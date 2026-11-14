@@ -21,13 +21,15 @@ from django.http import FileResponse, Http404
 from django.http import JsonResponse
 from django.urls import reverse
 
-from . import koppelen, lenex, push
+from . import koppelen, lenex, ploegen, push, rollen
 from .export import excel_overzicht
-from .forms import (BesteTijdForm, BijlageForm, MeldingenForm, ZwemmerFormSet, RegistratieForm, RolForm, SecretarisInstellingenForm,
-                    TrainerInstellingenForm, UploadForm, ZwemmerForm)
-from .models import BesteTijd, Bijlage, Deelname, Inschrijving, Melding, Nummer, Profiel, PushAbonnement, Wedstrijd, Zwemmer
-from .regels import (vandaag, beoordeel, leeftijd, mag_wijzigen, parse_invoer_tijd, past_in_nummer, programma_voor, rol,
+from .forms import (BesteTijdForm, BijlageForm, MeldingenForm, PloegForm, RegistratieForm, SecretarisInstellingenForm,
+                    TrainerInstellingenForm, UploadForm, ZwemmerForm, ZwemmerMetPloegForm)
+from .models import (ROL_NAAM, BesteTijd, Bijlage, Deelname, Inschrijving, Melding, Nummer, Ploeg, PloegLid, Profiel, PushAbonnement,
+                     Rolaanvraag, Wedstrijd, Zwemmer)
+from .regels import (vandaag, beoordeel, leeftijd, mag_wijzigen, parse_invoer_tijd, past_in_nummer, programma_voor,
                      toon_tijd)
+from .rollen import heeft_rol
 
 STAF = Profiel.STAF
 
@@ -37,7 +39,7 @@ def vereist_rol(*rollen):
         @wraps(view)
         @login_required
         def inner(request, *a, **kw):
-            if rol(request.user) not in rollen:
+            if not heeft_rol(request.user, *rollen):
                 raise PermissionDenied
             return view(request, *a, **kw)
         return inner
@@ -45,7 +47,7 @@ def vereist_rol(*rollen):
 
 
 def is_staf(user):
-    return rol(user) in STAF
+    return heeft_rol(user, *STAF)
 
 
 def meld(zwemmer, wedstrijd, door, regels):
@@ -72,27 +74,89 @@ def zwemmer_voor(request, pk):
 # ---------- algemeen ----------
 
 def registreren(request):
+    """Enkel het account; zwemmers, ploegen en rollen volgen in het stappenplan (welkom)."""
     if request.user.is_authenticated:
         return redirect("start")
     form = RegistratieForm(request.POST or None)
-    zwemmers = ZwemmerFormSet(request.POST or None, prefix="zw")
-    if request.method == "POST" and form.is_valid() and zwemmers.is_valid():
-        if not form.cleaned_data.get("gekoppeld") and not any(zf.has_changed() for zf in zwemmers):
-            form.add_error(None, "Voeg minstens één zwemmer toe, of geef de koppelcode van de andere ouder in.")
-    if request.method == "POST" and form.is_valid() and zwemmers.is_valid():
+    if request.method == "POST" and form.is_valid():
         user = form.save()
-        for zf in zwemmers:
-            if zf.has_changed():
-                z = zf.save(commit=False)
-                z.account = user
-                z.save()
-        if form.cleaned_data.get("gekoppeld"):
-            koppelen.koppel(form.cleaned_data["gekoppeld"], user)
+        if rollen.rollen_van(user) == {Profiel.ZWEMMER}:
+            rollen.zet_rollen(user, [])  # nog geen rol: die volgt uit de antwoorden in het stappenplan
         login(request, user, backend="django.contrib.auth.backends.ModelBackend")
-        n = Zwemmer.objects.van(user).count()
-        messages.success(request, f"Account aangemaakt met {n} zwemmer{'s' if n != 1 else ''}. Kies een wedstrijd om in te schrijven.")
-        return redirect("wedstrijden")
-    return render(request, "registration/registreren.html", {"form": form, "zwemmers": zwemmers})
+        return redirect("welkom")
+    return render(request, "registration/registreren.html", {"form": form})
+
+
+WELKOM_STAPPEN = ["zelf", "kinderen", "staf", "klaar"]
+
+
+def nieuwe_zwemmer(form, user, zelf):
+    """Bewaart een zwemmer uit ZwemmerMetPloegForm: account, gezinsrol en eventueel een ploegaanvraag."""
+    z = form.save(commit=False)
+    z.account = user
+    z.save()
+    rollen.zorg_gezinsrol(user, zelf=zelf)
+    if form.cleaned_data.get("ploeg"):
+        ploegen.vraag_aan(user, z, form.cleaned_data["ploeg"])
+    return z
+
+
+@login_required
+def welkom(request):
+    """Stappenplan na de registratie, één vraag per scherm. Elke stap kan je overslaan en later opnieuw doen."""
+    u = request.user
+    stap = request.GET.get("stap", "zelf")
+    if stap not in WELKOM_STAPPEN:
+        stap = "zelf"
+    volgende = WELKOM_STAPPEN[WELKOM_STAPPEN.index(stap) + 1] if stap != "klaar" else "klaar"
+    naar_volgende = redirect(f"{reverse('welkom')}?stap={volgende}")
+    form = koppel_fout = None
+    if stap == "zelf":
+        form = ZwemmerMetPloegForm(request.POST or None, initial={"voornaam": u.first_name, "naam": u.last_name})
+        if request.method == "POST" and form.is_valid():
+            nieuwe_zwemmer(form, u, zelf=True)
+            messages.success(request, "Je bent toegevoegd als zwemmer.")
+            return naar_volgende
+    elif stap == "kinderen":
+        form = ZwemmerMetPloegForm(request.POST if request.POST.get("actie") == "kind" else None,
+                                   initial={"naam": u.last_name})
+        if request.method == "POST" and request.POST.get("actie") == "kind" and form.is_valid():
+            z = nieuwe_zwemmer(form, u, zelf=False)
+            messages.success(request, f"{z.voornaam} is toegevoegd. Nog een kind? Vul het formulier opnieuw in.")
+            return redirect(f"{reverse('welkom')}?stap=kinderen")
+        if request.method == "POST" and request.POST.get("actie") == "koppel":
+            try:
+                z = koppelen.zoek(request.POST.get("code", ""), u)
+            except ValueError as e:
+                koppel_fout = str(e)
+            else:
+                if z is None:
+                    koppel_fout = "Deze koppelcode klopt niet of is verlopen. Vraag de andere ouder om een nieuwe code."
+                else:
+                    koppelen.koppel(z, u)
+                    rollen.zorg_gezinsrol(u, zelf=False)
+                    messages.success(request, f"{z} is gekoppeld aan je account.")
+                    return redirect(f"{reverse('welkom')}?stap=kinderen")
+    elif stap == "staf" and request.method == "POST":
+        aangevraagd = []
+        for r in request.POST.getlist("rollen"):
+            if r in (Profiel.TRAINER, Profiel.BESTUURDER, Profiel.SECRETARIS) and not rollen.heeft_rol(u, r):
+                try:
+                    rollen.vraag_aan(u, r, request.POST.get("motivatie", ""))
+                    aangevraagd.append(ROL_NAAM[r].lower())
+                except ValueError as e:
+                    messages.error(request, str(e))
+        if aangevraagd:
+            messages.info(request, "Je aanvraag voor de rol " + " en ".join(aangevraagd)
+                          + " wacht op goedkeuring. Je krijgt een melding zodra ze behandeld is.")
+        return naar_volgende
+    mijn = Zwemmer.objects.van(u).prefetch_related("ploeglidmaatschappen__ploeg")
+    kinderen = [z for z in mijn if not (z.voornaam.lower() == u.first_name.lower() and z.naam.lower() == u.last_name.lower())]
+    ctx = {"stap": stap, "nr": WELKOM_STAPPEN.index(stap) + 1, "volgende": volgende, "form": form, "koppel_fout": koppel_fout,
+           "zwemmers": mijn, "kinderen": kinderen, "zelf_ontbreekt": zelf_ontbreekt(u),
+           "eigen_rollen": [ROL_NAAM[r] for r in rollen.gesorteerd(rollen.rollen_van(u))],
+           "open_rollen": u.rolaanvragen.filter(status=Rolaanvraag.OPEN), "heeft_ploegen": Ploeg.objects.filter(actief=True).exists()}
+    return render(request, "welkom.html", ctx)
 
 
 @login_required
@@ -102,9 +166,9 @@ def start(request):
 
 @login_required
 def wedstrijden(request):
-    r = rol(request.user)
+    staf = is_staf(request.user)
     qs = Wedstrijd.objects.all()
-    if r not in STAF:
+    if not staf:
         # Zwemmers zien een wedstrijd zodra hij opgeladen is (interesse opgeven), tot de laatste wedstrijddag.
         qs = qs.exclude(sessies__datum__lt=vandaag()).exclude(sessies__isnull=True).distinct()
     qs = qs.annotate(
@@ -113,7 +177,7 @@ def wedstrijden(request):
                         filter=Q(sessies__nummers__inschrijvingen__status=Inschrijving.INGEDIEND), distinct=True),
     )
     eigen, nieuw, keuzes = defaultdict(int), defaultdict(int), defaultdict(list)
-    if r not in STAF:
+    if not staf:
         mijn = Zwemmer.objects.van(request.user)
         for d in Deelname.objects.filter(zwemmer__in=mijn).select_related("zwemmer"):
             keuzes[d.wedstrijd_id].append(d)
@@ -143,6 +207,17 @@ def mijn_zwemmers(request):
     return render(request, "zwemmers.html", {"zwemmers": Zwemmer.objects.van(request.user), "zelf_ontbreekt": zelf_ontbreekt(request.user)})
 
 
+def is_zelf(user, form):
+    """Heeft de nieuwe zwemmer de naam van het account? Dan is het het account zelf (rol zwemmer, geen ouder)."""
+    return (form.cleaned_data["voornaam"].lower(), form.cleaned_data["naam"].lower()) == (user.first_name.lower(), user.last_name.lower())
+
+
+def terug_of(request, standaard):
+    """Terug naar de pagina uit het veld 'terug', enkel binnen deze site."""
+    t = request.POST.get("terug", "")
+    return t if t.startswith("/") and not t.startswith("//") else standaard
+
+
 def zelf_ontbreekt(user):
     """Toon ‘Mezelf toevoegen’ zolang er geen zwemmer met de naam van dit account bij het account hoort."""
     if not user.first_name:
@@ -154,11 +229,9 @@ def zelf_ontbreekt(user):
 def zwemmer_nieuw(request):
     zelf = request.GET.get("zelf") == "1"
     initieel = {"voornaam": request.user.first_name, "naam": request.user.last_name} if zelf else None
-    form = ZwemmerForm(request.POST or None, initial=initieel)
+    form = ZwemmerMetPloegForm(request.POST or None, initial=initieel)
     if request.method == "POST" and form.is_valid():
-        z = form.save(commit=False)
-        z.account = request.user
-        z.save()
+        z = nieuwe_zwemmer(form, request.user, zelf=is_zelf(request.user, form))
         messages.success(request, f"{z} toegevoegd.")
         return redirect("zwemmer", pk=z.pk)
     return render(request, "zwemmer_form.html", {"form": form, "titel": "Mezelf toevoegen als zwemmer" if zelf else "Zwemmer toevoegen"})
@@ -184,7 +257,13 @@ def zwemmer(request, pk):
                 return redirect("zwemmer", pk=z.pk)
     inschrijvingen = z.inschrijvingen.select_related("nummer__sessie__wedstrijd").order_by("-nummer__sessie__datum")
     meldingen = z.meldingen.select_related("wedstrijd", "door__profiel")[:10]
+    lidmaatschappen = list(z.ploeglidmaatschappen.select_related("ploeg"))
+    if z.heeft_account(request.user):  # de beslissingen over de ploegen zijn nu gezien
+        z.ploeglidmaatschappen.exclude(status=PloegLid.OPEN).filter(gelezen=False).update(gelezen=True)
+    al = {l.ploeg_id for l in lidmaatschappen if l.status != PloegLid.AFGEKEURD}
     return render(request, "zwemmer.html", {"z": z, "form": form, "tijdform": tijdform, "meldingen": meldingen,
+                                            "lidmaatschappen": lidmaatschappen,
+                                            "kies_ploegen": Ploeg.objects.filter(actief=True).exclude(pk__in=al),
                                             "accounts": z.accounts, "koppelcode": koppelen.toon(koppelen.geldige_code(z) or ""),
                                             "koppelcode_tot": z.koppelcode_tot,
                                             "tijden": z.tijden.all(), "inschrijvingen": inschrijvingen})
@@ -203,6 +282,7 @@ def zwemmer_koppelen(request):
         messages.error(request, "Deze koppelcode klopt niet of is verlopen. Vraag de andere ouder om een nieuwe code.")
         return redirect("zwemmers")
     if koppelen.koppel(z, request.user):
+        rollen.zorg_gezinsrol(request.user, zelf=False)
         messages.success(request, f"{z} is gekoppeld aan je account. Je ziet nu dezelfde inschrijvingen en meldingen.")
     else:
         messages.info(request, f"{z} hoort al bij je account.")
@@ -504,7 +584,7 @@ def finaliseren(request, pk):
     """Trainer: inschrijving van een zwemmer vastzetten (of heropenen). Secretariaat: als 'ingegeven' markeren."""
     w = get_object_or_404(Wedstrijd, pk=pk)
     actie = request.POST.get("finaliseer") or request.GET.get("actie")
-    secretariaat = rol(request.user) in Profiel.SECRETARIAAT
+    secretariaat = heeft_rol(request.user, *Profiel.SECRETARIAAT)
     if request.POST.get("zwemmer") == "alle":
         zwemmers = Zwemmer.objects.filter(inschrijvingen__nummer__sessie__wedstrijd=w).distinct()
         zwemmers = zwemmers.exclude(deelnames__wedstrijd=w, deelnames__geweigerd=True)
@@ -615,7 +695,7 @@ def upload(request, pk=None):
             f.seek(0)
             w = lenex.importeer(meet, f, bestaand)
             if not bestaand:
-                push.stuur(push.users_met("push_nieuwe_wedstrijd", [Profiel.ZWEMMER]), f"Nieuwe wedstrijd: {w.naam}",
+                push.stuur(push.users_met("push_nieuwe_wedstrijd", Profiel.GEZIN), f"Nieuwe wedstrijd: {w.naam}",
                            "Laat weten of je interesse hebt of meedoet.", reverse("wedstrijd", args=[w.pk]))
             aantal = sum(len(s["nummers"]) for s in meet["sessies"])
             messages.success(request, f"'{w.naam}' ingelezen: {len(meet['sessies'])} sessies, {aantal} nummers, "
@@ -698,27 +778,168 @@ def export_xlsx(request, pk):
     return resp
 
 
-@vereist_rol(*Profiel.SECRETARIAAT)
+@vereist_rol(*Profiel.ROLBEHEER)
 def gebruikers(request):
     if request.method == "POST":
         u = get_object_or_404(User, pk=request.POST.get("user"))
-        p, _ = Profiel.objects.get_or_create(user=u)
-        beheerder = rol(request.user) == Profiel.BEHEERDER
-        if not beheerder and (Profiel.BEHEERDER in (p.rol, request.POST.get("rol")) or u.is_superuser):
-            messages.error(request, "Enkel een beheerder kan beheerders aanstellen of wijzigen.")
-            return redirect("gebruikers")
-        form = RolForm(request.POST, instance=p)
-        if form.is_valid():
-            form.save()
-            messages.success(request, f"{u.get_full_name() or u.username} is nu {p.get_rol_display().lower()}.")
-        return redirect("gebruikers")
+        r = request.POST.get("rol", "")
+        try:
+            if request.POST.get("actie") == "afnemen":
+                rollen.neem_af(request.user, u, r)
+                messages.success(request, f"{rollen.naam(u)} is geen {ROL_NAAM[r].lower()} meer.")
+            else:
+                rollen.ken_toe(request.user, u, r)
+                messages.success(request, f"{rollen.naam(u)} is nu ook {ROL_NAAM[r].lower()}.")
+        except ValueError as e:
+            messages.error(request, str(e))
+        return redirect(request.get_full_path())
     q = request.GET.get("q", "").strip()
-    users = User.objects.select_related("profiel").order_by("last_name", "first_name")
+    users = User.objects.select_related("profiel").prefetch_related("app_rollen").order_by("last_name", "first_name")
     if q:
         users = users.filter(Q(username__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q))
-    rollen = Profiel.ROLLEN if rol(request.user) == Profiel.BEHEERDER else [
-        r for r in Profiel.ROLLEN if r[0] != Profiel.BEHEERDER]
-    return render(request, "gebruikers.html", {"users": users, "q": q, "rollen": rollen})
+    beheerder = heeft_rol(request.user, Profiel.BEHEERDER)
+    keuzes = [r for r in Profiel.ROLLEN if beheerder or r[0] != Profiel.BEHEERDER]
+    rijen = []
+    for u in users:
+        eigen = rollen.gesorteerd(rollen.rollen_van(u))
+        rijen.append({"u": u, "rollen": [(r, ROL_NAAM[r]) for r in eigen],
+                      "vergrendeld": not beheerder and Profiel.BEHEERDER in eigen,
+                      "erbij": [k for k in keuzes if k[0] not in eigen]})
+    aanvragen = Rolaanvraag.objects.filter(status=Rolaanvraag.OPEN).select_related("user").order_by("aangemaakt")
+    return render(request, "gebruikers.html", {"rijen": rijen, "q": q, "keuzes": keuzes, "aanvragen": aanvragen})
+
+
+@vereist_rol(*Profiel.ROLBEHEER)
+@require_POST
+def rolaanvraag_behandelen(request, pk):
+    a = get_object_or_404(Rolaanvraag.objects.select_related("user"), pk=pk)
+    try:
+        rollen.behandel(a, request.user, request.POST.get("actie"), request.POST.get("rol") or None,
+                        request.POST.get("reden", ""))
+        messages.success(request, f"Aanvraag van {rollen.naam(a.user)}: {a.get_status_display().lower()}.")
+    except ValueError as e:
+        messages.error(request, str(e))
+    return redirect("gebruikers")
+
+
+@login_required
+def mijn_rollen(request):
+    u = request.user
+    if request.method == "POST":
+        try:
+            if request.POST.get("actie") == "intrekken":
+                rollen.trek_in(u, get_object_or_404(Rolaanvraag, pk=request.POST.get("aanvraag"), user=u))
+                messages.success(request, "Aanvraag ingetrokken.")
+            else:
+                r = request.POST.get("rol", "")
+                a = rollen.vraag_aan(u, r, request.POST.get("motivatie", ""))
+                messages.success(request, f"Je bent nu ook {ROL_NAAM[r].lower()}." if a is None else
+                                 f"Je aanvraag voor de rol {ROL_NAAM[r].lower()} is verstuurd. "
+                                 "Je krijgt een melding zodra ze behandeld is.")
+        except ValueError as e:
+            messages.error(request, str(e))
+        return redirect("mijn_rollen")
+    aanvragen = list(u.rolaanvragen.select_related("behandeld_door")[:20])
+    eigen = rollen.rollen_van(u)
+    open_ = {a.rol for a in aanvragen if a.status == Rolaanvraag.OPEN}
+    aanvraagbaar = [(r, ROL_NAAM[r]) for r in rollen.gesorteerd(Profiel.AANVRAAGBAAR) if r not in eigen and r not in open_]
+    # De beslissingen zijn nu gezien: de melding bovenaan verdwijnt vanaf de volgende pagina.
+    u.rolaanvragen.exclude(status=Rolaanvraag.OPEN).filter(gelezen=False).update(gelezen=True)
+    return render(request, "rollen.html", {"eigen": [(r, ROL_NAAM[r]) for r in rollen.gesorteerd(eigen)],
+                                           "aanvragen": aanvragen, "aanvraagbaar": aanvraagbaar,
+                                           "zonder_goedkeuring": Profiel.ZONDER_GOEDKEURING})
+
+
+# ---------- ploegen ----------
+
+@login_required
+@require_POST
+def zwemmer_ploeg(request, pk):
+    """Een ploeg aanvragen voor een zwemmer (of, voor de staf, de zwemmer er meteen in zetten)."""
+    z = zwemmer_voor(request, pk)
+    ploeg = get_object_or_404(Ploeg, pk=request.POST.get("ploeg"))
+    try:
+        lid = ploegen.vraag_aan(request.user, z, ploeg)
+        messages.success(request, f"{z.voornaam} zit nu in {ploeg}." if lid.status == PloegLid.GOEDGEKEURD else
+                         f"Aanvraag voor {ploeg} verstuurd. Je krijgt een melding zodra ze behandeld is.")
+    except ValueError as e:
+        messages.error(request, str(e))
+    return redirect(terug_of(request, reverse("zwemmer", args=[z.pk])))
+
+
+@login_required
+def ploegen_lijst(request):
+    u = request.user
+    form = PloegForm(request.POST or None) if ploegen.mag_ploegen_beheren(u) else None
+    if request.method == "POST":
+        if form is None:
+            raise PermissionDenied
+        if form.is_valid():
+            p = form.save()
+            messages.success(request, f"Ploeg {p} aangemaakt.")
+            return redirect("ploeg", pk=p.pk)
+    lijst = ploegen.zichtbare_ploegen(u).annotate(
+        leden=Count("lidmaatschappen", filter=Q(lidmaatschappen__status=PloegLid.GOEDGEKEURD), distinct=True),
+        open_=Count("lidmaatschappen", filter=Q(lidmaatschappen__status=PloegLid.OPEN), distinct=True),
+    ).prefetch_related("trainers")
+    return render(request, "ploegen.html", {"ploegen": lijst, "form": form, "aanvragen": ploegen.te_behandelen(u),
+                                            "beheer": form is not None})
+
+
+@login_required
+def ploeg(request, pk):
+    p = get_object_or_404(Ploeg, pk=pk)
+    u = request.user
+    if not ploegen.mag_zien(u, p):
+        raise PermissionDenied
+    beheer = ploegen.mag_ploegen_beheren(u)
+    behandelen = ploegen.mag_behandelen(u, p)
+    form = PloegForm(request.POST if request.POST.get("actie") == "bewaar" else None, instance=p) if beheer else None
+    if request.method == "POST":
+        actie = request.POST.get("actie")
+        if actie == "bewaar" and form is not None:
+            if form.is_valid():
+                form.save()
+                messages.success(request, "Ploeg bewaard.")
+                return redirect("ploeg", pk=p.pk)
+        elif actie == "verwijder_ploeg" and beheer:
+            p.delete()
+            messages.success(request, f"Ploeg {p} verwijderd.")
+            return redirect("ploegen")
+        elif actie == "toevoegen" and behandelen:
+            z = get_object_or_404(Zwemmer, pk=request.POST.get("zwemmer"))
+            try:
+                ploegen.vraag_aan(u, z, p)
+                messages.success(request, f"{z} zit nu in {p}.")
+            except ValueError as e:
+                messages.error(request, str(e))
+            return redirect("ploeg", pk=p.pk)
+        else:
+            raise PermissionDenied
+    leden = p.lidmaatschappen.select_related("zwemmer").order_by("zwemmer__naam", "zwemmer__voornaam")
+    ctx = {"p": p, "form": form, "beheer": beheer, "behandelen": behandelen,
+           "leden": [l for l in leden if l.status == PloegLid.GOEDGEKEURD],
+           "aanvragen": [l for l in leden if l.status == PloegLid.OPEN] if behandelen else [],
+           "toe_te_voegen": Zwemmer.objects.exclude(ploeglidmaatschappen__ploeg=p) if behandelen else []}
+    return render(request, "ploeg.html", ctx)
+
+
+@login_required
+@require_POST
+def ploeglid(request, pk):
+    """Aanvraag goedkeuren of afkeuren, of iemand uit de ploeg halen (of een eigen aanvraag intrekken)."""
+    lid = get_object_or_404(PloegLid.objects.select_related("zwemmer", "ploeg"), pk=pk)
+    actie = request.POST.get("actie")
+    try:
+        if actie == "verwijderen":
+            ploegen.verwijder(lid, request.user)
+            messages.success(request, f"{lid.zwemmer} zit niet meer in {lid.ploeg}.")
+        else:
+            ploegen.behandel(lid, request.user, actie, request.POST.get("reden", ""))
+            messages.success(request, ploegen.beslissing(lid))
+    except ValueError as e:
+        messages.error(request, str(e))
+    return redirect(terug_of(request, reverse("ploeg", args=[lid.ploeg_id])))
 
 
 # ---------- backup (beheerder) ----------
@@ -727,7 +948,7 @@ def vereist_beheerder(view):
     @wraps(view)
     @login_required
     def inner(request, *a, **kw):
-        if rol(request.user) != Profiel.BEHEERDER:
+        if not heeft_rol(request.user, Profiel.BEHEERDER):
             raise PermissionDenied
         return view(request, *a, **kw)
     return inner
@@ -781,13 +1002,19 @@ FILMPJES = [
 
 @login_required
 def uitleg(request):
-    r = rol(request.user)
-    zichtbaar = {Profiel.ZWEMMER: ["zwemmer"], Profiel.TRAINER: ["trainer", "zwemmer"]}.get(r, [f[0] for f in FILMPJES])
+    u = request.user
+    secretariaat, trainer = heeft_rol(u, *Profiel.SECRETARIAAT), heeft_rol(u, Profiel.TRAINER)
+    zichtbaar = [f[0] for f in FILMPJES] if secretariaat else ["trainer", "zwemmer"] if trainer else ["zwemmer"]
     filmpjes = [f for f in FILMPJES if f[0] in zichtbaar]
-    pdfs = ["onepager-zwemmer", "handleiding-zwemmer"] if r == Profiel.ZWEMMER else (
-        ["onepager-trainer", "handleiding-trainer", "handleiding-zwemmer"] if r == Profiel.TRAINER else
-        ["HZS-inschrijvingen-documentatie", "onepager-sportsecretaris", "handleiding-sportsecretaris",
-         "handleiding-trainer", "handleiding-zwemmer"] + (["handleiding-beheerder", "technisch"] if r == Profiel.BEHEERDER else []))
+    if secretariaat:
+        pdfs = ["HZS-inschrijvingen-documentatie", "onepager-sportsecretaris", "handleiding-sportsecretaris",
+                "handleiding-trainer", "handleiding-zwemmer"]
+        if heeft_rol(u, Profiel.BEHEERDER):
+            pdfs += ["handleiding-beheerder", "technisch"]
+    elif trainer:
+        pdfs = ["onepager-trainer", "handleiding-trainer", "handleiding-zwemmer"]
+    else:
+        pdfs = ["onepager-zwemmer", "handleiding-zwemmer"]
     return render(request, "uitleg.html", {"filmpjes": filmpjes, "pdfs": pdfs})
 
 
@@ -796,7 +1023,8 @@ def uitleg(request):
 @login_required
 def meldingen_instellingen(request):
     profiel, _ = Profiel.objects.get_or_create(user=request.user)
-    form = MeldingenForm(request.POST or None, instance=profiel, staf=is_staf(request.user))
+    form = MeldingenForm(request.POST or None, instance=profiel, staf=is_staf(request.user),
+                         rolbeheer=rollen.mag_rollen_beheren(request.user), alle_ploegen=ploegen.mag_ploegen_beheren(request.user))
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, "Voorkeuren bewaard.")

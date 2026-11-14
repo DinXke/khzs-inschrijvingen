@@ -146,3 +146,81 @@ wordpress/bouw.sh                               # khzs-leden.zip voor WordPress
 - **Sjablonen**: `toon('module/naam', …)` laadt `modules/<module>/views/naam.php`. Sjablonen die met `include` herbruikt worden in een lus, gebruiken variabelen met een `_`-prefix om botsingen te vermijden.
 - **Datum in tests**: de header `X-Vandaag` simuleert een andere datum (enkel via de testhulp). In de code loopt alles via `vandaag()`.
 - **Bewaren**: tijden staan als gehele honderdsten en bedragen in cent.
+
+## Rollen: meerdere per account, met aanvragen (branch `feature/rollen`)
+
+Vraag van de eigenaar: elk lid moet één of meerdere rollen kunnen hebben (bestuurder, trainer, zwemmer, ouder, sportsecretaris…). Leden vragen rollen aan; bestuurders en beheerders keuren goed, keuren af of geven een andere rol. Gebouwd in Django én WordPress, met dezelfde werking.
+
+- **Rollen**: beheerder, sportsecretaris, trainer, bestuurder, ouder, zwemmer (van hoog naar laag). De rechten van alle rollen van een account tellen samen. De hoogste rol is de *hoofdrol*, enkel voor weergave (bv. "Trainer Tom" in een melding).
+- **Beslissingen van de eigenaar** (14/11/2026):
+  - *Bestuurder* beheert leden en rollen: het scherm *Gebruikers*, aanvragen behandelen, rollen toekennen en afnemen. Geen wedstrijden, inschrijvingen, uitslagen of backup, tenzij de persoon ook een andere rol heeft.
+  - *Sportsecretaris* behoudt het scherm *Gebruikers* (zoals vroeger) en kan ook aanvragen behandelen.
+  - *Zwemmer* en *ouder* krijg je meteen, zonder goedkeuring. *Ouder* heeft dezelfde rechten als zwemmer. Trainer, sportsecretaris en bestuurder vragen goedkeuring. Beheerder kan je niet aanvragen; enkel een beheerder stelt beheerders aan.
+- **Werking**:
+  - Aanvragen bij registratie (*Ik ben…*) of later via *Mijn rollen* (`/rollen/`, link bij *Mijn zwemmers* en *Meldingen*). Een open aanvraag kan het lid intrekken.
+  - Bovenaan *Gebruikers* staan de open aanvragen: *Goedkeuren*, *Afkeuren* (reden verplicht) of *Deze rol geven* (een andere rol in de plaats). In de tabel staan de rollen als labels: ✕ neemt een rol af, *+ rol* voegt er een toe. Een account houdt minstens één rol.
+  - Wie een rol rechtstreeks toekent waarvoor een aanvraag openstaat, keurt die aanvraag meteen goed.
+  - Melding voor het lid: een balk bovenaan elke pagina tot het *Mijn rollen* opent, plus een pushmelding. Bestuurders en sportsecretarissen krijgen een push bij een nieuwe aanvraag (voorkeur *(bestuur) Nieuwe rolaanvraag*).
+  - Meldingen voor zwemmers (nieuwe wedstrijd, deadline) gaan naar zwemmers én ouders (`GEZIN`).
+- **Django**:
+  - Modellen `Rol` (account + rol, meerdere per account) en `Rolaanvraag`. `Profiel.rol` blijft bestaan als hoofdrol.
+  - Migratie `0012_rollen`: elk account krijgt de rol uit `Profiel.rol`; superusers krijgen ook beheerder; accounts zonder profiel worden zwemmer. Zo verliest niemand rechten. Getest in `MigratieTest`, ook terug naar 0011.
+  - Logica in `inschrijvingen/rollen.py`. Rechten controleren met `heeft_rol(user, *rollen)`; `regels.rol()` geeft de hoofdrol.
+  - Een backup van vóór de rollen terugzetten werkt: accounts zonder rollen krijgen hun hoofdrol (`vul_ontbrekende()`).
+  - `export_wordpress` zet de rollen in `khzs_rollen` en neemt de rolaanvragen mee.
+  - Tests: 14 nieuwe in `inschrijvingen/tests/test_rollen.py`; samen 98, alle geslaagd.
+- **WordPress**:
+  - Rollen in de user meta `khzs_rollen` (komma-gescheiden); `khzs_rol` houdt de hoofdrol bij. Een account met enkel `khzs_rol` houdt die rol, dus er is geen datamigratie nodig. WordPress-beheerders zijn altijd ook beheerder.
+  - Tabel `khzs_rolaanvragen` (`DB_VERSIE` 4), logica en pagina's in `includes/rollen.php`. Op het WordPress-profiel zijn de rollen nu vinkjes.
+  - Tests: 7 nieuwe in `RollenTest` (`test_e2e.py`); samen 84, alle geslaagd. Gedraaid in een Docker-container (Debian trixie, PHP 8.4, MariaDB), omdat PHP en MariaDB niet op de Windows-pc staan. Op Windows moet `testsite.sh` eerst LF-regeleindes krijgen.
+- **Niet gedaan**: de handleidingen en screenshots in `docs/` tonen de rollen nog niet. De penningmeester blijft een aparte vlag, geen rol.
+- **Status**: PR #7 naar `main`, nog niet samengevoegd. Samenvoegen zet de migratie automatisch op de productieserver.
+- **Later aangepast** (branch `feature/ploegen`): een nieuw account start zonder rol en kiest in het stappenplan; zie hieronder.
+
+## Ploegen en registratie in stappen (branch `feature/ploegen`, bovenop `feature/rollen`)
+
+Vraag van de eigenaar: elke zwemmer kiest in welke ploeg hij of zij zwemt, met meerdere ploegen, als basis voor een latere communicatiemodule waarin mensen enkel de groepen zien waartoe ze behoren. Daarna: rollen en ploeg pas kiezen na de registratie, in een stappenplan.
+
+- **Beslissingen van de eigenaar** (14/11/2026):
+  - De staf keurt een gekozen ploeg eerst goed: een trainer van die ploeg, een bestuurder, sportsecretaris of beheerder.
+  - Ploegen aanmaken en beheren: bestuurder, sportsecretaris en beheerder. Zij duiden ook de trainers van een ploeg aan.
+  - Trainers, bestuurders, sportsecretarissen en beheerders zien alle ploegen; zwemmers en ouders enkel de ploegen van hun zwemmers.
+  - Alles gebeurt in de app zelf (ook op de gsm), niet via `/beheer/` of wp-admin.
+- **Werking**:
+  - *Ploegen* (`/ploegen/`): lijst, nieuwe ploeg, open aanvragen. Per ploeg: zwemmers, aanvragen, zwemmer rechtstreeks toevoegen, uit de ploeg halen, bewerken, archiveren (*Actief* uit) of verwijderen.
+  - Bij de zwemmer: blok *Ploegen* met de status per ploeg, *Ploeg kiezen* en ✕ om in te trekken of uit de ploeg te gaan. Een zwemmer kan in meerdere ploegen zitten.
+  - Wie de ploeg mag behandelen (staf), zet een zwemmer er meteen in. Afkeuren vraagt een reden; daarna kan je opnieuw aanvragen.
+  - Melding voor de ouders: balk bovenaan tot ze de zwemmer openen, en een pushmelding. De behandelaars krijgen een push bij een nieuwe aanvraag.
+  - Nieuwe pushvoorkeuren onder *Meldingen*: *Mijn aanvraag voor een rol of ploeg is behandeld* (iedereen) en *(staf) Nieuwe ploegaanvraag* (bestuur, secretariaat, beheer en trainers van een ploeg). De testknop bestond al.
+- **Registratie in stappen** (`/welkom/`): het formulier vraagt enkel e-mail, naam en wachtwoord. Daarna één vraag per scherm, elk over te slaan en later opnieuw te doen (link *Stappenplan* bij *Mijn rollen*):
+  1. *Zwem je zelf?* → je eigen gegevens en ploeg; je krijgt de rol zwemmer.
+  2. *Heb je kinderen die zwemmen?* → kind toevoegen met ploeg, of koppelen met de koppelcode van de andere ouder; je krijgt de rol ouder.
+  3. *Help je mee bij de club?* → aanvraag voor trainer, bestuurder of sportsecretaris.
+  4. Overzicht.
+  - Een nieuw account start **zonder rol** (Django: lege `Profiel.rol`; WordPress: lege `khzs_rollen`). Het allereerste account van een Django-installatie blijft sportsecretaris.
+  - Ook later geeft een zwemmer toevoegen of koppelen automatisch de rol zwemmer (jezelf) of ouder.
+- **Voor de latere communicatiemodule** bestaat al: `ploegen.zwemmers_van`, `accounts_van` (accounts van de zwemmers, ook gekoppelde ouders, en de trainers van de ploeg), `lezers_van` (dat plus iedereen die alle ploegen ziet), `zichtbare_ploegen(user)`. In WordPress: `ploeg_zwemmers`, `ploeg_accounts`, `ploeg_lezers`, `zichtbare_ploegen`.
+- **Django**: modellen `Ploeg` (met `trainers`) en `PloegLid` (zwemmer, ploeg, status, reden, gelezen); migratie `0013_ploegen`. Logica in `inschrijvingen/ploegen.py`. Tests: `test_ploegen.py` (9); de registratietests zijn omgezet naar het stappenplan. Samen 107, alle geslaagd.
+- **WordPress**: tabellen `khzs_ploegen`, `khzs_ploeg_trainers`, `khzs_ploegleden` (`DB_VERSIE` 5), `includes/ploegen.php`, `views/ploegen.php` en `views/ploeg.php`, stappenplan in de module Inschrijvingen (`v_welkom`). Menu-item *Ploegen* (sleutel 45; 40 is *Verloning*). Tests: `PloegenTest` (8) en de omgezette registratietests; samen 92, alle geslaagd (Docker, zoals bij de rollen).
+- `export_wordpress` neemt de ploegen, trainers en leden mee.
+
+## Communicatiemodule: wensen (nog niet gebouwd)
+
+Wat de eigenaar tot nu toe vroeg (14/11/2026):
+
+- **Kanalen per ploeg**, WhatsApp-achtig: een chat met berichten in tijdsvolgorde, en eventueel threads binnen een ploeg.
+- **Kanaal per wedstrijd**: alle trainers, bestuurders en beheerders, plus de zwemmers die ingeschreven zijn of *Interesse* of *Ik doe mee* kozen, met hun gekoppelde ouders of accounts. Het lidmaatschap volgt de deelname vanzelf.
+- **Wie ziet wat**: trainers, bestuurders en beheerders zien alle kanalen en kunnen er overal lezen en posten. Zwemmers en ouders zien enkel de kanalen van hun eigen ploegen en wedstrijden (zie `lezers_van`).
+- **Vastpinnen**: trainers en bestuurders kunnen berichten bovenaan vastpinnen.
+- **Reacties**: per bericht instellen of leden mogen reageren.
+- **Ook gevraagd**: berichten per ploeg, pushmelding per bericht, reacties of chat, prikbord met bijlagen.
+- **Meldingen**: enkel webpush, geen Telegram. Elk soort melding (nieuw bericht in een kanaal, vastgepind bericht…) krijgt een eigen schakelaar onder *Meldingen*.
+
+Nog na te vragen voor het bouwen:
+
+- Mogen zwemmers en ouders zelf berichten starten, of enkel reageren (als dat aanstaat)?
+- Foto's en bijlagen in berichten: ja of nee, en hoe groot?
+- Verdwijnt wie *Ik doe niet mee* kiest of geweigerd wordt uit het wedstrijdkanaal (met of zonder de oude berichten)?
+- Push bij elk bericht of enkel bij vastgepinde, en kan je een kanaal dempen?
+- Hoe lang blijven berichten bewaard, en wie mag berichten verwijderen?
+

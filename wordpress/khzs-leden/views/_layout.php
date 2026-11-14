@@ -27,7 +27,7 @@ $ingelogd = is_user_logged_in();
   <button type="button" class="thema-knop" id="thema" title="Licht / donker / automatisch" aria-label="Thema wisselen"></button>
   <?php if ($ingelogd): ?>
   <nav>
-    <?php foreach ($items as [$label, $pad, $namen, $icoon]): ?><a href="<?= esc_url(app_url($pad)) ?>" class="<?= $actief($namen) ?>"<?= $label === 'Meldingen' ? ' title="Meldingen"' : '' ?>><?= $label === 'Meldingen' ? '🔔' : e($label) ?></a>
+    <?php foreach ($items as [$label, $pad, $namen, $icoon]): ?><a href="<?= esc_url(app_url($pad)) ?>" class="<?= $actief($namen) ?>"<?= $label === 'Meldingen' ? ' title="Meldingen"' : '' ?>><?= $label === 'Meldingen' ? '🔔' : e($label) ?><?php if ($label === 'Ploegen' && ($_n = count(te_behandelen_ploeg()))): ?> <span class="badge wacht" title="Ploegaanvragen"><?= $_n ?></span><?php endif; ?><?php if ($label === 'Gebruikers' && ($_n = aantal_open_rolaanvragen())): ?> <span class="badge wacht" title="Rolaanvragen"><?= $_n ?></span><?php endif; ?></a>
     <?php endforeach; ?>
     <?php if ($is_beheerder): ?><a href="<?= esc_url(app_url('backup/')) ?>" class="<?= $actief(['backups']) ?>">Backup</a><?php if (current_user_can('manage_options')): ?><a href="<?= esc_url(admin_url('options-general.php?page=khzs')) ?>">Beheer</a><?php endif; endif; ?>
     <form method="post" action="<?= esc_url(app_url('afmelden/')) ?>" style="display:inline"><?= nonce_veld() ?><button class="mini secundair">Afmelden</button></form>
@@ -36,6 +36,8 @@ $ingelogd = is_user_logged_in();
 </header>
 <main class="<?= esc_attr($mainklasse) ?>">
   <?php foreach ($meldingen_flash as [$soort, $tekst]): ?><div class="melding <?= esc_attr($soort) ?>"><?= e($tekst) ?></div><?php endforeach; ?>
+  <?php foreach ($ploegbeslissingen as $_l): ?><div class="melding <?= $_l->status === PL_AFGEKEURD ? 'error' : 'success' ?>"><?= e($_l->voornaam) ?>: <?= $_l->status === PL_AFGEKEURD ? 'aanvraag voor ' . e($_l->ploegnaam) . ' afgekeurd' : 'zit nu in ' . e($_l->ploegnaam) ?>. <a href="<?= esc_url(app_url("zwemmers/{$_l->zwemmer_id}/")) ?>">Bekijk</a></div><?php endforeach; ?>
+  <?php foreach ($rolbeslissingen as $_a): ?><div class="melding <?= $_a->status === RA_AFGEKEURD ? 'error' : 'success' ?>"><?= e(rol_beslissing($_a)) ?> <a href="<?= esc_url(app_url('rollen/')) ?>">Mijn rollen</a></div><?php endforeach; ?>
   <?php include $inhoud_sjabloon; ?>
 </main>
 <?php if ($ingelogd): ?>

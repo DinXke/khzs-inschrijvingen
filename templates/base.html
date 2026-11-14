@@ -24,7 +24,8 @@
   <nav>
     <a href="{% url 'wedstrijden' %}" class="{% if p in 'wedstrijden wedstrijd nakijken instellingen upload' %}actief{% endif %}">Wedstrijden</a>
     <a href="{% url 'zwemmers' %}" class="{% if p in 'zwemmers zwemmer zwemmer_nieuw' %}actief{% endif %}">{% if is_staf %}Zwemmers{% else %}Mijn zwemmers{% endif %}</a>
-    {% if is_secretaris %}<a href="{% url 'gebruikers' %}" class="{% if p == 'gebruikers' %}actief{% endif %}">Gebruikers</a>{% endif %}
+    {% if ziet_ploegen %}<a href="{% url 'ploegen' %}" class="{% if p in 'ploegen ploeg' %}actief{% endif %}">Ploegen{% if open_ploegaanvragen %} <span class="badge wacht" title="Ploegaanvragen">{{ open_ploegaanvragen }}</span>{% endif %}</a>{% endif %}
+    {% if is_rolbeheerder %}<a href="{% url 'gebruikers' %}" class="{% if p == 'gebruikers' %}actief{% endif %}">Gebruikers{% if open_rolaanvragen %} <span class="badge wacht" title="Rolaanvragen">{{ open_rolaanvragen }}</span>{% endif %}</a>{% endif %}
     {% if is_beheerder %}<a href="{% url 'backups' %}" class="{% if p == 'backups' %}actief{% endif %}">Backup</a><a href="/beheer/">Beheer</a>{% endif %}
     <a href="{% url 'uitleg' %}" class="{% if p == 'uitleg' %}actief{% endif %}">Uitleg</a>
     <a href="{% url 'meldingen' %}" class="{% if p == 'meldingen' %}actief{% endif %}" title="Meldingen">🔔</a>
@@ -34,6 +35,8 @@
 </header>
 <main class="{% block mainklasse %}{% endblock %}">
   {% for m in messages %}<div class="melding {{ m.tags }}">{{ m }}</div>{% endfor %}
+  {% for l in ploegbeslissingen %}<div class="melding {% if l.status == 'afgekeurd' %}error{% else %}success{% endif %}">{{ l.zwemmer.voornaam }}: {% if l.status == 'afgekeurd' %}aanvraag voor {{ l.ploeg }} afgekeurd{% else %}zit nu in {{ l.ploeg }}{% endif %}. <a href="{% url 'zwemmer' l.zwemmer.pk %}">Bekijk</a></div>{% endfor %}
+  {% for a in rolbeslissingen %}<div class="melding {% if a.status == 'afgekeurd' %}error{% else %}success{% endif %}">{{ a.beslissing }} <a href="{% url 'mijn_rollen' %}">Mijn rollen</a></div>{% endfor %}
   {% block inhoud %}{% endblock %}
 </main>
 {% if user.is_authenticated %}
@@ -42,7 +45,9 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Wedstrijden</a>
   <a href="{% url 'zwemmers' %}" class="{% if p in 'zwemmers zwemmer zwemmer_nieuw' %}actief{% endif %}">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>{% if is_staf %}Zwemmers{% else %}Profiel{% endif %}</a>
-  {% if is_secretaris %}<a href="{% url 'gebruikers' %}" class="{% if p == 'gebruikers' %}actief{% endif %}">
+  {% if ziet_ploegen %}<a href="{% url 'ploegen' %}" class="{% if p in 'ploegen ploeg' %}actief{% endif %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="9" r="2.5"/><circle cx="17" cy="9" r="2.5"/><circle cx="12" cy="7" r="2.5"/><path d="M2 19c0-3 2-5 5-5M22 19c0-3-2-5-5-5M7 20c0-3 2-5 5-5s5 2 5 5"/></svg>Ploegen</a>{% endif %}
+  {% if is_rolbeheerder %}<a href="{% url 'gebruikers' %}" class="{% if p == 'gebruikers' %}actief{% endif %}">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20c0-3 3-5 7-5s7 2 7 5M16 14c3 0 6 1.5 6 4.5"/></svg>Gebruikers</a>{% endif %}
   <a href="{% url 'uitleg' %}" class="{% if p == 'uitleg' %}actief{% endif %}">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z" fill="currentColor"/></svg>Uitleg</a>
