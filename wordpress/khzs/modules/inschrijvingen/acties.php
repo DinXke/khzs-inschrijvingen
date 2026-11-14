@@ -199,15 +199,29 @@ function v_zwemmers(): void
     vereist_login();
     if (is_staf()) {
         $q = get('q');
-        toon('inschrijvingen/zwemmers', ['zwemmers' => alle_zwemmers($q), 'q' => $q, 'alle' => true], 'Zwemmers');
+        toon('inschrijvingen/zwemmers', ['zwemmers' => alle_zwemmers($q), 'q' => $q, 'alle' => true, 'zelf_ontbreekt' => zelf_ontbreekt()], 'Zwemmers');
     }
-    toon('inschrijvingen/zwemmers', ['zwemmers' => zwemmers_van(get_current_user_id()), 'q' => '', 'alle' => false], 'Zwemmers');
+    toon('inschrijvingen/zwemmers', ['zwemmers' => zwemmers_van(get_current_user_id()), 'q' => '', 'alle' => false, 'zelf_ontbreekt' => zelf_ontbreekt()], 'Zwemmers');
+}
+
+/** Toon ‘Mezelf toevoegen’ zolang er geen zwemmer met de naam van dit account bij het account hoort. */
+function zelf_ontbreekt(): bool
+{
+    $u = wp_get_current_user();
+    foreach (zwemmers_van($u->ID) as $z) {
+        if ($u->first_name && mb_strtolower($z->voornaam) === mb_strtolower($u->first_name) && mb_strtolower($z->naam) === mb_strtolower($u->last_name)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 function v_zwemmer_nieuw(): void
 {
     vereist_login();
-    $v = [];
+    $zelf = get('zelf') === '1';
+    $u = wp_get_current_user();
+    $v = $zelf ? ['voornaam' => $u->first_name, 'naam' => $u->last_name] : [];
     $f = [];
     if (is_post()) {
         [$v, $f] = lees_zwemmer('');
@@ -218,7 +232,8 @@ function v_zwemmer_nieuw(): void
             naar(app_url("zwemmers/$id/"));
         }
     }
-    toon('inschrijvingen/zwemmer_form', ['v' => $v, 'f' => $f, 'titel' => 'Zwemmer toevoegen'], 'Zwemmer toevoegen', 'smal');
+    $titel = $zelf ? 'Mezelf toevoegen als zwemmer' : 'Zwemmer toevoegen';
+    toon('inschrijvingen/zwemmer_form', ['v' => $v, 'f' => $f, 'titel' => $titel, 'zelf' => $zelf], $titel, 'smal');
 }
 
 const AFSTANDEN = [25, 50, 100, 200, 400, 800, 1500];

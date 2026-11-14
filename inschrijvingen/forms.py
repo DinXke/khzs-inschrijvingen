@@ -21,7 +21,7 @@ class RegistratieForm(UserCreationForm):
     naam = forms.CharField(label="Jouw naam", max_length=80)
     koppelcode = forms.CharField(label="Koppelcode (optioneel)", max_length=12, required=False,
                                  help_text="Heeft de andere ouder je kind al ingeschreven? Vraag een koppelcode (bij de zwemmer → "
-                                           "‘Delen met een andere ouder’) en vul ze hier in. Je hoeft je kind dan niet opnieuw toe te voegen.")
+                                           "‘Koppelcode maken’) en vul ze hier in. Je hoeft je kind dan niet opnieuw toe te voegen.")
 
     class Meta:
         model = User
