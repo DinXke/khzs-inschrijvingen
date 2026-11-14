@@ -13,6 +13,8 @@ require_once __DIR__ . '/acties.php';
 
 add_filter('khzs_routes', fn($r) => array_merge($r, [
     ['registreren', 'registreren', 'v_registreren'],
+    ['welkom', 'welkom', 'v_welkom'],
+    ['zwemmers/(\d+)/ploeg', 'zwemmer', 'v_zwemmer_ploeg'],
     ['wedstrijden', 'wedstrijden', 'v_wedstrijden'],
     ['wedstrijd/nieuw', 'upload', 'v_upload'],
     ['wedstrijd/(\d+)', 'wedstrijd', 'v_wedstrijd'],

@@ -231,4 +231,53 @@ Vraag van de eigenaar: elk lid moet één of meerdere rollen kunnen hebben (best
   - Tabel `khzs_rolaanvragen` (`DB_VERSIE` 4), logica en pagina's in `includes/rollen.php`. Op het WordPress-profiel zijn de rollen nu vinkjes.
   - Tests: 7 nieuwe in `RollenTest` (`test_e2e.py`); samen 84, alle geslaagd. Gedraaid in een Docker-container (Debian trixie, PHP 8.4, MariaDB), omdat PHP en MariaDB niet op de Windows-pc staan. Op Windows moet `testsite.sh` eerst LF-regeleindes krijgen.
 - **Niet gedaan**: de handleidingen en screenshots in `docs/` tonen de rollen nog niet. De penningmeester blijft een aparte vlag, geen rol.
-- **Status**: pull request naar `main`, nog niet samengevoegd. Samenvoegen zet de migratie automatisch op de productieserver.
+- **Status**: PR #7 naar `main`, nog niet samengevoegd. Samenvoegen zet de migratie automatisch op de productieserver.
+- **Later aangepast** (branch `feature/ploegen`): een nieuw account start zonder rol en kiest in het stappenplan; zie hieronder.
+
+## Ploegen en registratie in stappen (branch `feature/ploegen`, bovenop `feature/rollen`)
+
+Vraag van de eigenaar: elke zwemmer kiest in welke ploeg hij of zij zwemt, met meerdere ploegen, als basis voor een latere communicatiemodule waarin mensen enkel de groepen zien waartoe ze behoren. Daarna: rollen en ploeg pas kiezen na de registratie, in een stappenplan.
+
+- **Beslissingen van de eigenaar** (14/11/2026):
+  - De staf keurt een gekozen ploeg eerst goed: een trainer van die ploeg, een bestuurder, sportsecretaris of beheerder.
+  - Ploegen aanmaken en beheren: bestuurder, sportsecretaris en beheerder. Zij duiden ook de trainers van een ploeg aan.
+  - Trainers, bestuurders, sportsecretarissen en beheerders zien alle ploegen; zwemmers en ouders enkel de ploegen van hun zwemmers.
+  - Alles gebeurt in de app zelf (ook op de gsm), niet via `/beheer/` of wp-admin.
+- **Werking**:
+  - *Ploegen* (`/ploegen/`): lijst, nieuwe ploeg, open aanvragen. Per ploeg: zwemmers, aanvragen, zwemmer rechtstreeks toevoegen, uit de ploeg halen, bewerken, archiveren (*Actief* uit) of verwijderen.
+  - Bij de zwemmer: blok *Ploegen* met de status per ploeg, *Ploeg kiezen* en ✕ om in te trekken of uit de ploeg te gaan. Een zwemmer kan in meerdere ploegen zitten.
+  - Wie de ploeg mag behandelen (staf), zet een zwemmer er meteen in. Afkeuren vraagt een reden; daarna kan je opnieuw aanvragen.
+  - Melding voor de ouders: balk bovenaan tot ze de zwemmer openen, en een pushmelding. De behandelaars krijgen een push bij een nieuwe aanvraag.
+  - Nieuwe pushvoorkeuren onder *Meldingen*: *Mijn aanvraag voor een rol of ploeg is behandeld* (iedereen) en *(staf) Nieuwe ploegaanvraag* (bestuur, secretariaat, beheer en trainers van een ploeg). De testknop bestond al.
+- **Registratie in stappen** (`/welkom/`): het formulier vraagt enkel e-mail, naam en wachtwoord. Daarna één vraag per scherm, elk over te slaan en later opnieuw te doen (link *Stappenplan* bij *Mijn rollen*):
+  1. *Zwem je zelf?* → je eigen gegevens en ploeg; je krijgt de rol zwemmer.
+  2. *Heb je kinderen die zwemmen?* → kind toevoegen met ploeg, of koppelen met de koppelcode van de andere ouder; je krijgt de rol ouder.
+  3. *Help je mee bij de club?* → aanvraag voor trainer, bestuurder of sportsecretaris.
+  4. Overzicht.
+  - Een nieuw account start **zonder rol** (Django: lege `Profiel.rol`; WordPress: lege `khzs_rollen`). Het allereerste account van een Django-installatie blijft sportsecretaris.
+  - Ook later geeft een zwemmer toevoegen of koppelen automatisch de rol zwemmer (jezelf) of ouder.
+- **Voor de latere communicatiemodule** bestaat al: `ploegen.zwemmers_van`, `accounts_van` (accounts van de zwemmers, ook gekoppelde ouders, en de trainers van de ploeg), `lezers_van` (dat plus iedereen die alle ploegen ziet), `zichtbare_ploegen(user)`. In WordPress: `ploeg_zwemmers`, `ploeg_accounts`, `ploeg_lezers`, `zichtbare_ploegen`.
+- **Django**: modellen `Ploeg` (met `trainers`) en `PloegLid` (zwemmer, ploeg, status, reden, gelezen); migratie `0013_ploegen`. Logica in `inschrijvingen/ploegen.py`. Tests: `test_ploegen.py` (9); de registratietests zijn omgezet naar het stappenplan. Samen 107, alle geslaagd.
+- **WordPress**: tabellen `khzs_ploegen`, `khzs_ploeg_trainers`, `khzs_ploegleden` (`DB_VERSIE` 5), `includes/ploegen.php`, `views/ploegen.php` en `views/ploeg.php`, stappenplan in de module Inschrijvingen (`v_welkom`). Menu-item *Ploegen* (sleutel 45; 40 is *Verloning*). Tests: `PloegenTest` (8) en de omgezette registratietests; samen 92, alle geslaagd (Docker, zoals bij de rollen).
+- `export_wordpress` neemt de ploegen, trainers en leden mee.
+
+## Communicatiemodule: wensen (nog niet gebouwd)
+
+Wat de eigenaar tot nu toe vroeg (14/11/2026):
+
+- **Kanalen per ploeg**, WhatsApp-achtig: een chat met berichten in tijdsvolgorde, en eventueel threads binnen een ploeg.
+- **Kanaal per wedstrijd**: alle trainers, bestuurders en beheerders, plus de zwemmers die ingeschreven zijn of *Interesse* of *Ik doe mee* kozen, met hun gekoppelde ouders of accounts. Het lidmaatschap volgt de deelname vanzelf.
+- **Wie ziet wat**: trainers, bestuurders en beheerders zien alle kanalen en kunnen er overal lezen en posten. Zwemmers en ouders zien enkel de kanalen van hun eigen ploegen en wedstrijden (zie `lezers_van`).
+- **Vastpinnen**: trainers en bestuurders kunnen berichten bovenaan vastpinnen.
+- **Reacties**: per bericht instellen of leden mogen reageren.
+- **Ook gevraagd**: berichten per ploeg, pushmelding per bericht, reacties of chat, prikbord met bijlagen.
+- **Meldingen**: enkel webpush, geen Telegram. Elk soort melding (nieuw bericht in een kanaal, vastgepind bericht…) krijgt een eigen schakelaar onder *Meldingen*.
+
+Nog na te vragen voor het bouwen:
+
+- Mogen zwemmers en ouders zelf berichten starten, of enkel reageren (als dat aanstaat)?
+- Foto's en bijlagen in berichten: ja of nee, en hoe groot?
+- Verdwijnt wie *Ik doe niet mee* kiest of geweigerd wordt uit het wedstrijdkanaal (met of zonder de oude berichten)?
+- Push bij elk bericht of enkel bij vastgepinde, en kan je een kanaal dempen?
+- Hoe lang blijven berichten bewaard, en wie mag berichten verwijderen?
+

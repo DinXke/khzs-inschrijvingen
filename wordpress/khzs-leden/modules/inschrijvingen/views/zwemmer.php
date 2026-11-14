@@ -32,6 +32,22 @@ $url = app_url("zwemmers/{$z->id}/"); ?>
       <div class="melding-item<?= $m->gelezen ? '' : ' nieuw' ?>"><div class="klein"><?= e($m->door_naam) ?> · <?= e($m->wedstrijd_naam) ?> · <?= e(datum($m->aangemaakt, 'j M H:i')) ?></div>
       <ul><?php foreach ($m->regels as $r): ?><li><?= e($r) ?></li><?php endforeach; ?></ul></div><?php endforeach; ?>
     </div><?php endif; ?>
+    <h2>Ploegen</h2>
+    <div class="kaart">
+      <?php foreach ($lidmaatschappen as $l): ?><div class="rij tussen" style="padding:.3rem 0;border-bottom:1px solid var(--lijn)">
+        <span><?php if ($l->status === PL_GOEDGEKEURD): ?><a href="<?= esc_url(app_url("ploegen/{$l->ploeg_id}/")) ?>"><?= e($l->ploegnaam) ?></a><?php else: ?><?= e($l->ploegnaam) ?><?php endif; ?>
+          <?php if ($l->status === PL_AFGEKEURD && $l->reden !== ''): ?><br><span class="klein"><?= e($l->reden) ?></span><?php endif; ?></span>
+        <span class="rij"><span class="badge <?= $l->status === PL_GOEDGEKEURD ? 'ok' : ($l->status === PL_OPEN ? 'wacht' : 'fout') ?>"><?= e(PL_STATUS[$l->status]) ?></span>
+          <?php if ($l->status !== PL_AFGEKEURD): ?><form method="post" action="<?= esc_url(app_url("ploegen/lid/{$l->id}/")) ?>" onsubmit="return confirm(<?= esc_attr(wp_json_encode($l->status === PL_OPEN ? 'Aanvraag intrekken?' : "{$z->voornaam} uit {$l->ploegnaam} halen?")) ?>)"><?= nonce_veld() ?>
+            <input type="hidden" name="terug" value="<?= esc_attr(app_url("zwemmers/{$z->id}/")) ?>"><button name="actie" value="verwijderen" class="mini secundair" title="<?= $l->status === PL_OPEN ? 'Intrekken' : 'Uit de ploeg' ?>">✕</button></form><?php endif; ?></span>
+      </div><?php endforeach; ?>
+      <?php if (!$lidmaatschappen): ?><p class="klein"><?= e($z->voornaam) ?> zit nog in geen enkele ploeg.</p><?php endif; ?>
+      <?php if ($kies_ploegen): ?><form method="post" action="<?= esc_url(app_url("zwemmers/{$z->id}/ploeg/")) ?>" class="rij" style="margin-top:.6rem;align-items:end"><?= nonce_veld() ?>
+        <div style="flex:1;min-width:180px"><label for="ploegkeuze">Ploeg kiezen</label>
+          <select id="ploegkeuze" name="ploeg" required><option value="">Kies…</option><?php foreach ($kies_ploegen as $p): ?><option value="<?= (int) $p->id ?>"><?= e($p->naam) ?></option><?php endforeach; ?></select></div>
+        <button class="mini"><?= $is_staf ? 'Toevoegen' : 'Aanvragen' ?></button></form>
+        <p class="help">De trainer of het bestuur keurt de ploeg goed. Je krijgt een melding.</p><?php endif; ?>
+    </div>
     <h2>Inschrijvingen</h2>
     <div class="kaart">
       <?php foreach ($inschrijvingen as $i): ?><div class="rij tussen" style="padding:.35rem 0;border-bottom:1px solid var(--lijn)">

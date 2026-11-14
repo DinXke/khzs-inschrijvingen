@@ -1,0 +1,11 @@
+<div class="melding-item">
+  <div class="rij tussen"><span><strong>{{ l.zwemmer.voornaam }} {{ l.zwemmer.naam }}</strong> vraagt <strong>{{ l.ploeg }}</strong></span>
+    <span class="klein">{{ l.aangemaakt|date:"j/m/Y" }}{% if l.aangevraagd_door %} · {{ l.aangevraagd_door.get_full_name|default:l.aangevraagd_door.username }}{% endif %}</span></div>
+  <form method="post" action="{% url 'ploeglid' l.pk %}" class="rij" style="margin-top:.4rem;align-items:start">{% csrf_token %}<input type="hidden" name="terug" value="{{ terug }}">
+    <button name="actie" value="goedkeuren" class="mini">Goedkeuren</button>
+    <details style="flex:1;min-width:220px"><summary class="klein">Afkeuren</summary>
+      <div class="rij" style="margin-top:.4rem;align-items:end">
+        <div style="flex:1;min-width:160px"><label for="pr-{{ l.pk }}">Reden</label><input type="text" id="pr-{{ l.pk }}" name="reden" maxlength="300"></div>
+        <button name="actie" value="afkeuren" class="mini secundair">Afkeuren</button></div></details>
+  </form>
+</div>

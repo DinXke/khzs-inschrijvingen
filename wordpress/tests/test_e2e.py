@@ -92,6 +92,19 @@ def inschrijving(zid, nid, status="ingediend", tijd_hon=None, baan=""):
                f"VALUES ({zid}, {nid}, {t}, '{baan}', '{status}', '', NOW())")["id"]
 
 
+def registreer(k, email, voornaam="Ann", naam="Peeters"):
+    """Account aanmaken; daarna volgt het stappenplan (welkom)."""
+    r = k.post("registreren/", {"email": email, "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!", "voornaam": voornaam, "naam": naam})
+    assert r.status_code == 302 and r.headers["Location"].endswith("/leden/welkom/"), r.text[:2000]
+    k.nonce = None
+    return r
+
+
+def kind(k, voornaam, naam, gd, geslacht, ploeg=""):
+    return k.post("welkom/", {"actie": "kind", "voornaam": voornaam, "naam": naam, "geboortedatum": gd, "geslacht": geslacht,
+                              "ploeg": ploeg}, query={"stap": "kinderen"})
+
+
 class Klant:
     def __init__(self):
         self.s = requests.Session()
@@ -219,13 +232,9 @@ class StroomTest(Basis):
 
     def test_volledige_stroom(self):
         self.c.logout()
-        r = self.c.post("registreren/", {
-            "email": "ouder@test.be", "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!",
-            "voornaam": "Ann", "naam": "Peeters", "zw-TOTAL_FORMS": 1,
-            "zw-0-voornaam": "Lien", "zw-0-naam": "Peeters", "zw-0-geboortedatum": "2013-03-02", "zw-0-geslacht": "F",
-        })
+        registreer(self.c, "ouder@test.be")
+        r = kind(self.c, "Lien", "Peeters", "2013-03-02", "F")
         self.assertEqual(r.status_code, 302, r.text[:3000])
-        self.c.nonce = None
         z = int(een("SELECT id FROM {p}zwemmers"))
         r = self.c.get(f"wedstrijd/{self.w}/")
         self.assertContains(r, "categorie <b>13 jaar</b>")
@@ -598,30 +607,29 @@ class BackupTest(StroomTest):
 
 class RegistratieTest(Basis):
     def test_ouder_registreert_twee_kinderen(self):
-        r = self.c.post("registreren/", {
-            "email": "ann@test.be", "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!", "voornaam": "Ann", "naam": "Peeters",
-            "zw-TOTAL_FORMS": 2,
-            "zw-0-voornaam": "Lien", "zw-0-naam": "Peeters", "zw-0-geboortedatum": "2013-03-02", "zw-0-geslacht": "F",
-            "zw-1-voornaam": "Bram", "zw-1-naam": "Peeters", "zw-1-geboortedatum": "2015-06-01", "zw-1-geslacht": "M",
-        })
-        self.assertEqual(r.status_code, 302, r.text[:2000])
+        registreer(self.c, "ann@test.be")
+        kind(self.c, "Lien", "Peeters", "2013-03-02", "F")
+        kind(self.c, "Bram", "Peeters", "2015-06-01", "M")
         self.assertEqual(sorted(x["voornaam"] for x in sql("SELECT voornaam FROM {p}zwemmers")), ["Bram", "Lien"])
+        uid = int(een("SELECT ID FROM wp_users WHERE user_login='ann@test.be'"))
+        self.assertEqual(hulp("meta", id=uid, key="khzs_rollen")["v"], "ouder")
         self.assertEqual(een("SELECT meta_value FROM wp_usermeta m JOIN wp_users u ON u.ID=m.user_id WHERE u.user_login='ann@test.be' AND meta_key='first_name'"), "Ann")
         # Ingelogd na registratie.
         self.assertEqual(self.c.get("wedstrijden/").status_code, 200)
 
-    def test_minstens_een_zwemmer(self):
-        r = self.c.post("registreren/", {"email": "leeg@test.be", "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!",
-                                         "voornaam": "A", "naam": "B", "zw-TOTAL_FORMS": 0})
-        self.assertEqual(r.status_code, 200)
-        self.assertContains(r, "minstens één zwemmer")
-        self.assertFalse(sql("SELECT ID FROM wp_users WHERE user_login='leeg@test.be'"))
+    def test_stappen_overslaan(self):
+        registreer(self.c, "leeg@test.be", "A", "B")
+        uid = int(een("SELECT ID FROM wp_users WHERE user_login='leeg@test.be'"))
+        self.assertEqual(hulp("meta", id=uid, key="khzs_rollen")["v"], "")  # een nieuw account start zonder rol
+        for stap in ("zelf", "kinderen", "staf", "klaar"):
+            self.assertEqual(self.c.get("welkom/", stap=stap).status_code, 200)
+        self.assertContains(self.c.get("rollen/"), "Nog geen rol")
+        self.assertEqual(self.c.get("zwemmers/uitslagen/").status_code, 403)
 
     def test_bestaand_email(self):
         gebruiker("dubbel@test.be")
         r = self.c.post("registreren/", {"email": "dubbel@test.be", "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!",
-                                         "voornaam": "A", "naam": "B", "zw-TOTAL_FORMS": 1, "zw-0-voornaam": "X", "zw-0-naam": "Y",
-                                         "zw-0-geboortedatum": "2013-03-02", "zw-0-geslacht": "F"})
+                                         "voornaam": "A", "naam": "B"})
         self.assertContains(r, "Er bestaat al een account")
 
     def test_login_fout(self):
@@ -739,8 +747,8 @@ class KoppelTest(StroomTest):
         Klant().login("mama@o.be").post(f"zwemmers/{z}/delen/")
         code = een(f"SELECT koppelcode FROM {{p}}zwemmers WHERE id={z}")
         k = Klant()
-        r = k.post("registreren/", {"email": "plusmama@test.be", "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!",
-                                    "voornaam": "Els", "naam": "V", "koppelcode": code, "zw-TOTAL_FORMS": 1})
+        registreer(k, "plusmama@test.be", "Els", "V")
+        r = k.post("welkom/", {"actie": "koppel", "code": code}, query={"stap": "kinderen"})
         self.assertEqual(r.status_code, 302, r.text[:2000])
         nieuw = int(een("SELECT ID FROM wp_users WHERE user_login='plusmama@test.be'"))
         self.assertIn(nieuw, self.accounts(z))
@@ -767,8 +775,15 @@ class ZelfZwemmerTest(Basis):
         self.assertEqual(een("SELECT voornaam FROM {p}zwemmers"), "An")
         self.assertNotContains(k.get("zwemmers/"), "+ Mezelf")
 
-    def test_registratie_toont_vinkje(self):
-        self.assertContains(self.c.get("registreren/"), "Ik zwem zelf")
+    def test_welkom_zelf_zwemmer(self):
+        registreer(self.c, "an@test.be", "An", "Vos")
+        r = self.c.get("welkom/")
+        self.assertContains(r, "Zwem je zelf?")
+        self.assertContains(r, 'value="An"')
+        self.c.post("welkom/", {"voornaam": "An", "naam": "Vos", "geboortedatum": "1985-04-01", "geslacht": "F"}, query={"stap": "zelf"})
+        self.assertEqual(een("SELECT voornaam FROM {p}zwemmers"), "An")
+        uid = int(een("SELECT ID FROM wp_users WHERE user_login='an@test.be'"))
+        self.assertEqual(hulp("meta", id=uid, key="khzs_rollen")["v"], "zwemmer")
 
 
 class TrainersTest(Basis):
@@ -983,15 +998,17 @@ class RollenTest(Basis):
         self.l.post("rollen/", {"actie": "intrekken", "aanvraag": a})
         self.assertEqual(self.status(a), "ingetrokken")
 
-    def test_registratie_met_rollen(self):
-        r = Klant().post("registreren/", {
-            "email": "nieuw@test.be", "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!", "voornaam": "Ann", "naam": "P",
-            "rollen[]": ["ouder", "trainer"], "zw-TOTAL_FORMS": 1, "zw-0-voornaam": "Lien", "zw-0-naam": "P",
-            "zw-0-geboortedatum": "2013-03-02", "zw-0-geslacht": "F"})
-        self.assertEqual(r.status_code, 302, r.text[:2000])
+    def test_rollen_in_het_stappenplan(self):
+        k = Klant()
+        registreer(k, "nieuw@test.be", "Ann", "P")
         uid = int(een("SELECT ID FROM wp_users WHERE user_login='nieuw@test.be'"))
+        self.assertEqual(self.rollen(uid), set())
+        kind(k, "Lien", "P", "2013-03-02", "F")
         self.assertEqual(self.rollen(uid), {"ouder"})
-        self.assertEqual(een(f"SELECT status FROM {{p}}rolaanvragen WHERE user_id={uid} AND rol='trainer'"), "open")
+        r = k.post("welkom/", {"rollen[]": ["trainer", "beheerder"], "motivatie": "B-groep"}, query={"stap": "staf"})
+        self.assertTrue(r.headers["Location"].endswith("stap=klaar"))
+        self.assertEqual(sql(f"SELECT rol, motivatie FROM {{p}}rolaanvragen WHERE user_id={uid}"), [{"rol": "trainer", "motivatie": "B-groep"}])
+        self.assertContains(k.get("welkom/", stap="klaar"), "Trainer (wacht)")
 
     def test_rechtstreeks_en_rechten_bestuurder(self):
         a = self.aanvraag()
@@ -1024,6 +1041,104 @@ class RollenTest(Basis):
         self.assertNotContains(self.l.get("meldingen/"), "Nieuwe rolaanvraag om te behandelen")
 
 
+
+class PloegenTest(Basis):
+    """Ploegen: aanmaken, aanvragen, goedkeuren of afkeuren, wie ziet wat (zoals test_ploegen.py in Django)."""
+
+    def setUp(self):
+        super().setUp()
+        self.bestuur = gebruiker("bestuur@khzs.be")
+        self.tr_a = gebruiker("tra@khzs.be", "trainer", first_name="Tom")
+        self.tr_b = gebruiker("trb@khzs.be", "trainer")
+        self.ouder = gebruiker("ouder@khzs.be", "ouder", first_name="Ann")
+        self.papa = gebruiker("papa@khzs.be", "ouder")
+        self.andere = gebruiker("andere@khzs.be", "ouder")
+        exe(f"INSERT INTO wp_usermeta (user_id, meta_key, meta_value) VALUES ({self.bestuur}, 'khzs_rollen', 'bestuurder')")
+        self.lien = zwemmer(self.ouder, "Lien", "P")
+        exe(f"INSERT INTO {{p}}zwemmer_accounts (zwemmer_id, user_id, aangemaakt) VALUES ({self.lien}, {self.papa}, NOW())")
+        self.bram = zwemmer(self.andere, "Bram", "Q", geslacht="M")
+        self.b = Klant().login("bestuur@khzs.be")
+        self.b.post("ploegen/", {"naam": "A-groep", "beschrijving": "Wedstrijdzwemmers", "trainers[]": [self.tr_a], "actief": "on"})
+        self.b.post("ploegen/", {"naam": "B-groep", "trainers[]": [self.tr_b], "actief": "on"})
+        self.pa = int(een("SELECT id FROM {p}ploegen WHERE naam='A-groep'"))
+        self.pb = int(een("SELECT id FROM {p}ploegen WHERE naam='B-groep'"))
+        self.o = Klant().login("ouder@khzs.be")
+
+    def lid(self, zwemmer=None, ploeg=None):
+        return sql(f"SELECT * FROM {{p}}ploegleden WHERE zwemmer_id={zwemmer or self.lien} AND ploeg_id={ploeg or self.pa}")[0]
+
+    def test_aanmaken(self):
+        self.assertEqual([int(x["user_id"]) for x in sql(f"SELECT user_id FROM {{p}}ploeg_trainers WHERE ploeg_id={self.pa}")], [self.tr_a])
+        Klant().login("tra@khzs.be").post("ploegen/", {"naam": "C", "actief": "on"})
+        self.assertFalse(sql("SELECT id FROM {p}ploegen WHERE naam='C'"))
+
+    def test_aanvragen_en_goedkeuren_door_trainer_van_de_ploeg(self):
+        for wie, uid in (("tra@khzs.be", self.tr_a), ("trb@khzs.be", self.tr_b), ("papa@khzs.be", self.papa)):
+            Klant().login(wie).json("meldingen/abonneer/", {"endpoint": f"https://push.example/{uid}", "keys": {"p256dh": "x", "auth": "y"}})
+        self.o.post(f"zwemmers/{self.lien}/ploeg/", {"ploeg": self.pa})
+        lid = self.lid()
+        self.assertEqual(lid["status"], "open")
+        self.assertEqual([x["endpoint"] for x in hulp("push")], [f"https://push.example/{self.tr_a}"])
+        Klant().login("trb@khzs.be").post(f"ploegen/lid/{lid['id']}/", {"actie": "goedkeuren"})
+        self.assertEqual(self.lid()["status"], "open")
+        ta = Klant().login("tra@khzs.be")
+        self.assertContains(ta.get("ploegen/"), "Aanvragen (1)")
+        ta.post(f"ploegen/lid/{lid['id']}/", {"actie": "goedkeuren"})
+        self.assertEqual(self.lid()["status"], "goedgekeurd")
+        self.assertIn("Lien zit nu in de ploeg A-groep", hulp("push")[-1]["bericht"]["tekst"])
+        p = Klant().login("papa@khzs.be")
+        self.assertContains(p.get("meldingen/"), "zit nu in A-groep")
+        p.get(f"zwemmers/{self.lien}/")
+        self.assertNotContains(p.get("meldingen/"), "zit nu in A-groep")
+
+    def test_afkeuren_vraagt_reden_en_opnieuw_aanvragen(self):
+        self.o.post(f"zwemmers/{self.lien}/ploeg/", {"ploeg": self.pa})
+        lid = self.lid()
+        self.b.post(f"ploegen/lid/{lid['id']}/", {"actie": "afkeuren", "reden": ""})
+        self.assertEqual(self.lid()["status"], "open")
+        self.b.post(f"ploegen/lid/{lid['id']}/", {"actie": "afkeuren", "reden": "Eerst de B-groep."})
+        self.assertEqual(self.lid()["status"], "afgekeurd")
+        self.o.post(f"zwemmers/{self.lien}/ploeg/", {"ploeg": self.pa})
+        self.assertEqual(self.lid()["status"], "open")
+
+    def test_staf_zet_zwemmer_meteen_in_ploeg(self):
+        Klant().login("tra@khzs.be").post(f"ploegen/{self.pa}/", {"actie": "toevoegen", "zwemmer": self.bram})
+        self.assertEqual(self.lid(self.bram)["status"], "goedgekeurd")
+
+    def test_wie_ziet_wat(self):
+        exe(f"INSERT INTO {{p}}ploegleden (zwemmer_id, ploeg_id, status, aangemaakt) VALUES ({self.lien}, {self.pa}, 'goedgekeurd', NOW())")
+        r = self.o.get("ploegen/")
+        self.assertContains(r, "A-groep")
+        self.assertNotContains(r, "B-groep")
+        self.assertEqual(self.o.get(f"ploegen/{self.pb}/").status_code, 403)
+        self.assertEqual(self.o.get(f"ploegen/{self.pa}/").status_code, 200)
+        for wie in ("trb@khzs.be", "bestuur@khzs.be"):
+            r = Klant().login(wie).get("ploegen/")
+            self.assertContains(r, "A-groep")
+            self.assertContains(r, "B-groep")
+
+    def test_wie_hoort_bij_een_ploeg(self):
+        exe(f"INSERT INTO {{p}}ploegleden (zwemmer_id, ploeg_id, status, aangemaakt) VALUES ({self.lien}, {self.pa}, 'goedgekeurd', NOW())")
+        exe(f"INSERT INTO {{p}}ploegleden (zwemmer_id, ploeg_id, status, aangemaakt) VALUES ({self.bram}, {self.pa}, 'open', NOW())")
+        self.assertEqual(set(hulp("eval", f="ploeg_accounts", args=[self.pa])["v"]), {self.ouder, self.papa, self.tr_a})
+        lezers = set(hulp("eval", f="ploeg_lezers", args=[self.pa])["v"])
+        self.assertTrue({self.ouder, self.papa, self.tr_a, self.tr_b, self.bestuur} <= lezers)
+        self.assertNotIn(self.andere, lezers)
+
+    def test_ouder_trekt_in_en_vreemde_kan_niet(self):
+        self.o.post(f"zwemmers/{self.lien}/ploeg/", {"ploeg": self.pa})
+        self.o.post(f"ploegen/lid/{self.lid()['id']}/", {"actie": "verwijderen"})
+        self.assertFalse(sql("SELECT id FROM {p}ploegleden"))
+        self.o.post(f"zwemmers/{self.lien}/ploeg/", {"ploeg": self.pa})
+        Klant().login("andere@khzs.be").post(f"ploegen/lid/{self.lid()['id']}/", {"actie": "verwijderen"})
+        self.assertTrue(sql("SELECT id FROM {p}ploegleden"))
+
+    def test_kind_met_ploeg_in_het_stappenplan(self):
+        k = Klant().login("andere@khzs.be")
+        kind(k, "Mo", "Q", "2014-05-05", "M", self.pb)
+        self.assertEqual(een("SELECT l.status FROM {p}ploegleden l JOIN {p}zwemmers z ON z.id=l.zwemmer_id WHERE z.voornaam='Mo'"), "open")
+
+
 class TabbalkTest(Basis):
     """Onderbalk op de gsm: hoogstens 5 knoppen; bij veel menu-items de rest en Afmelden onder 'Meer'."""
 
@@ -1042,7 +1157,7 @@ class TabbalkTest(Basis):
         self.assertEqual(self.balk(html), ["Wedstrijden", "Zwemmers", "Trainingen", "Verloning", "Meer"])
         blad = re.search(r'<div class="meer-blad".*?</div>', html, re.S).group(0)
         meer = re.findall(r"</svg>([^<]+)</a>", blad)
-        self.assertEqual(meer, ["Gebruikers", "Uitleg", "Meldingen", "Backup", "Afmelden"])
+        self.assertEqual(meer, ["Ploegen", "Gebruikers", "Uitleg", "Meldingen", "Backup", "Afmelden"])
         # Actieve pagina onder 'Meer': de knop Meer licht op.
         self.assertIn('class="actief" id="meer-knop"', self.c.get("gebruikers/").text)
 

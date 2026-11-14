@@ -36,18 +36,25 @@ class Profiel(models.Model):
     GEZIN = (ZWEMMER, OUDER)
     # Rollen die een lid kan aanvragen (beheerder wordt enkel toegekend).
     AANVRAAGBAAR = (ZWEMMER, OUDER, TRAINER, SECRETARIS, BESTUURDER)
+    # Wie ploegen aanmaakt, trainers aanduidt en leden indeelt.
+    PLOEGBEHEER = (SECRETARIS, BESTUURDER, BEHEERDER)
+    # Wie alle ploegen (en later hun kanalen) ziet; gewone leden zien enkel de ploegen van hun zwemmers.
+    ALLE_PLOEGEN = (TRAINER, SECRETARIS, BESTUURDER, BEHEERDER)
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profiel")
-    rol = models.CharField("hoofdrol", max_length=20, choices=ROLLEN, default=ZWEMMER)
+    # Leeg = nog geen rol (een nieuw account kiest zijn rollen in het stappenplan na de registratie).
+    rol = models.CharField("hoofdrol", max_length=20, choices=ROLLEN, default=ZWEMMER, blank=True)
     # Pushmeldingen (per account in te stellen)
     push_nieuwe_wedstrijd = models.BooleanField("Nieuwe wedstrijd open voor inschrijving", default=True)
     push_deadline = models.BooleanField("Herinnering: 1 dag voor de deadline", default=True)
     push_wijziging = models.BooleanField("Trainer/secretariaat wijzigt mijn inschrijving", default=True)
     push_nieuwe_inschrijving = models.BooleanField("(staf) Nieuwe inschrijving om na te kijken", default=False)
     push_rolaanvraag = models.BooleanField("(bestuur) Nieuwe rolaanvraag om te behandelen", default=True)
+    push_ploegaanvraag = models.BooleanField("(staf) Nieuwe ploegaanvraag om te behandelen", default=True)
+    push_beslissing = models.BooleanField("Mijn aanvraag voor een rol of ploeg is behandeld", default=True)
 
     def __str__(self):
-        return f"{self.user} ({self.get_rol_display()})"
+        return f"{self.user} ({self.get_rol_display() or 'geen rol'})"
 
 
 ROL_NAAM = dict(Profiel.ROLLEN)
@@ -433,3 +440,48 @@ class Bijlage(models.Model):
     def icoon(self):
         return {"pdf": "📄", "jpg": "🖼️", "jpeg": "🖼️", "png": "🖼️", "doc": "📝", "docx": "📝",
                 "xls": "📊", "xlsx": "📊"}.get(self.extensie, "📎")
+
+
+class Ploeg(models.Model):
+    """Een ploeg of trainingsgroep (A-groep, B-groep, masters…). Basis voor de latere communicatie per ploeg."""
+
+    naam = models.CharField(max_length=60, unique=True)
+    beschrijving = models.CharField(max_length=200, blank=True)
+    trainers = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="getrainde_ploegen")
+    actief = models.BooleanField(default=True, help_text="Een gearchiveerde ploeg kan je niet meer kiezen; de leden blijven bewaard.")
+    aangemaakt = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["naam"]
+        verbose_name_plural = "ploegen"
+
+    def __str__(self):
+        return self.naam
+
+
+class PloegLid(models.Model):
+    """Een zwemmer in een ploeg. De zwemmer of ouder vraagt aan; de staf keurt goed of af."""
+
+    OPEN, GOEDGEKEURD, AFGEKEURD = "open", "goedgekeurd", "afgekeurd"
+    STATUS = [(OPEN, "Wacht op goedkeuring"), (GOEDGEKEURD, "Lid"), (AFGEKEURD, "Afgekeurd")]
+
+    zwemmer = models.ForeignKey(Zwemmer, on_delete=models.CASCADE, related_name="ploeglidmaatschappen")
+    ploeg = models.ForeignKey(Ploeg, on_delete=models.CASCADE, related_name="lidmaatschappen")
+    status = models.CharField(max_length=20, choices=STATUS, default=OPEN)
+    aangevraagd_door = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                                         related_name="+")
+    reden = models.CharField("reden bij afkeuren", max_length=300, blank=True)
+    behandeld_door = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                                       related_name="+")
+    behandeld_op = models.DateTimeField(null=True, blank=True)
+    # Hebben de accounts van de zwemmer de beslissing gezien? (melding in de app)
+    gelezen = models.BooleanField(default=False)
+    aangemaakt = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("zwemmer", "ploeg")]
+        ordering = ["ploeg__naam"]
+        verbose_name_plural = "ploegleden"
+
+    def __str__(self):
+        return f"{self.zwemmer} in {self.ploeg} ({self.get_status_display()})"

@@ -1,0 +1,29 @@
+{% extends "base.html" %}{% block titel %}{{ p.naam }}{% endblock %}
+{% block inhoud %}
+<div class="rij tussen"><h1>{{ p.naam }}{% if not p.actief %} <span class="badge doorgestuurd">gearchiveerd</span>{% endif %}</h1><a class="knop secundair" href="{% url 'ploegen' %}">Alle ploegen</a></div>
+{% if p.beschrijving %}<p>{{ p.beschrijving }}</p>{% endif %}
+<p class="klein">Trainers: {% for t in p.trainers.all %}{{ t.get_full_name|default:t.username }}{% if not forloop.last %}, {% endif %}{% empty %}nog niemand{% endfor %}</p>
+{% if aanvragen %}
+<div class="kaart melding-lijst"><h2 style="margin-top:0">Aanvragen ({{ aanvragen|length }})</h2>
+  {% for l in aanvragen %}{% include "_ploegaanvraag.html" with terug=request.path %}{% endfor %}</div>
+{% endif %}
+<h2>Zwemmers ({{ leden|length }})</h2>
+<div class="kaart">
+  {% for l in leden %}<div class="rij tussen" style="padding:.35rem 0;border-bottom:1px solid var(--lijn)">
+    <span>{% if is_staf %}<a href="{% url 'zwemmer' l.zwemmer.pk %}">{{ l.zwemmer.voornaam }} {{ l.zwemmer.naam }}</a>{% else %}{{ l.zwemmer.voornaam }} {{ l.zwemmer.naam }}{% endif %}</span>
+    {% if behandelen %}<form method="post" action="{% url 'ploeglid' l.pk %}" onsubmit="return confirm('{{ l.zwemmer.voornaam|escapejs }} uit {{ p.naam|escapejs }} halen?')">{% csrf_token %}
+      <input type="hidden" name="terug" value="{{ request.path }}"><button name="actie" value="verwijderen" class="mini secundair">Uit ploeg</button></form>{% endif %}
+  </div>{% empty %}<p class="klein">Nog geen zwemmers in deze ploeg.</p>{% endfor %}
+  {% if behandelen and toe_te_voegen %}<form method="post" class="rij" style="margin-top:.6rem;align-items:end">{% csrf_token %}<input type="hidden" name="actie" value="toevoegen">
+    <div style="flex:1;min-width:200px"><label for="zw">Zwemmer toevoegen</label>
+      <select id="zw" name="zwemmer" required><option value="">Kies…</option>{% for z in toe_te_voegen %}<option value="{{ z.pk }}">{{ z.naam }} {{ z.voornaam }}</option>{% endfor %}</select></div>
+    <button class="mini">Toevoegen</button></form>{% endif %}
+</div>
+{% if form %}
+<details class="kaart" {% if form.errors %}open{% endif %}><summary><strong>Ploeg bewerken</strong></summary>
+  <form method="post">{% csrf_token %}<input type="hidden" name="actie" value="bewaar">{% include "_form.html" %}<p><button class="vol">Bewaren</button></p></form>
+  <form method="post" onsubmit="return confirm('Ploeg {{ p.naam|escapejs }} verwijderen? De indeling van de zwemmers gaat verloren. Archiveren (vinkje Actief uit) bewaart ze.')">{% csrf_token %}
+    <button name="actie" value="verwijder_ploeg" class="mini secundair">Ploeg verwijderen</button></form>
+</details>
+{% endif %}
+{% endblock %}

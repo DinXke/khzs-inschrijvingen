@@ -1,7 +1,7 @@
 <?php namespace KHZS; defined('ABSPATH') || exit; ?>
-<h1>Mijn rollen</h1>
+<div class="rij tussen"><h1>Mijn rollen</h1><?php if (module_actief('inschrijvingen')): ?><a class="knop secundair" href="<?= esc_url(app_url('welkom/')) ?>">Stappenplan</a><?php endif; ?></div>
 <div class="kaart">
-  <div class="rollen"><?php foreach ($eigen as $k): ?><span class="badge rol"><?= e(ROLLEN[$k]) ?></span><?php endforeach; ?></div>
+  <div class="rollen"><?php foreach ($eigen as $k): ?><span class="badge rol"><?= e(ROLLEN[$k]) ?></span><?php endforeach; ?><?php if (!$eigen): ?><span class="klein">Nog geen rol. Voeg je zwemmers toe of vraag hieronder een rol aan.</span><?php endif; ?></div>
 </div>
 <?php if ($aanvraagbaar): ?>
 <form method="post" class="kaart" action="<?= esc_url(app_url('rollen/')) ?>"><?= nonce_veld() ?>

@@ -16,11 +16,12 @@ def gesorteerd(rollen):
 
 
 def _opgeslagen(user) -> set:
-    """De bewaarde rollen. Een account zonder rollen (bv. uit een oude backup) houdt de hoofdrol uit het profiel."""
+    """De bewaarde rollen. Een account zonder rollen (bv. uit een oude backup) houdt de hoofdrol uit het profiel.
+    Een lege hoofdrol betekent: nog geen rol (nieuw account dat het stappenplan nog niet doorliep)."""
     rollen = {r.rol for r in user.app_rollen.all()}
     if not rollen:
         p = getattr(user, "profiel", None)
-        rollen = {p.rol if p else Profiel.ZWEMMER}
+        rollen = {p.rol} if p and p.rol else set() if p else {Profiel.ZWEMMER}
     return rollen
 
 
@@ -55,16 +56,14 @@ def _wis_cache(user):
 
 
 def zet_rollen(user, rollen, door=None):
-    """Geeft het account precies deze rollen en houdt de hoofdrol in het profiel bij."""
+    """Geeft het account precies deze rollen (ook geen) en houdt de hoofdrol in het profiel bij."""
     rollen = set(rollen) & set(VOLGORDE)
-    if not rollen:
-        raise ValueError("Een account heeft minstens één rol.")
     with transaction.atomic():
         user.app_rollen.exclude(rol__in=rollen).delete()
         bestaand = set(user.app_rollen.values_list("rol", flat=True))
         Rol.objects.bulk_create([Rol(user=user, rol=r, door=door) for r in gesorteerd(rollen - bestaand)])
         p, _ = Profiel.objects.get_or_create(user=user)
-        p.rol = gesorteerd(rollen)[0]
+        p.rol = gesorteerd(rollen)[0] if rollen else ""
         p.save(update_fields=["rol"])
     if "profiel" in user._state.fields_cache:
         user.profiel.rol = p.rol
@@ -76,9 +75,16 @@ def geef_rol(user, rol, door=None):
     zet_rollen(user, _opgeslagen(user) | {rol}, door)
 
 
+def zorg_gezinsrol(user, zelf=False):
+    """Wie een zwemmer toevoegt of koppelt, krijgt de rol zwemmer (zichzelf) of ouder, als die er nog niet is."""
+    rol = Profiel.ZWEMMER if zelf else Profiel.OUDER
+    if not heeft_rol(user, rol):
+        geef_rol(user, rol)
+
+
 def vul_ontbrekende():
     """Accounts zonder rollen (bv. na het terugzetten van een backup van vóór de rollen) krijgen hun hoofdrol."""
-    zonder = Profiel.objects.exclude(user__app_rollen__isnull=False)
+    zonder = Profiel.objects.exclude(user__app_rollen__isnull=False).exclude(rol="")
     Rol.objects.bulk_create([Rol(user_id=p.user_id, rol=p.rol) for p in zonder])
 
 
@@ -118,7 +124,10 @@ def neem_af(door, user, rol):
     if rol == Profiel.BEHEERDER and user.is_superuser:
         raise ValueError("Dit account is superuser in /beheer/ en blijft altijd beheerder.")
     _wis_cache(user)
-    zet_rollen(user, _opgeslagen(user) - {rol}, door)
+    over = _opgeslagen(user) - {rol}
+    if not over:
+        raise ValueError("Een account houdt minstens één rol. Geef eerst een andere rol.")
+    zet_rollen(user, over, door)
 
 
 # ---------- aanvragen ----------
@@ -174,8 +183,9 @@ def behandel(aanvraag, door, actie, rol=None, reden=""):
         aanvraag.status, aanvraag.toegekende_rol, aanvraag.reden = status, toegekend, reden
         aanvraag.behandeld_door, aanvraag.behandeld_op, aanvraag.gelezen = door, timezone.now(), False
         aanvraag.save()
-    push.stuur([aanvraag.user], f"Rolaanvraag {aanvraag.get_status_display().lower()}", beslissing(aanvraag),
-               reverse("mijn_rollen"))
+    if getattr(getattr(aanvraag.user, "profiel", None), "push_beslissing", True):
+        push.stuur([aanvraag.user], f"Rolaanvraag {aanvraag.get_status_display().lower()}", beslissing(aanvraag),
+                   reverse("mijn_rollen"))
     return aanvraag
 
 

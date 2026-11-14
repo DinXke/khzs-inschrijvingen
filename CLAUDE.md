@@ -4,7 +4,7 @@ Deze repo (`DinXke/khzs-leden`, vroeger `khzs-inschrijvingen`) bevat twee versie
 
 1. **Django-app** (`inschrijvingen/`, `config/`, `templates/`, `static/`, `deploy/`): de huidige productieversie. Ze draait in een Debian-LXC met Postgres, gunicorn, nginx en cloudflared.
    - ⚠️ De container installeert **elke commit op `main` automatisch** (`deploy/auto_update.sh`, elke 10 minuten). Werk altijd op een branch; merge naar `main` alleen na akkoord.
-   - Tests: `.venv/bin/python manage.py test inschrijvingen` (98, alle geslaagd).
+   - Tests: `.venv/bin/python manage.py test inschrijvingen` (107, alle geslaagd).
 2. **WordPress-plugin KHZS Leden** (`wordpress/khzs-leden/`): een port van de app naar WordPress, met de modules *inschrijvingen* en *trainers* (planning, uren, verloning).
    - **Lees eerst `wordpress/OVERDRACHT.md`**: daar staan de beslissingen, de stand van zaken en de volgende stappen. Lees daarna `wordpress/README.md`.
    - Testsite: `wordpress/tests/testsite.sh`. Tests: `KHZS_URL=http://localhost:8080 python3 wordpress/tests/test_e2e.py`. Zip: `wordpress/bouw.sh`.

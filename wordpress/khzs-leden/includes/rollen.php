@@ -70,7 +70,20 @@ function neem_rol_af(int $uid, string $rol): void
     if ($rol === BEHEERDER && user_can($uid, 'manage_options')) {
         throw new \RuntimeException('WordPress-beheerders zijn altijd beheerder in de app.');
     }
-    zet_rollen($uid, array_diff(bewaarde_rollen($uid), [$rol]));
+    $over = array_diff(bewaarde_rollen($uid), [$rol]);
+    if (!$over) {
+        throw new \RuntimeException('Een account houdt minstens één rol. Geef eerst een andere rol.');
+    }
+    zet_rollen($uid, $over);
+}
+
+/** Wie een zwemmer toevoegt of koppelt, krijgt de rol zwemmer (zichzelf) of ouder, als die er nog niet is. */
+function zorg_gezinsrol(int $uid, bool $zelf = false): void
+{
+    $rol = $zelf ? ZWEMMER : OUDER;
+    if (!heeft_rol([$rol], $uid)) {
+        geef_rol($uid, $rol);
+    }
 }
 
 /** Zwemmer en ouder krijg je meteen (geeft null terug); de andere rollen worden een aanvraag. */
@@ -139,7 +152,9 @@ function behandel_rolaanvraag(object $a, string $actie, ?string $rol = null, str
         'behandeld_op' => nu_sql(), 'gelezen' => 0];
     db()->update(t('rolaanvragen'), $wijziging, ['id' => $a->id]);
     $a = (object) ($wijziging + (array) $a);
-    stuur([(int) $a->user_id], 'Rolaanvraag ' . mb_strtolower(RA_STATUS[$status]), rol_beslissing($a), app_url('rollen/'));
+    if (voorkeur((int) $a->user_id, 'push_beslissing')) {
+        stuur([(int) $a->user_id], 'Rolaanvraag ' . mb_strtolower(RA_STATUS[$status]), rol_beslissing($a), app_url('rollen/'));
+    }
     return $a;
 }
 

@@ -9,11 +9,7 @@ from django.test import TestCase, TransactionTestCase
 from inschrijvingen.models import Profiel, Rol, Rolaanvraag
 from inschrijvingen.rollen import heeft_rol, hoofdrol, rollen_van, vul_ontbrekende, zet_rollen
 
-REGISTRATIE = {
-    "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!", "voornaam": "Ann", "naam": "Peeters",
-    "zw-TOTAL_FORMS": 1, "zw-INITIAL_FORMS": 0, "zw-MIN_NUM_FORMS": 1, "zw-MAX_NUM_FORMS": 10,
-    "zw-0-voornaam": "Lien", "zw-0-naam": "Peeters", "zw-0-geboortedatum": "2013-03-02", "zw-0-geslacht": "F",
-}
+REGISTRATIE = {"password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!", "voornaam": "Ann", "naam": "Peeters"}
 
 
 def rollen(user):
@@ -116,17 +112,18 @@ class RollenTest(TestCase):
         self.client.force_login(self.bestuur)
         self.assertNotContains(self.client.get("/gebruikers/"), "Rolaanvragen")
 
-    def test_registratie_met_rollen(self):
-        r = self.client.post("/registreren/", {**REGISTRATIE, "email": "nieuw@test.be",
-                                               "rollen": [Profiel.OUDER, Profiel.TRAINER]})
-        self.assertEqual(r.status_code, 302)
+    def test_rollen_in_het_stappenplan(self):
+        r = self.client.post("/registreren/", {**REGISTRATIE, "email": "nieuw@test.be"})
+        self.assertEqual(r["Location"], "/welkom/")
         u = User.objects.get(username="nieuw@test.be")
+        self.assertEqual(rollen(u), set())  # start zonder rol
+        self.client.post("/welkom/?stap=kinderen", {"actie": "kind", "voornaam": "Lien", "naam": "Peeters",
+                                                    "geboortedatum": "2013-03-02", "geslacht": "F"})
         self.assertEqual(rollen(u), {Profiel.OUDER})
-        self.assertTrue(Rolaanvraag.objects.filter(user=u, rol=Profiel.TRAINER, status=Rolaanvraag.OPEN).exists())
-        # zonder keuze: zwemmer, zoals vroeger
-        self.client.logout()
-        self.client.post("/registreren/", {**REGISTRATIE, "email": "zonder@test.be"})
-        self.assertEqual(rollen(User.objects.get(username="zonder@test.be")), {Profiel.ZWEMMER})
+        r = self.client.post("/welkom/?stap=staf", {"rollen": [Profiel.TRAINER, Profiel.BEHEERDER], "motivatie": "B-groep"})
+        self.assertEqual(r["Location"], "/welkom/?stap=klaar")
+        self.assertEqual(list(Rolaanvraag.objects.filter(user=u).values_list("rol", "motivatie")), [(Profiel.TRAINER, "B-groep")])
+        self.assertContains(self.client.get("/welkom/?stap=klaar"), "Trainer (wacht)")
 
     def test_rechtstreeks_toevoegen_en_afnemen(self):
         a = self.aanvraag()
