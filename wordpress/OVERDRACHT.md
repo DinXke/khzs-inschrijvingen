@@ -113,12 +113,18 @@ Start Claude Code in de map van de repo. Claude leest dan automatisch `CLAUDE.md
 
 Vraag van de eigenaar: *"kan je een /leden-demo maken waarin heel de app nagemaakt is (geen pwa), met demo data, een demo/demo user met alle mogelijke rechten, die bestuurder, zwemmer, trainer, ouder,... is. enkele wedstrijden toegevoegd, de ploegen (je vind die in de uren van de competitie), de uren van de zwemschool voor de trainers, de ploegen van de zwemschool,...."*
 
-Daarna nog twee bijsturingen:
+Daarna nog drie bijsturingen:
 - *"deze moet ook continu up to date worden gehouden. geen koppeling met de productie wordpress"*;
-- *"eventueel toch een pwa app ervan maken maar die heel duidelijke KHZS Leden Demo noemen"*.
+- *"eventueel toch een pwa app ervan maken maar die heel duidelijke KHZS Leden Demo noemen"*;
+- adres: *"khzs.be/leden-demo"*.
 
 **Beslissingen**
 - **Aparte installatie**: de demo draait op een eigen WordPress met een eigen database (`wordpress/demo/`: docker-compose, `installeer.sh`, `update.sh`). Ze deelt niets met www.khzs.be.
+- **Adres khzs.be/leden-demo**: khzs.be loopt via Cloudflare.
+  - Een Worker (`wordpress/demo/worker.js`) op de route `khzs.be/leden-demo*` stuurt dat pad naar een tunnel met een verborgen hostnaam, bv. `leden-demo-bron.khzs.be`.
+  - De demo-WordPress staat zelf in de submap `/leden-demo/` (`working_dir` in de compose, eigen `.htaccess`). De app staat op de wortel van die site (`demo_slug()` is leeg met `KHZS_DEMO_ENKEL`).
+  - De Worker laat enkel de cookies van de demo door: `khzs_…` en `…_khzsdemo` (vaste `COOKIEHASH`). Aanmeldcookies van de echte site komen dus nooit bij de demoserver.
+  - In de kern is `huidige_url()` hersteld: bij WordPress in een submap kwam het pad dubbel.
 - **Aan met een constante**: demo-modus enkel met `define('KHZS_DEMO', true)` in wp-config.php. Er is geen optie in wp-admin, zodat ze op productie nooit per ongeluk aangaat.
   - `KHZS_DEMO_ENKEL` laat de rest van de site en `/leden/` doorverwijzen naar `/leden-demo/`.
   - De filter `khzs_demo_aan` dient enkel voor tests (header `X-KHZS-Demo-Uit` in de testhulp).
@@ -170,7 +176,10 @@ Daarna nog twee bijsturingen:
 **Stand**:
 - `DemoTest` in `tests/test_e2e.py` (6 scenario's), alle geslaagd.
 - `wordpress/demo/` is lokaal getest met Docker Desktop: `installeer.sh`, en `update.sh` met een nieuwe commit.
-- **Nog niet uitgerold**. De host en het adres (bv. demo.khzs.be via een Cloudflare-tunnel) moet de eigenaar nog kiezen.
+- De Worker is lokaal getest met Node: cookiefilter, doorsturen, aanmelden en manifest.
+- **Nog niet uitgerold.**
+  - De host (LXC) moet de eigenaar nog kiezen.
+  - Daarna: de tunnel, en de Worker en de route in Cloudflare (stappen in `wordpress/demo/README.md`).
 
 ## Werken aan de plugin
 

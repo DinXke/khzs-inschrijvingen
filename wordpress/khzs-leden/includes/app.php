@@ -46,7 +46,7 @@ function app_url(string $pad = '', array $query = []): string
 {
     $pad = ltrim($pad, '/');
     if (get_option('permalink_structure')) {
-        $url = home_url('/' . slug() . '/' . $pad);
+        $url = home_url('/' . ltrim(slug() . '/' . $pad, '/')); // slug kan leeg zijn (demo op een aparte site)
     } else {
         $url = add_query_arg(['khzs_pad' => '/' . $pad] + (is_demo() ? ['khzs_demo' => 1] : []), home_url('/'));
     }
@@ -65,7 +65,9 @@ function asset(string $pad): string
 /** Huidig pad + query (voor 'terug'-velden), relatief binnen de app. */
 function huidige_url(): string
 {
-    return home_url(wp_unslash($_SERVER['REQUEST_URI'] ?? '/'));
+    // REQUEST_URI bevat al het pad van WordPress (ook in een submap): enkel schema, host en poort van de site ervoor.
+    $h = wp_parse_url(home_url('/'));
+    return $h['scheme'] . '://' . $h['host'] . (isset($h['port']) ? ':' . $h['port'] : '') . wp_unslash($_SERVER['REQUEST_URI'] ?? '/');
 }
 
 // ---------- invoer ----------

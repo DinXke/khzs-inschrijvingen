@@ -82,9 +82,11 @@ Bezoekers op gsm zien op de website en in de app een melding *"Installeer de app
 
 ## Demo op /leden-demo/
 
-De demo draait op een **aparte WordPress-installatie**, volledig los van de site van de club. Gebruik daarvoor `demo/`: daar staan een `docker-compose.yml`, een installatiescript en `update.sh`, dat de demo automatisch bijhoudt met `main` (zie `demo/README.md`).
-- De demo staat enkel aan met `define('KHZS_DEMO', true);` in `wp-config.php`. Op een gewone site wordt ze nooit vanzelf actief.
-- Met `KHZS_DEMO_ENKEL` verwijzen de rest van de site en `/leden/` door naar `/leden-demo/`.
+De demo staat op **https://khzs.be/leden-demo/**, maar draait op een **aparte WordPress-installatie** in het homelab, volledig los van de site van de club.
+- Een Cloudflare Worker stuurt enkel dat pad door, via een tunnel.
+- Alles staat in `demo/`: `docker-compose.yml`, `installeer.sh`, `update.sh` (houdt de demo automatisch bij met `main`) en `worker.js`. De uitleg staat in `demo/README.md`.
+- De demo-modus staat enkel aan met `define('KHZS_DEMO', true);` in `wp-config.php`. Op een gewone site wordt ze nooit vanzelf actief.
+- Met `KHZS_DEMO_ENKEL` is de hele site de demo: de app staat dan op het adres van de site zelf (behalve wp-admin).
 
 - **Aanmelden** met `demo` / `demo`. Dat account heeft alle rollen: beheerder (dus ook sportsecretaris), trainer, penningmeester, ouder van drie kinderen en zelf zwemmer.
   Andere demo-accounts, ook met wachtwoord `demo`:

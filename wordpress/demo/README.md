@@ -1,23 +1,36 @@
-# Demo van KHZS Leden (aparte WordPress)
+# Demo van KHZS Leden op khzs.be/leden-demo
 
-Een eigen WordPress-installatie met de plugin KHZS Leden in demo-modus, **volledig los van www.khzs.be**: eigen containers, eigen database, niets gedeeld.
+De demo is een eigen WordPress-installatie met de plugin KHZS Leden in demo-modus. Ze is **volledig los van de WordPress van www.khzs.be**: eigen containers, eigen database, niets gedeeld.
 
-- **Adres**: de demo staat op `<DEMO_URL>/leden-demo/`. De rest van de site en `/leden/` verwijzen ernaar door.
-- **Aanmelden**: met `demo` / `demo` (alle rollen). Uitleg over de demo zelf: `../README.md`, kop *Demo*.
+Bezoekers zien ze toch op **https://khzs.be/leden-demo/**. Dat werkt zo:
+
+```
+bezoeker → https://khzs.be/leden-demo/…
+             │  Cloudflare Worker op de route khzs.be/leden-demo*  (worker.js)
+             ▼
+           https://leden-demo-bron.khzs.be/leden-demo/…   (Cloudflare-tunnel, verborgen hostnaam)
+             │  cloudflared
+             ▼
+           demo-WordPress in het homelab (docker compose, WordPress in de submap /leden-demo/)
+```
+
+- **De rest van khzs.be** gaat gewoon naar de hosting van de club. De productie-WordPress merkt niets van de demo.
+- **Cookies**: de Worker laat enkel de cookies van de demo door. Aanmeldcookies van de echte site komen dus nooit bij de demoserver.
+- **Aanmelden**: met `demo` / `demo` (alle rollen). wp-admin van de demo: `https://khzs.be/leden-demo/wp-admin/` (gebruiker `beheer`).
 - **Installeerbaar** als app *KHZS Leden Demo*, met iconen waarop "DEMO" staat. Pushmeldingen en mails zijn uitgeschakeld.
 - **Altijd de nieuwste versie**: `update.sh` volgt de tak `main`. Bij een nieuwe commit:
   - werkt het de plugin en de database bij;
   - zet het de demo terug naar de begintoestand, zodat de demodata bij de nieuwe code passen;
   - gaat het terug naar de vorige versie als dat mislukt.
 
-## Installeren (bv. in een LXC met Docker)
+## 1. Demo-WordPress installeren (bv. in een LXC met Docker)
 
 Gebruik een **eigen clone** voor de demo: `update.sh` zet die clone telkens gelijk met `main`.
 
 ```bash
 git clone https://github.com/DinXke/khzs-leden /opt/khzs-demo
 cd /opt/khzs-demo/wordpress/demo
-cp .env.voorbeeld .env          # DEMO_URL, DB_WACHTWOORD … aanvullen
+cp .env.voorbeeld .env          # DB_WACHTWOORD invullen; DEMO_URL=https://khzs.be/leden-demo
 ./installeer.sh                 # toont eenmalig het wachtwoord van wp-admin (gebruiker beheer)
 ```
 
@@ -27,16 +40,26 @@ Houd de demo bij met cron, elke 10 minuten. Dezelfde taak draait ook de geplande
 ( crontab -l 2>/dev/null; echo '*/10 * * * * /opt/khzs-demo/wordpress/demo/update.sh >> /var/log/khzs-demo.log 2>&1' ) | crontab -
 ```
 
-## Cloudflare-tunnel
+## 2. Cloudflare-tunnel
 
-De container luistert op `DEMO_BIND:DEMO_POORT` (standaard `127.0.0.1:8094`). Een ingress-regel in de configuratie van cloudflared:
+Geef de tunnel een hostnaam die bezoekers niet moeten kennen, bijvoorbeeld `leden-demo-bron.khzs.be`. Gebruik die naam ook in de Worker. Ingress-regel in de configuratie van cloudflared:
 
 ```yaml
-- hostname: demo.khzs.be
-  service: http://localhost:8094      # of http://<ip-van-de-lxc>:8094 met DEMO_BIND=0.0.0.0
+- hostname: leden-demo-bron.khzs.be
+  service: http://localhost:8094      # of http://<ip-van-de-lxc>:8094 met DEMO_BIND=0.0.0.0 in .env
 ```
 
-Zet `DEMO_URL=https://demo.khzs.be` in `.env`. HTTPS via de tunnel werkt vanzelf: de WordPress-image herkent `X-Forwarded-Proto`.
+## 3. Cloudflare Worker
+
+In het Cloudflare-dashboard van khzs.be:
+
+1. **Workers & Pages → Create → Worker**, bv. met de naam `khzs-leden-demo`. Plak de inhoud van `worker.js` en klik op **Deploy**.
+2. **Settings → Variables**: voeg de variabele `BRON` toe, met als waarde `https://leden-demo-bron.khzs.be`.
+3. **Settings → Domains & Routes → Add route**:
+   - `khzs.be/leden-demo*`
+   - `www.khzs.be/leden-demo*`, als de site ook op www draait.
+
+De demo uitzetten kan door de route te verwijderen. De rest van de site verandert daar niet door.
 
 ## Beheer
 
@@ -46,4 +69,6 @@ docker compose logs -f wordpress                                    # logs
 docker compose down                                                 # stoppen (gegevens blijven in de volumes)
 ```
 
-In wp-admin (`<DEMO_URL>/wp-admin/`, gebruiker `beheer`) staat onder *Instellingen → KHZS Leden* ook een knop *Demo nu terugzetten*.
+In wp-admin van de demo staat onder *Instellingen → KHZS Leden* ook een knop *Demo nu terugzetten*.
+
+**Lokaal testen**: zet `DEMO_URL=http://localhost:8094/leden-demo` in `.env` en open http://localhost:8094/leden-demo/.

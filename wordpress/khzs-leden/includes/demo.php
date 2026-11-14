@@ -4,7 +4,8 @@
  *
  * De demo draait op een aparte WordPress-installatie, los van de site van de club (zie wordpress/demo/). Ze staat enkel
  * aan met de constante KHZS_DEMO in wp-config.php; op een gewone site wordt ze nooit vanzelf actief. Met KHZS_DEMO_ENKEL
- * verwijzen de rest van de site en /leden/ door naar de demo. Ook dan blijft de demo afgeschermd zoals hieronder.
+ * is de hele site de demo: de app staat dan op het adres van de site zelf (bv. https://khzs.be/leden-demo/ als WordPress
+ * daar staat), behalve wp-admin en wp-login.php. Ook dan blijft de demo afgeschermd zoals hieronder.
  *
  * Hoe de demo gescheiden blijft van de echte gegevens:
  * - Tabellen van de app: t() geeft in de demo wp_khzsdemo_… in plaats van wp_khzs_….
@@ -43,7 +44,7 @@ function demo_aan(): bool
     return (bool) apply_filters('khzs_demo_aan', defined('KHZS_DEMO') && KHZS_DEMO);
 }
 
-/** Is de hele site een demo (aparte installatie)? Dan verwijst alles door naar de demo. */
+/** Is de hele site een demo (aparte installatie)? Dan staat de app op het adres van de site zelf. */
 function demo_enkel(): bool
 {
     return demo_aan() && defined('KHZS_DEMO_ENKEL') && KHZS_DEMO_ENKEL;
@@ -57,6 +58,9 @@ function demo_code_versie(): string
 
 function demo_slug(): string
 {
+    if (demo_enkel()) {
+        return '';
+    }
     return trim((string) get_option('khzs_demo_slug', 'leden-demo'), '/') ?: 'leden-demo';
 }
 
@@ -67,9 +71,15 @@ function demo_tabel(string $naam): string
     return $wpdb->base_prefix . DEMO_PREFIX . $naam;
 }
 
+/** Beginadres van de demo. */
+function demo_url(): string
+{
+    return home_url(demo_slug() === '' ? '/' : '/' . demo_slug() . '/');
+}
+
 function registreer_demo_route(): void
 {
-    if (demo_aan()) {
+    if (demo_aan() && !demo_enkel()) {
         add_rewrite_rule('^' . preg_quote(demo_slug(), '#') . '(?:/(.*))?/?$', 'index.php?khzs_pad=/$matches[1]&khzs_demo=1', 'top');
     }
 }
@@ -87,6 +97,10 @@ function demo_verzoek(): bool
     }
     $pad = rawurldecode((string) wp_parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH));
     $basis = rtrim((string) wp_parse_url(home_url('/'), PHP_URL_PATH), '/');
+    if (demo_enkel()) {
+        // Hele site: alles behalve aanmelden voor wp-admin en de REST-API van WordPress.
+        return ($GLOBALS['pagenow'] ?? '') !== 'wp-login.php' && !str_starts_with($pad, "$basis/wp-json") && !isset($_GET['rest_route']);
+    }
     if (preg_match('#^' . preg_quote($basis . '/' . demo_slug(), '#') . '(/|$)#', $pad)) {
         return true;
     }
@@ -175,7 +189,7 @@ add_filter('pre_option_khzs_pwa_tekst', fn($pre) => is_demo() ? 'Probeer de app 
 
 function demo_cookie_pad(): string
 {
-    return get_option('permalink_structure') ? (wp_parse_url(home_url('/' . demo_slug() . '/'), PHP_URL_PATH) ?: '/') : (COOKIEPATH ?: '/');
+    return get_option('permalink_structure') ? (wp_parse_url(demo_url(), PHP_URL_PATH) ?: '/') : (COOKIEPATH ?: '/');
 }
 
 /** Echte aanmeldcookies negeren; het demo-cookie doet dienst als 'logged in'-cookie. */
@@ -217,17 +231,16 @@ if (demo_verzoek()) {
     }, 20);
 }
 
-// Aparte demo-installatie: de rest van de site en de gewone app verwijzen door naar de demo.
-add_action('template_redirect', function () {
-    if (!demo_enkel() || is_demo()) {
-        return;
+// Hele site is de demo: elk adres gaat naar de app (zonder rewrite-regel).
+add_filter('request', function ($q) {
+    if (!demo_enkel() || !is_demo()) {
+        return $q;
     }
-    $pad = get_query_var('khzs_pad');
-    if (($pad !== '' && $pad !== null) || is_front_page() || is_home() || is_404()) {
-        wp_safe_redirect(home_url('/' . demo_slug() . '/'), 302);
-        exit;
-    }
-}, -1);
+    $pad = rawurldecode((string) wp_parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH));
+    $basis = rtrim((string) wp_parse_url(home_url('/'), PHP_URL_PATH), '/');
+    $rel = str_starts_with($pad, $basis) ? substr($pad, strlen($basis)) : $pad;
+    return ['khzs_pad' => '/' . ltrim($rel, '/'), 'khzs_demo' => 1];
+}, 5);
 
 // ---------- routes in de demo ----------
 
@@ -348,7 +361,7 @@ add_action('khzs_demo_reset', function () {
 add_action('wp_loaded', function () {
     $regels = get_option('rewrite_rules');
     $heeft = is_array($regels) && isset($regels['^' . preg_quote(demo_slug(), '#') . '(?:/(.*))?/?$']);
-    if (is_array($regels) && $heeft !== demo_aan()) {
+    if (is_array($regels) && $heeft !== (demo_aan() && !demo_enkel())) {
         delete_option('rewrite_rules'); // WordPress bouwt ze bij het volgende verzoek opnieuw op
     }
     if (!demo_aan() && wp_next_scheduled('khzs_demo_reset')) {
@@ -367,7 +380,7 @@ add_action('khzs_admin_onder', function () {
     <h2>Demo</h2>
     <p>Deze site draait de demo (<code>KHZS_DEMO</code> in wp-config.php), met verzonnen gegevens en een account <b>demo</b> / <b>demo</b> met alle rechten.
       De demo staat elke nacht om 03:30 en na elke update van de plugin terug in de begintoestand.</p>
-    <p><a class="button" href="<?= esc_url(home_url('/' . demo_slug() . '/')) ?>" target="_blank">Open de demo ↗</a>
+    <p><a class="button" href="<?= esc_url(demo_url()) ?>" target="_blank">Open de demo ↗</a>
       Aanmelden met <code>demo</code> / <code>demo</code>.
       <?= $gevuld ? 'Laatst teruggezet: ' . esc_html(wp_date('j/m/Y H:i', $gevuld)) . '.' : 'Nog niet aangemaakt.' ?>
       Volgende keer: <?= esc_html(($t = wp_next_scheduled('khzs_demo_reset')) ? wp_date('j/m/Y H:i', $t) : 'niet gepland') ?>.</p>
