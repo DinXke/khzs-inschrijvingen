@@ -618,3 +618,124 @@ function demo_vul_trainers(object $c): void
         $bevestig($d, $d);
     }
 }
+
+// ---------- communicatie ----------
+
+add_action('khzs_demo_vullen', __NAMESPACE__ . '\\demo_vul_communicatie');
+
+/**
+ * Secties, kanalen en threads (standaardopbouw, een kanaal per ploeg, een thread per wedstrijd), berichten met
+ * vastgepinde berichten en vermeldingen, aankondigingen van elke soort en vragen naar hulp met antwoorden.
+ */
+function demo_vul_communicatie(object $c): void
+{
+    if (!function_exists(__NAMESPACE__ . '\\com_sync')) {
+        return; // module communicatie staat uit
+    }
+    com_sync(true);
+    $u = $c->users;
+    $v = vandaag();
+    $op = fn(int $dagen, string $uur) => $v->modify(sprintf('%+d days', $dagen))->format('Y-m-d') . " $uur:00";
+    $kanaal = function (string $naam) {
+        foreach (com_kanalen() as $k) {
+            if ($k->naam === $naam) {
+                return (int) $k->id;
+            }
+        }
+        return 0;
+    };
+    $laatste = [];
+    $bericht = function (int $kid, string $wie, string $tekst, string $wanneer, array $vermeld = [], bool $pin = false) use ($u, &$laatste): int {
+        if (!$kid) {
+            return 0;
+        }
+        db()->insert(t('com_berichten'), ['kanaal_id' => $kid, 'user_id' => $u[$wie], 'tekst' => $tekst, 'aangemaakt' => $wanneer,
+            'vastgepind' => $pin ? $wanneer : null, 'vastgepind_door' => $pin ? $u[$wie] : null]);
+        $id = (int) db()->insert_id;
+        foreach ($vermeld as $wie2) {
+            db()->insert(t('com_vermeldingen'), ['bericht_id' => $id, 'user_id' => $u[$wie2]]);
+        }
+        $laatste[$kid] = [$id, $wanneer];
+        return $id;
+    };
+
+    $alg = $kanaal('Algemeen');
+    $bericht($alg, 'bestuur', "Welkom bij de berichten in KHZS Leden! Hier lees je het nieuws van de club, en in het kanaal van je ploeg praat je met de trainers.\nBij Meldingen kies je welke berichten je op je gsm krijgt.", $op(-7, '19:12'), [], true);
+    $bericht($alg, 'katrien', 'De clubkledij bestel je via de webshop (knop bovenaan). Bestellen kan tot het einde van de maand.', $op(-2, '10:05'));
+
+    $staf = $kanaal('Trainers en bestuur');
+    $bericht($staf, 'wout', 'Wie neemt zaterdag de opwarming over? Ik ben pas om 7u30 in het zwembad.', $op(-3, '21:00'));
+    $bericht($staf, 'bram', 'Doe ik 👍', $op(-3, '21:14'));
+    $bericht($staf, 'demo', '@Lotte Janssens kan jij de lijst voor de Clubmeeting nog eens nakijken?', $op(-1, '08:30'), ['lotte']);
+    $bericht($staf, 'lotte', 'Komt in orde, @Demo Gebruiker!', $op(-1, '09:02'), ['demo']);
+
+    $c2 = $kanaal('Competitie 2');
+    $bericht($c2, 'tom', 'Vanaf volgende week trainen we op maandag tot 20u15. Breng zeker je vinnen mee.', $op(-4, '17:40'), [], true);
+    $bericht($c2, 'pieter', 'Ok, Ella neemt ze mee. Moeten ze ook een pullbuoy hebben?', $op(-4, '18:02'));
+    $bericht($c2, 'tom', 'Ja graag. Er liggen er ook in de berging voor wie er geen heeft.', $op(-4, '18:10'));
+    $bericht($c2, 'demo', 'Lina is woensdag ziek, ze komt niet trainen.', $op(-1, '20:15'));
+    $bericht($c2, 'bram', 'Beterschap aan Lina!', $op(-1, '20:20'));
+
+    // Een thread onder Competitie algemeen.
+    $ca = $kanaal('Competitie algemeen');
+    $bericht($ca, 'annelies', 'Zondag is er een infosessie voor nieuwe ouders van de competitie, om 10u in de cafetaria.', $op(-9, '12:00'));
+    $stage = com_nieuw_kanaal(['sectie_id' => com_kanaal($ca)->sectie_id, 'ouder_id' => $ca, 'naam' => 'Stage Pasen', 'toegang' => 'erven',
+        'leden_posten' => 1, 'door_id' => $u['wout'], 'beschrijving' => 'Alles over de stage in de paasvakantie.']);
+    $bericht($stage, 'wout', 'Dit jaar gaan we op stage naar Mol, van maandag tot woensdag in de paasvakantie. Info volgt hier.', $op(-6, '18:00'));
+    $bericht($stage, 'hilde', 'Wat is de prijs ongeveer?', $op(-5, '07:45'));
+    $bericht($stage, 'wout', 'Rond 180 euro, met overnachting en maaltijden.', $op(-5, '12:10'));
+
+    // Wedstrijdthreads: de deelnemers zitten er vanzelf in.
+    $zct = $kanaal('Clubmeeting ZCT');
+    $bericht($zct, 'lotte', 'De bus vertrekt om 7u45 aan zwembad Kapermolen. Vergeet je clubbadmuts niet!', $op(-2, '18:30'), [], true);
+    $bericht($zct, 'koen', 'Mila komt met de auto, ze moet om 10u weg.', $op(-2, '19:00'));
+    $bericht($zct, 'lotte', 'Geen probleem, laat het ter plaatse weten aan de jury.', $op(-2, '19:05'));
+    $bericht($kanaal('Herfstmeeting HZS'), 'demo', 'Bedankt aan alle helpers in de cafetaria, het was een topdag!', $op(-34, '20:00'));
+
+    $g3 = $kanaal('Zwemschool Groep 3 (oranje)');
+    $bericht($g3, 'elise', 'Zaterdag is er geen zwemles door de clubwedstrijd. Volgende week gewoon weer!', $op(-3, '17:35'), [], true);
+    $bericht($g3, 'demo', 'Bedankt voor de info!', $op(-3, '18:01'));
+    $bericht($kanaal('Zwemschool algemeen'), 'nina', 'Het rapport van de zwemschool komt de week voor de kerstvakantie.', $op(-8, '16:00'));
+
+    foreach ($laatste as $kid => [$id, $wanneer]) {
+        db()->update(t('com_kanalen'), ['laatste_id' => $id, 'laatste_op' => $wanneer], ['id' => $kid]);
+    }
+    // De demogebruiker is al lang lid en las alles, behalve Competitie 2 en Trainers en bestuur (ongelezen in het menu).
+    db()->update(db()->users, ['user_registered' => gmdate('Y-m-d H:i:s', time() - 400 * DAY_IN_SECONDS)], ['ID' => $u['demo']]);
+    foreach ($laatste as $kid => [$id]) {
+        if (!in_array($kid, [$c2, $staf], true)) {
+            db()->insert(t('com_status'), ['kanaal_id' => $kid, 'user_id' => $u['demo'], 'gelezen_tot' => $id]);
+        }
+    }
+
+    // Aankondigingen van elke soort, en twee vragen naar hulp met antwoorden.
+    $aank = function (string $soort, string $titel, string $tekst, string $wie, int $dagen, array $extra = []) use ($u, $op): int {
+        db()->insert(t('com_aankondigingen'), ['soort' => $soort, 'titel' => $titel, 'tekst' => $tekst, 'door_id' => $u[$wie],
+            'aangemaakt' => $op($dagen, '09:00')] + $extra + ['kanaal_id' => 0, 'wanneer' => '', 'nodig' => 0, 'tot' => null]);
+        return (int) db()->insert_id;
+    };
+    $rsvp = function (int $aid, string $wie, string $antwoord, int $personen, string $opm = '') use ($u, $op) {
+        db()->insert(t('com_rsvp'), ['aankondiging_id' => $aid, 'user_id' => $u[$wie], 'antwoord' => $antwoord,
+            'personen' => $antwoord === 'nee' ? 0 : $personen, 'opmerking' => $opm, 'gewijzigd' => $op(-1, '20:00')]);
+    };
+    $aank('info', 'Welkom in de nieuwe app', 'Wedstrijden, trainingen en nu ook berichten: alles van de club op één plaats.', 'bestuur', -7);
+    $gezien = $aank('aankondiging', 'Nieuwjaarsreceptie', "Iedereen welkom op de nieuwjaarsreceptie van de club in de cafetaria van het zwembad.\nDe zwemmers krijgen een drankje van de club.",
+        'bestuur', -3, ['wanneer' => 'zondag 11 januari, 11u', 'tot' => $v->modify('+60 days')->format('Y-m-d')]);
+    $pasta = $aank('hulp', 'Helpers voor de pastadag', "Voor de pastadag zoeken we helpers in de keuken, aan de kassa en in de zaal.\nGeef hieronder door of je kan helpen, en met hoeveel personen.",
+        'marc', -2, ['wanneer' => datum($v->modify('+20 days'), 'l j F') . ', 11u tot 20u', 'nodig' => 15, 'tot' => $v->modify('+20 days')->format('Y-m-d')]);
+    $rsvp($pasta, 'koen', 'ja', 2);
+    $rsvp($pasta, 'an', 'ja', 1, 'Enkel in de namiddag');
+    $rsvp($pasta, 'hilde', 'ja', 3);
+    $rsvp($pasta, 'katrien', 'ja', 1, 'Kassa');
+    $rsvp($pasta, 'pieter', 'misschien', 1);
+    $rsvp($pasta, 'sofie', 'nee', 0);
+    $jury = $aank('hulp', 'Juryleden en tijdopnemers voor de thuiswedstrijd', 'Ouders met een juryopleiding of zin om tijden op te nemen: laat het weten!', 'katrien', -1,
+        ['kanaal_id' => $ca, 'nodig' => 8, 'wanneer' => 'zaterdagvoormiddag, 8u30', 'tot' => $v->modify('+14 days')->format('Y-m-d')]);
+    $rsvp($jury, 'koen', 'ja', 1);
+    $rsvp($jury, 'hilde', 'misschien', 1, 'Als ik geen dienst heb');
+    $aank('dringend', 'Zwembad Kapermolen zaterdag dicht', 'Door een technisch defect is het zwembad zaterdag dicht. Alle trainingen en lessen vallen weg.', 'katrien', 0,
+        ['tot' => $v->modify('+5 days')->format('Y-m-d')]);
+    $aank('info', 'Clubfoto', 'De foto\'s van de clubfotodag staan online.', 'bestuur', -40, ['tot' => $v->modify('-20 days')->format('Y-m-d')]);
+    db()->insert(db()->usermeta, ['user_id' => $u['demo'], 'meta_key' => 'khzs_com_aank_gezien', 'meta_value' => (string) $gezien]);
+    com_cache(true);
+}

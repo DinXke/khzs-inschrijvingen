@@ -129,8 +129,11 @@ function push_achtergrond(array $ids, array $bericht): void
     verstuur_abonnementen($ids, $bericht);
 }
 
-/** Stuurt een melding naar alle toestellen van deze gebruikers. Geeft het aantal toestellen terug. */
-function stuur(array $user_ids, string $titel, string $tekst, string $url = '', bool $achtergrond = true): int
+/**
+ * Stuurt een melding naar alle toestellen van deze gebruikers. Geeft het aantal toestellen terug.
+ * $extra gaat mee in het bericht, bv. ['tag' => …]: meldingen met dezelfde tag vervangen elkaar (views/sw.js.php).
+ */
+function stuur(array $user_ids, string $titel, string $tekst, string $url = '', bool $achtergrond = true, array $extra = []): int
 {
     if (!$user_ids || is_demo()) {
         return 0;
@@ -139,7 +142,7 @@ function stuur(array $user_ids, string $titel, string $tekst, string $url = '', 
     if (!$ids) {
         return 0;
     }
-    $bericht = ['titel' => $titel, 'tekst' => $tekst, 'url' => $url ?: app_url('')];
+    $bericht = ['titel' => $titel, 'tekst' => $tekst, 'url' => $url ?: app_url('')] + $extra;
     if ($achtergrond && !apply_filters('khzs_push_synchroon', false)) {
         // Via WP-Cron, zodat de gebruiker niet hoeft te wachten.
         wp_schedule_single_event(time(), 'khzs_push', [$ids, $bericht + ['_' => wp_generate_uuid4()]]);

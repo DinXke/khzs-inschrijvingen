@@ -214,6 +214,7 @@ function modules(): array
     return [
         'inschrijvingen' => ['Inschrijvingen', 'Wedstrijdinschrijvingen: Lenex-uitnodigingen, inschrijven, nakijken, export naar Lenex en Excel.'],
         'trainers' => ['Trainers', 'Trainingsrooster, wie geeft welke training, afmelden en vervangen, gepresteerde uren en verloning.'],
+        'communicatie' => ['Communicatie', 'Berichten per ploeg en per wedstrijd (secties, kanalen en threads), vastgepinde berichten, aankondigingen en hulpvragen met inschrijving.'],
     ];
 }
 
