@@ -68,17 +68,33 @@ h3 { font-size: 1rem; margin: 1rem 0 .4rem; }
   background: var(--kaart); border-top: 1px solid var(--lijn);
   padding-bottom: env(safe-area-inset-bottom); height: calc(var(--nav-h) + env(safe-area-inset-bottom));
 }
-.tabbalk a {
-  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+.tabbalk a, .tabbalk button {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 2px; font-size: .72rem; color: var(--zacht); text-decoration: none;
 }
-.tabbalk a svg { width: 24px; height: 24px; }
-.tabbalk a.actief { color: var(--primair); font-weight: 600; }
+.tabbalk button { background: none; border: 0; border-radius: 0; padding: 0; min-height: 0; font: inherit; font-size: .72rem; cursor: pointer; }
+.tabbalk a svg, .tabbalk button svg { width: 24px; height: 24px; }
+.tabbalk a.actief, .tabbalk button.actief { color: var(--primair); font-weight: 600; }
+/* 'Meer' (gsm): paneel boven de onderbalk met de overige menu-items en Afmelden (ook boven de installatiemelding). */
+.meer-achtergrond { position: fixed; inset: 0; z-index: 100000; background: rgba(0, 0, 0, .35); }
+.meer-blad {
+  position: fixed; left: 8px; right: 8px; z-index: 100001; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 8px);
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 10px;
+  background: var(--kaart); border: 1px solid var(--lijn); border-radius: var(--radius); box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+}
+.meer-blad[hidden], .meer-achtergrond[hidden] { display: none; }
+.meer-blad a {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 4px; border-radius: 10px;
+  color: var(--tekst); text-decoration: none; font-size: .8rem; text-align: center;
+}
+.meer-blad a svg { width: 24px; height: 24px; color: var(--zacht); }
+.meer-blad a.actief, .meer-blad a.actief svg { color: var(--primair); font-weight: 600; }
+.meer-blad a:hover, .meer-blad a:focus-visible { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 
 @media (min-width: 900px) {
   body { padding-bottom: 0; }
   .kop nav { display: flex; }
-  .tabbalk { display: none; }
+  .tabbalk, .meer-blad, .meer-achtergrond { display: none !important; }
 }
 
 main { max-width: 1100px; margin: 0 auto; padding: 16px; }
