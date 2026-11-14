@@ -34,7 +34,7 @@ function demo_ploegen(): array
     $p = [
         ['Competitie 3', 'competitie', ['lotte', 'demo'],
             [[2, '18:30', '20:00', $z], [3, '16:30', '18:30', $z], [4, '17:30', '18:30', $d], [6, '07:00', '07:30', $d], [6, '07:30', '09:00', $z]]],
-        ['Competitie 2', 'competitie', ['bram', 'tom'],
+        ['Competitie 2', 'competitie', ['bram', 'tom', 'trainer'],
             [[1, '18:00', '20:00', $z], [3, '18:30', '20:30', $z], [4, '17:30', '18:30', $d], [5, '16:30', '18:00', $z], [6, '07:00', '09:00', $z]]],
         ['Beloften', 'competitie', ['bram', 'tom'],
             [[1, '18:00', '20:00', $z], [3, '16:30', '18:30', $z], [4, '17:30', '18:30', $d], [4, '18:30', '20:00', $z], [5, '16:30', '18:00', $z], [6, '07:00', '09:00', $z]]],
@@ -66,30 +66,41 @@ function demo_ploegen(): array
 }
 
 /**
- * Accounts: sleutel => [voornaam, naam, app-rol, extra]. Gebruikersnaam = sleutel, wachtwoord 'demo'.
- * Extra: 'penningmeester', 'bestuurder', 'zwemschool' (ook trainer van de zwemschool). Wie een kind heeft in
- * demo_zwemmers(), krijgt de rol ouder; de demogebruiker heeft alle rollen (zie demo_vul_accounts()).
+ * Accounts: sleutel => [voornaam, naam, app-rol, rollen, penningmeester]. Gebruikersnaam = sleutel.
+ * - app-rol: khzs_rol (één rol, zoals de app nu werkt).
+ * - rollen: khzs_rollen voor meerdere rollen per lid (zwemmer, ouder, trainer (competitie),
+ *   trainer_zwemschool, secretaris, bestuurder, beheerder). khzs_rol wordt de hoogste van die rollen.
+ * Wachtwoord: 'demo', behalve voor de accounts met één rol uit DEMO_EEN_ROL (wachtwoord = gebruikersnaam).
  */
+const DEMO_EEN_ROL = ['trainer', 'zwemmer', 'ouder', 'bestuur'];
+
 function demo_personen(): array
 {
+    $alle = array_keys(ROLLEN); // de demogebruiker heeft alle rollen
     return [
-        'demo' => ['Demo', 'Gebruiker', BEHEERDER, ['penningmeester', 'bestuurder']],
-        'katrien' => ['Katrien', 'Vos', SECRETARIS, []],
-        'marc' => ['Marc', 'Lenaerts', ZWEMMER, ['bestuurder']],
-        'lotte' => ['Lotte', 'Janssens', TRAINER, ['zwemschool']],      // competitie én zwemschool
-        'bram' => ['Bram', 'Willems', TRAINER, []],
-        'tom' => ['Tom', 'Peeters', TRAINER, []],
-        'wout' => ['Wout', 'Claes', TRAINER, []],
-        'annelies' => ['Annelies', 'Hendrickx', TRAINER, []],
-        'nina' => ['Nina', 'Vandenberghe', TRAINER_ZWEMSCHOOL, []],
-        'ruben' => ['Ruben', 'Goossens', TRAINER_ZWEMSCHOOL, []],
-        'elise' => ['Elise', 'Wouters', TRAINER_ZWEMSCHOOL, []],
-        'jasper' => ['Jasper', 'Mertens', TRAINER_ZWEMSCHOOL, []],
-        'koen' => ['Koen', 'Vermeulen', ZWEMMER, []],
-        'an' => ['An', 'Smets', ZWEMMER, []],
-        'pieter' => ['Pieter', 'Maes', ZWEMMER, []],
-        'hilde' => ['Hilde', 'Jacobs', ZWEMMER, []],
-        'sofie' => ['Sofie', 'Martens', ZWEMMER, []],
+        'demo' => ['Demo', 'Gebruiker', BEHEERDER, $alle, true],
+        // Accounts met precies één rol, om de app te zien zoals dat lid ze ziet.
+        'trainer' => ['Jens', 'Dewitte', TRAINER, [TRAINER], false],
+        'zwemmer' => ['Lore', 'Daems', ZWEMMER, [ZWEMMER], false],
+        'ouder' => ['Griet', 'Bosmans', ZWEMMER, [OUDER], false],
+        // Bestuur: de rol bestuurder, plus penningmeester (verloning).
+        'bestuur' => ['Paul', 'Hermans', ZWEMMER, [BESTUURDER], true],
+        'katrien' => ['Katrien', 'Vos', SECRETARIS, [SECRETARIS, OUDER], false],
+        'marc' => ['Marc', 'Lenaerts', ZWEMMER, [BESTUURDER, OUDER], false],
+        'lotte' => ['Lotte', 'Janssens', TRAINER, [TRAINER, TRAINER_ZWEMSCHOOL], false],   // competitie én zwemschool
+        'bram' => ['Bram', 'Willems', TRAINER, [TRAINER], false],
+        'tom' => ['Tom', 'Peeters', TRAINER, [TRAINER], false],
+        'wout' => ['Wout', 'Claes', TRAINER, [TRAINER], false],
+        'annelies' => ['Annelies', 'Hendrickx', TRAINER, [TRAINER], false],
+        'nina' => ['Nina', 'Vandenberghe', TRAINER_ZWEMSCHOOL, [TRAINER_ZWEMSCHOOL], false],
+        'ruben' => ['Ruben', 'Goossens', TRAINER_ZWEMSCHOOL, [TRAINER_ZWEMSCHOOL], false],
+        'elise' => ['Elise', 'Wouters', TRAINER_ZWEMSCHOOL, [TRAINER_ZWEMSCHOOL], false],
+        'jasper' => ['Jasper', 'Mertens', TRAINER_ZWEMSCHOOL, [TRAINER_ZWEMSCHOOL], false],
+        'koen' => ['Koen', 'Vermeulen', ZWEMMER, [OUDER], false],
+        'an' => ['An', 'Smets', ZWEMMER, [OUDER], false],
+        'pieter' => ['Pieter', 'Maes', ZWEMMER, [OUDER], false],
+        'hilde' => ['Hilde', 'Jacobs', ZWEMMER, [OUDER], false],
+        'sofie' => ['Sofie', 'Martens', ZWEMMER, [OUDER], false],
     ];
 }
 
@@ -111,6 +122,9 @@ function demo_zwemmers(): array
         'emma' => ['Emma', 'Vos', 11, 'F', ['katrien'], 'Beloften'],
         'febe' => ['Febe', 'Lenaerts', 15, 'F', ['marc'], 'Kern'],
         'robbe' => ['Robbe', 'Lenaerts', 8, 'M', ['marc'], 'Zwemschool Pre-competitie 1'],
+        'lore' => ['Lore', 'Daems', 16, 'F', ['zwemmer'], 'Kern'],                   // account 'zwemmer' zwemt zelf
+        'finn' => ['Finn', 'Bosmans', 12, 'M', ['ouder'], 'Beloften'],               // kinderen van account 'ouder'
+        'lies' => ['Lies', 'Bosmans', 8, 'F', ['ouder'], 'Zwemschool Groep 2 (geel)'],
     ];
 }
 
@@ -161,31 +175,16 @@ function demo_vul_accounts(object $c): void
     $hash = wp_hash_password('demo');
     $caps = db()->get_blog_prefix() . 'capabilities';
     $nu = gmdate('Y-m-d H:i:s');
-    $ouders = [];
-    foreach (demo_zwemmers() as $sleutel => $z) {
-        foreach ($z[4] as $o) {
-            if ($o !== $sleutel) {
-                $ouders[] = $o;
-            }
-        }
-    }
-    foreach (demo_personen() as $login => [$vn, $nm, $rol, $extra]) {
-        db()->insert(db()->users, ['user_login' => $login, 'user_pass' => $hash, 'user_nicename' => $login,
+    foreach (demo_personen() as $login => [$vn, $nm, $rol, $rollen, $penningmeester]) {
+        $pw = in_array($login, DEMO_EEN_ROL, true) ? wp_hash_password($login) : $hash;
+        db()->insert(db()->users, ['user_login' => $login, 'user_pass' => $pw, 'user_nicename' => $login,
             'user_email' => "$login@demo.invalid", 'user_registered' => $nu, 'display_name' => "$vn $nm"]);
         $uid = (int) db()->insert_id;
         $c->users[$login] = $uid;
-        // Rollen: de app-rol, de extra rollen en ouder wie kinderen heeft. Een ouder die zelf niet zwemt, is geen zwemmer.
-        $rollen = [$rol, ...array_values(array_intersect_key(['bestuurder' => BESTUURDER, 'zwemschool' => TRAINER_ZWEMSCHOOL], array_flip($extra)))];
-        if (in_array($login, $ouders, true)) {
-            $rollen = $rol === ZWEMMER ? [OUDER, ...array_slice($rollen, 1)] : [...$rollen, OUDER];
-        }
-        if ($login === 'demo') {
-            $rollen = array_keys(ROLLEN);
-        }
         $rollen = gesorteerd($rollen);
         $meta = ['first_name' => $vn, 'last_name' => $nm, 'nickname' => $login, $caps => serialize(['subscriber' => true]),
             db()->get_blog_prefix() . 'user_level' => '0', 'khzs_rol' => $rollen[0], 'khzs_rollen' => implode(',', $rollen)];
-        if (in_array('penningmeester', $extra, true)) {
+        if ($penningmeester) {
             $meta['khzs_penningmeester'] = '1';
         }
         foreach ($meta as $k => $w) {
@@ -590,7 +589,7 @@ function demo_vul_trainers(object $c): void
     // Tarieven: competitietrainers per uur, lesgevers per training. Eén trainer kreeg een nieuw tarief.
     $tarief = fn(string $wie, string $soort, int $cent, string $vanaf, string $opm = '') => db()->insert(t('tr_tarieven'),
         ['user_id' => $u[$wie], 'soort' => $soort, 'bedrag_cent' => $cent, 'geldig_vanaf' => $vanaf, 'opmerking' => $opm, 'aangemaakt' => $nu]);
-    foreach (['lotte' => 1250, 'bram' => 1250, 'tom' => 1250, 'wout' => 1500, 'annelies' => 1500, 'demo' => 1250] as $wie => $cent) {
+    foreach (['lotte' => 1250, 'bram' => 1250, 'tom' => 1250, 'wout' => 1500, 'annelies' => 1500, 'demo' => 1250, 'trainer' => 1250] as $wie => $cent) {
         $tarief($wie, 'uur', $cent, $seizoen, 'Vrijwilligersvergoeding');
     }
     foreach (['nina' => 1000, 'ruben' => 1000, 'elise' => 1000, 'jasper' => 1000] as $wie => $cent) {
