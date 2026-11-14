@@ -1262,6 +1262,30 @@ class DemoTest(Basis):
         self.assertNotIn(">Verloning</a>", t.get("trainers/").text)
         self.assertEqual(t.post("demo/terugzetten/").status_code, 403)
 
+    def test_accounts_met_een_rol(self):
+        # trainer/trainer, zwemmer/zwemmer, ouder/ouder, bestuur/bestuur: elk één rol, wachtwoord = gebruikersnaam.
+        verwacht = {
+            "trainer": (["Wedstrijden", "Zwemmers", "Trainingen"], ["Verloning", "Gebruikers", "Backup"], "Competitie 2"),
+            "zwemmer": (["Wedstrijden", "Profiel"], ["Trainingen", "Verloning", "Gebruikers"], "Lore Daems"),
+            "ouder": (["Wedstrijden", "Profiel"], ["Trainingen", "Verloning", "Gebruikers"], "Finn Bosmans"),
+            "bestuur": (["Wedstrijden", "Profiel", "Verloning"], ["Trainingen", "Gebruikers", "Backup"], None),
+        }
+        for login, (wel, niet, inhoud) in verwacht.items():
+            with self.subTest(login):
+                self.assertNotEqual(requests.post(DEMO + "aanmelden/", data={"username": login, "password": "demo"},
+                                                  allow_redirects=False).status_code, 302)  # niet met 'demo'
+                k = DemoKlant().login(login, login)
+                menu = re.search(r"<nav>(.*?)</nav>", k.get("wedstrijden/").text, re.S).group(1)
+                for item in wel:
+                    self.assertIn(f">{item}</a>", menu)
+                for item in niet:
+                    self.assertNotIn(f">{item}</a>", menu)
+                if inhoud:
+                    self.assertIn(inhoud, k.get("trainers/" if login == "trainer" else "zwemmers/").text)
+        self.assertIn("Lies Bosmans", DemoKlant().login("ouder", "ouder").get("zwemmers/").text)
+        self.assertEqual(een("SELECT m.meta_value FROM wp_khzsdemo_usermeta m JOIN wp_khzsdemo_users u ON u.ID=m.user_id "
+                             "WHERE u.user_login='bestuur' AND m.meta_key='khzs_rollen'"), "bestuurder")
+
     def test_app_als_demo_zonder_push_of_registratie(self):
         # Installeerbaar, maar duidelijk de demo: eigen naam, iconen met DEMO, scope /leden-demo/.
         r = self.d.get("wedstrijden/")

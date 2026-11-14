@@ -161,7 +161,7 @@ Daarna nog drie bijsturingen:
 
 **Uitbreiden voor nieuwe onderdelen** (rollen en ploegen, PR #7; urenregistratie):
 - Haak in op de actie `khzs_demo_vullen`. Die krijgt `$c->users` (sleutel → id, bv. `demo`, `lotte`), `$c->zwemmers`, `$c->ploegen` (met `->momenten`, `->trainers`, `->soort`) en `$c->seizoen`.
-- `demo_personen()` heeft een kolom *extra* met `bestuurder` (demo, marc) en `penningmeester`.
+- `demo_personen()` geeft per account de huidige app-rol (`khzs_rol`) en de lijst rollen voor meerdere rollen per lid (`khzs_rollen`, zoals in PR #7). Zodra PR #7 gemerged is, hebben de demo-accounts dus meteen hun rollen. De accounts `trainer`, `zwemmer`, `ouder` en `bestuur` hebben elk één rol, met als wachtwoord de gebruikersnaam.
 - `demo_zwemmers()` geeft per zwemmer de ploeg.
 - Nieuwe tabellen via `t()` en `khzs_tabellen` komen vanzelf in de demo.
 
