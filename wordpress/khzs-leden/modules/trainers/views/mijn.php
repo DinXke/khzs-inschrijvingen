@@ -1,6 +1,6 @@
 <?php namespace KHZS; defined('ABSPATH') || exit; include __DIR__ . '/_stijl.php'; $vandaag = vandaag()->format('Y-m-d'); ?>
 <div class="rij tussen"><h1>Mijn trainingen</h1>
-  <div class="rij"><a class="knop secundair" href="<?= esc_url(app_url('trainers/planning/')) ?>">📅 Planning</a>
+  <div class="rij"><a class="knop secundair" href="<?= esc_url(app_url('trainers/kalender/')) ?>">🗓️ Kalender</a><a class="knop secundair" href="<?= esc_url(app_url('trainers/planning/')) ?>">📅 Planning</a>
   <?php if (tr_mag_beheren()): ?><a class="knop secundair" href="<?= esc_url(app_url('trainers/overzicht/')) ?>">Overzicht trainers</a><?php endif; ?>
   <?php if (tr_mag_beheren()): ?><a class="knop secundair" href="<?= esc_url(app_url('trainers/beheer/')) ?>">Trainingen beheren</a><?php endif; ?></div></div>
 

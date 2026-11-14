@@ -32,7 +32,8 @@ $_ploegveld = fn($p) => $ploegen ? veld_select("{$p}ploeg", 'Ploeg', ['' => 'Wee
 <form method="post" class="kaart" action="<?= $_stap('staf') ?>"><?= nonce_veld() ?>
   <p class="klein">Ben je trainer, bestuurder of sportsecretaris? Duid het aan. Het bestuur keurt je aanvraag goed; je krijgt daarna een melding.</p>
   <div class="veld">
-    <label><input type="checkbox" name="rollen[]" value="trainer"> Trainer</label>
+    <label><input type="checkbox" name="rollen[]" value="trainer"> Trainer competitie</label>
+    <label><input type="checkbox" name="rollen[]" value="trainer_zwemschool"> Trainer zwemschool</label>
     <label><input type="checkbox" name="rollen[]" value="bestuurder"> Bestuurder</label>
     <label><input type="checkbox" name="rollen[]" value="secretaris"> Sportsecretaris</label></div>
   <div class="veld"><label for="motivatie">Toelichting (optioneel)</label><input type="text" id="motivatie" name="motivatie" maxlength="300" placeholder="bv. trainer van de B-groep"></div>

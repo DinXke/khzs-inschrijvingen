@@ -39,10 +39,10 @@ const TR_SOORT = ['vast' => 'vaste trainer', 'vervanger' => 'vervanger', 'extra'
 const TR_TARIEF = ['uur' => 'per uur', 'beurt' => 'per training'];
 
 add_filter('khzs_voorkeuren', fn($v) => $v + [
-    'push_vervanging' => ['(trainers) Een collega zoekt een vervanger, of iemand neemt mijn training over', true, true],
-    'push_aanwezig' => ['(trainers) Na een training: was je aanwezig?', true, true],
-    'push_aanpassing' => ['(trainers) Iemand van het bestuur past mijn planning of aanwezigheid aan', true, true],
-    'push_afgelast' => ['(trainers) Een training van mij wordt afgelast (verlof, vakantie…) of gaat toch door', true, true],
+    'push_vervanging' => ['(trainers) Een collega zoekt een vervanger, of iemand neemt mijn training over', true, 'trainer'],
+    'push_aanwezig' => ['(trainers) Na een training: was je aanwezig?', true, 'trainer'],
+    'push_aanpassing' => ['(trainers) Iemand van het bestuur past mijn planning of aanwezigheid aan', true, 'trainer'],
+    'push_afgelast' => ['(trainers) Een training van mij wordt afgelast (verlof, vakantie…) of gaat toch door', true, 'trainer'],
 ]);
 
 const TR_STATUS = ['ja' => 'aanwezig', 'nee' => 'niet aanwezig', 'open' => 'niet bevestigd', 'gepland' => 'gepland'];
@@ -67,6 +67,14 @@ function tr_is_bestuur($user = null): bool
 function tr_mag_beheren($user = null): bool
 {
     return tr_is_bestuur($user) || is_secretariaat($user);
+}
+
+/** Wie trainingen geeft: de trainers van de competitie en van de zwemschool, het sportsecretariaat en de beheerder. */
+const TR_STAF = [TRAINER, TRAINER_ZWEMSCHOOL, SECRETARIS, BEHEERDER];
+
+function tr_is_trainer($user = null): bool
+{
+    return heeft_rol(TR_STAF, $user);
 }
 
 /** Is de maand van $datum voor deze trainer al uitbetaald? Dan kan enkel het bestuur nog iets wijzigen. */
@@ -511,14 +519,14 @@ function tr_vraag_aanwezigheid(?string $nu = null): array
     return $uit;
 }
 
-/** Trainers: iedereen met een staf-rol (trainer, sportsecretaris, beheerder), plus wie ooit ingepland was. */
+/** Trainers: iedereen uit TR_STAF (beide soorten trainers, sportsecretaris, beheerder), plus wie ooit ingepland was. */
 function tr_trainers(): array
 {
     $ids = array_map('intval', db()->get_col("SELECT DISTINCT user_id FROM " . t('tr_vast') . " UNION SELECT DISTINCT user_id FROM " . t('tr_wijzigingen')
         . " UNION SELECT DISTINCT user_id FROM " . t('tr_tarieven')));
     $uit = [];
     foreach (get_users(['fields' => 'all']) as $u) {
-        if (is_staf($u) || in_array($u->ID, $ids, true)) {
+        if (tr_is_trainer($u) || in_array($u->ID, $ids, true)) {
             $uit[$u->ID] = $u;
         }
     }

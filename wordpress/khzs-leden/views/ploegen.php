@@ -7,7 +7,7 @@
 </div>
 <?php endif; ?>
 <?php foreach ($ploegen as $p): ?>
-<a class="kaart" href="<?= esc_url(app_url("ploegen/{$p->id}/")) ?>"><div class="rij tussen"><strong><?= e($p->naam) ?><?php if (!(int) $p->actief): ?> <span class="badge doorgestuurd">gearchiveerd</span><?php endif; ?></strong>
+<a class="kaart" href="<?= esc_url(app_url("ploegen/{$p->id}/")) ?>"><div class="rij tussen"><strong><?= e($p->naam) ?><?php if (($p->soort ?? '') === 'zwemschool'): ?> <span class="badge">zwemschool</span><?php endif; ?><?php if (!(int) $p->actief): ?> <span class="badge doorgestuurd">gearchiveerd</span><?php endif; ?></strong>
   <span class="klein"><?= (int) $p->leden ?> zwemmer<?= (int) $p->leden !== 1 ? 's' : '' ?><?php if ($p->open): ?> · <span class="badge wacht"><?= (int) $p->open ?> wacht</span><?php endif; ?></span></div>
   <?php $_t = implode(', ', array_map(fn($u) => volle_naam($u) ?: $u->user_login, $p->trainers)); if ($p->beschrijving !== '' || $_t !== ''): ?>
   <div class="klein"><?= e(implode(' · ', array_filter([$p->beschrijving, $_t]))) ?></div><?php endif; ?></a>

@@ -90,6 +90,12 @@ def vul_ontbrekende():
 
 # ---------- rechten om rollen te beheren ----------
 
+def zonder_wedstrijden(user) -> bool:
+    """Ziet geen wedstrijdzaken: een trainer van de zwemschool zonder andere rol die wedstrijden nodig heeft (zwemmer,
+    ouder of wedstrijdstaf). Zelfde regel als zonder_wedstrijden() in WordPress."""
+    return heeft_rol(user, Profiel.TRAINER_ZWEMSCHOOL) and not heeft_rol(user, *Profiel.STAF, *Profiel.GEZIN)
+
+
 def mag_rollen_beheren(user) -> bool:
     return heeft_rol(user, *Profiel.ROLBEHEER)
 

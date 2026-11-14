@@ -9,7 +9,7 @@ defined('ABSPATH') || exit;
 function tr_vereist_trainer(): void
 {
     vereist_login();
-    if (!is_staf() && !tr_mag_beheren()) {
+    if (!tr_is_trainer() && !tr_mag_beheren()) {
         geen_toegang();
     }
 }
@@ -72,7 +72,7 @@ function tr_alles_bevestigen(int $uid, string $van, string $tot, int $door): int
 function v_tr_mijn(): void
 {
     tr_vereist_trainer();
-    if (!is_staf()) {
+    if (!tr_is_trainer()) {
         naar(app_url('trainers/overzicht/')); // bestuur zonder trainersrol
     }
     $uid = get_current_user_id();
@@ -197,6 +197,54 @@ function v_tr_planning(): void
     toon('trainers/planning', ['maandag' => $maandag, 'per_dag' => $per_dag, 'uid' => get_current_user_id(), 'buiten' => count($buiten)], 'Planning trainers');
 }
 
+/**
+ * Kalender met de weergaven dag, week en maand. Een trainer ziet standaard de eigen trainingen (wie=mij) en kan naar
+ * alle trainingen; het bestuur en het secretariaat zien standaard alles en filteren op ploeg of trainer.
+ */
+function v_tr_kalender(): void
+{
+    tr_vereist_trainer();
+    $uid = get_current_user_id();
+    $beheer = tr_mag_beheren();
+    $weergave = in_array(get('weergave'), ['dag', 'week', 'maand'], true) ? get('weergave') : 'week';
+    $dag = dag(get('datum')) ?? vandaag();
+    if ($weergave === 'dag') {
+        [$van, $tot] = [$dag, $dag];
+    } elseif ($weergave === 'week') {
+        $van = $dag->modify('-' . ((int) $dag->format('N') - 1) . ' days');
+        $tot = $van->modify('+6 days');
+    } else {
+        $eerste = $dag->modify('first day of this month');
+        $van = $eerste->modify('-' . ((int) $eerste->format('N') - 1) . ' days');
+        $laatste = $dag->modify('last day of this month');
+        $tot = $laatste->modify('+' . (7 - (int) $laatste->format('N')) . ' days');
+    }
+    // Filter: mij, alle of (bestuur) het id van een trainer; en een ploeg.
+    $wie = get('wie') ?: ($beheer ? 'alle' : 'mij');
+    if ($wie !== 'mij' && $wie !== 'alle' && (!$beheer || !ctype_digit($wie))) {
+        $wie = 'mij';
+    }
+    $ploeg = (int) get('ploeg');
+    $moment_ploegen = tr_moment_ploegen();
+    $per_dag = [];
+    foreach (tr_trainingen($van->format('Y-m-d'), $tot->format('Y-m-d')) as $b) {
+        $wie_id = $wie === 'mij' ? $uid : (int) $wie;
+        if ($wie !== 'alle' && !isset($b->aanwezig[$wie_id]) && !isset($b->afwezig[$wie_id])) {
+            continue;
+        }
+        if ($ploeg && !in_array($ploeg, $moment_ploegen[(int) $b->moment->id] ?? [], true)) {
+            continue;
+        }
+        $b->ploegen = $moment_ploegen[(int) $b->moment->id] ?? [];
+        $per_dag[$b->datum][] = $b;
+    }
+    $stap = ['dag' => '1 day', 'week' => '7 days', 'maand' => '1 month'][$weergave];
+    $ref = $weergave === 'maand' ? $dag->modify('first day of this month') : $van;
+    toon('trainers/kalender', ['weergave' => $weergave, 'dag' => $dag, 'van' => $van, 'tot' => $tot, 'per_dag' => $per_dag, 'uid' => $uid,
+        'beheer' => $beheer, 'wie' => $wie, 'ploeg' => $ploeg, 'ploegen' => tr_alle_ploegen(), 'trainers' => $beheer ? tr_trainers() : [],
+        'vorige' => $ref->modify("-$stap")->format('Y-m-d'), 'volgende' => $ref->modify("+$stap")->format('Y-m-d')], 'Kalender');
+}
+
 function v_tr_training($id, $datum): void
 {
     tr_vereist_trainer();
@@ -210,7 +258,7 @@ function v_tr_training($id, $datum): void
     $beheer = tr_mag_beheren();
     $voorbij = $datum < vandaag()->format('Y-m-d');
     toon('trainers/training', ['b' => $b, 'm' => $m, 'datum' => $datum, 'uid' => $uid, 'wijz' => $wijz, 'trainers' => tr_trainers(),
-        'beheer' => $beheer, 'voorbij' => $voorbij, 'mag' => $beheer || !$voorbij || (is_staf() && !tr_vergrendeld($uid, $datum))], tr_moment_tekst($m, $datum));
+        'beheer' => $beheer, 'voorbij' => $voorbij, 'mag' => $beheer || !$voorbij || (tr_is_trainer() && !tr_vergrendeld($uid, $datum))], tr_moment_tekst($m, $datum));
 }
 
 /**
@@ -283,7 +331,7 @@ function v_tr_actie(): void
                 break;
             }
             flash(($doel === $ik ? 'Je bent' : tr_voornaam($doel) . ' is') . " afgemeld voor $tekst. Collega's krijgen een melding.");
-            $ontvangers = array_values(array_diff(users_met('push_vervanging', STAF), [$doel]));
+            $ontvangers = array_values(array_diff(users_met('push_vervanging', TR_STAF), [$doel]));
             stuur($ontvangers, 'Vervanger gezocht', $tekst . ' – ' . tr_voornaam($doel) . ' kan niet' . (post('reden') ? ' (' . post('reden') . ')' : ''),
                 tr_training_url($m, $datum));
             break;
@@ -341,7 +389,7 @@ function v_tr_actie(): void
             $log = "Geschrapt van $tekst";
             flash("$wie staat niet meer op $tekst.");
             if (!$voorbij && $soort === 'vervanger' && $vervangt) {
-                $ontvangers = array_values(array_diff(users_met('push_vervanging', STAF), [$doel]));
+                $ontvangers = array_values(array_diff(users_met('push_vervanging', TR_STAF), [$doel]));
                 stuur($ontvangers, 'Opnieuw vervanger gezocht', "$tekst – " . tr_voornaam($vervangt) . ' kan niet', tr_training_url($m, $datum));
             }
             break;
@@ -694,7 +742,7 @@ function v_tr_uren(): void
 {
     vereist_login();
     $pm = is_penningmeester();
-    if (!$pm && !is_staf()) {
+    if (!$pm && !tr_is_trainer()) {
         geen_toegang();
     }
     $maand = tr_maand_param();

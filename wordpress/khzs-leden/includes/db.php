@@ -88,6 +88,7 @@ function installeer_db(): void
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   naam varchar(60) NOT NULL,
   beschrijving varchar(200) NOT NULL DEFAULT '',
+  soort varchar(12) NOT NULL DEFAULT 'competitie',
   actief tinyint(1) NOT NULL DEFAULT 1,
   aangemaakt datetime NOT NULL,
   PRIMARY KEY  (id),

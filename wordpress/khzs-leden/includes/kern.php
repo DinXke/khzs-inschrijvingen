@@ -5,13 +5,19 @@ namespace KHZS;
 
 defined('ABSPATH') || exit;
 
-const ZWEMMER = 'zwemmer', OUDER = 'ouder', TRAINER = 'trainer', SECRETARIS = 'secretaris', BESTUURDER = 'bestuurder', BEHEERDER = 'beheerder';
+// TRAINER is de trainer van de competitie (de sleutel 'trainer' bleef, zodat bestaande trainers niets verliezen).
+// TRAINER_ZWEMSCHOOL ziet geen wedstrijdzaken, enkel trainingen, uren en de ploegen van de zwemschool.
+const ZWEMMER = 'zwemmer', OUDER = 'ouder', TRAINER = 'trainer', TRAINER_ZWEMSCHOOL = 'trainer_zwemschool', SECRETARIS = 'secretaris', BESTUURDER = 'bestuurder', BEHEERDER = 'beheerder';
 // Volgorde = van hoog naar laag; de eerste rol die een account heeft, is de hoofdrol.
 // Een nieuwe rol: hier toevoegen, en in de groepen hieronder als ze rechten geeft (zelfde als Profiel.ROLLEN in Django).
-const ROLLEN = [BEHEERDER => 'Beheerder', SECRETARIS => 'Sportsecretaris', TRAINER => 'Trainer', BESTUURDER => 'Bestuurder',
+const ROLLEN = [BEHEERDER => 'Beheerder', SECRETARIS => 'Sportsecretaris', TRAINER => 'Trainer competitie',
+    TRAINER_ZWEMSCHOOL => 'Trainer zwemschool', BESTUURDER => 'Bestuurder',
     OUDER => 'Ouder', ZWEMMER => 'Zwemmer'];
 const SECRETARIAAT = [SECRETARIS, BEHEERDER];
+/** Wedstrijdstaf: nakijken, inschrijven voor anderen, uitslagen. Zonder de trainers van de zwemschool. */
 const STAF = [TRAINER, SECRETARIS, BEHEERDER];
+/** Beide soorten trainers (module Trainers, ploegen trainen). */
+const TRAINERS = [TRAINER, TRAINER_ZWEMSCHOOL];
 /** Wie rollen toekent, afneemt en aanvragen behandelt (scherm Gebruikers). */
 const ROLBEHEER = [SECRETARIS, BESTUURDER, BEHEERDER];
 /** Rollen die een lid zelf krijgt, zonder goedkeuring: ze geven enkel toegang tot de eigen zwemmers. */
@@ -19,10 +25,11 @@ const ZONDER_GOEDKEURING = [ZWEMMER, OUDER];
 /** Rollen met eigen zwemmers: zij krijgen de meldingen voor zwemmers (nieuwe wedstrijd, deadline). */
 const GEZIN = [ZWEMMER, OUDER];
 /** Rollen die een lid kan aanvragen (beheerder wordt enkel toegekend). */
-const AANVRAAGBAAR = [ZWEMMER, OUDER, TRAINER, SECRETARIS, BESTUURDER];
+const AANVRAAGBAAR = [ZWEMMER, OUDER, TRAINER, TRAINER_ZWEMSCHOOL, SECRETARIS, BESTUURDER];
 /** Wie ploegen aanmaakt, trainers aanduidt en leden indeelt. */
 const PLOEGBEHEER = [SECRETARIS, BESTUURDER, BEHEERDER];
-/** Wie alle ploegen (en later hun kanalen) ziet; gewone leden zien enkel de ploegen van hun zwemmers. */
+/** Wie alle ploegen (en later hun kanalen) ziet; gewone leden zien enkel de ploegen van hun zwemmers. Een trainer
+ *  van de zwemschool ziet de ploegen van de zwemschool (ploegen.php). */
 const ALLE_PLOEGEN = [TRAINER, SECRETARIS, BESTUURDER, BEHEERDER];
 
 /**
@@ -44,6 +51,7 @@ function voorkeur_zichtbaar(array $v, $user = null): bool
         'rolbeheer' => mag_rollen_beheren($user),
         'ploegstaf' => mag_ploegen_beheren($user) || (bool) eigen_getrainde_ploegen(gebruiker($user)?->ID ?? 0),
         true => is_staf($user),
+        'trainer' => heeft_rol([...TRAINERS, ...SECRETARIAAT], $user),
         default => true,
     };
 }
@@ -114,6 +122,20 @@ function zet_rollen(int $uid, array $rollen): void
 function is_staf($user = null): bool
 {
     return heeft_rol(STAF, $user);
+}
+
+function is_trainer($user = null): bool
+{
+    return heeft_rol(TRAINERS, $user);
+}
+
+/**
+ * Ziet geen wedstrijdzaken (menu Wedstrijden, nakijken, uitslagen): een trainer van de zwemschool die geen andere rol
+ * heeft die wedstrijden nodig heeft (zwemmer, ouder of wedstrijdstaf). Wie ook zwemt of kinderen heeft, ziet ze wel.
+ */
+function zonder_wedstrijden($user = null): bool
+{
+    return heeft_rol([TRAINER_ZWEMSCHOOL], $user) && !heeft_rol([...STAF, ...GEZIN], $user);
 }
 
 function is_secretariaat($user = null): bool

@@ -5,7 +5,8 @@
  * inschrijvingen/ploegen.py in de Django-versie.
  *
  * ploeg_accounts() en ploeg_lezers() bepalen wie bij een ploeg hoort, zodat een latere communicatiemodule iedereen
- * enkel de berichten van zijn eigen ploegen kan tonen. Trainers, bestuur, secretariaat en beheer zien alle ploegen.
+ * enkel de berichten van zijn eigen ploegen kan tonen. Trainers van de competitie, bestuur, secretariaat en beheer zien
+ * alle ploegen; een trainer van de zwemschool ziet de ploegen van de zwemschool (soort) en de ploegen die hij of zij traint.
  */
 
 namespace KHZS;
@@ -14,6 +15,7 @@ defined('ABSPATH') || exit;
 
 const PL_OPEN = 'open', PL_GOEDGEKEURD = 'goedgekeurd', PL_AFGEKEURD = 'afgekeurd';
 const PL_STATUS = [PL_OPEN => 'Wacht op goedkeuring', PL_GOEDGEKEURD => 'Lid', PL_AFGEKEURD => 'Afgekeurd'];
+const PL_SOORT = ['competitie' => 'Competitie', 'zwemschool' => 'Zwemschool'];
 
 function mag_ploegen_beheren($user = null): bool
 {
@@ -23,6 +25,18 @@ function mag_ploegen_beheren($user = null): bool
 function ziet_alle_ploegen($user = null): bool
 {
     return heeft_rol(ALLE_PLOEGEN, $user);
+}
+
+/** Trainers van de zwemschool zien alle ploegen van de zwemschool. */
+function ziet_zwemschoolploegen($user = null): bool
+{
+    return heeft_rol([TRAINER_ZWEMSCHOOL], $user);
+}
+
+/** Het menu Ploegen: wie meer ploegen ziet dan die van de eigen zwemmers. */
+function ziet_ploegenmenu($user = null): bool
+{
+    return ziet_alle_ploegen($user) || ziet_zwemschoolploegen($user);
 }
 
 function ploeg(int $id): ?object
@@ -80,7 +94,8 @@ function ploeg_accounts(int $ploeg_id): array
 /** Iedereen die deze ploeg (en later haar kanaal) mag zien: de accounts van de ploeg plus wie alle ploegen ziet. */
 function ploeg_lezers(int $ploeg_id): array
 {
-    $alle = array_filter(get_users(['fields' => 'ID']), fn($id) => ziet_alle_ploegen((int) $id));
+    $zwemschool = (ploeg($ploeg_id)->soort ?? '') === 'zwemschool';
+    $alle = array_filter(get_users(['fields' => 'ID']), fn($id) => ziet_alle_ploegen((int) $id) || ($zwemschool && ziet_zwemschoolploegen((int) $id)));
     return array_values(array_unique([...ploeg_accounts($ploeg_id), ...array_map('intval', $alle)]));
 }
 
@@ -94,19 +109,33 @@ function eigen_ploegen(int $uid): array
 
 function zichtbare_ploegen(int $uid): array
 {
-    return ziet_alle_ploegen($uid) ? db()->get_results("SELECT * FROM " . t('ploegen') . " ORDER BY naam") : eigen_ploegen($uid);
+    if (ziet_alle_ploegen($uid)) {
+        return db()->get_results("SELECT * FROM " . t('ploegen') . " ORDER BY naam");
+    }
+    $lijst = eigen_ploegen($uid);
+    if (ziet_zwemschoolploegen($uid)) {
+        $ids = array_column($lijst, 'id');
+        foreach (db()->get_results("SELECT * FROM " . t('ploegen') . " WHERE soort='zwemschool' ORDER BY naam") as $p) {
+            if (!in_array($p->id, $ids, false)) {
+                $lijst[] = $p;
+            }
+        }
+        usort($lijst, fn($a, $b) => strcasecmp($a->naam, $b->naam));
+    }
+    return $lijst;
 }
 
 function mag_ploeg_zien(int $ploeg_id, int $uid): bool
 {
-    return ziet_alle_ploegen($uid) || in_array($ploeg_id, array_map('intval', array_column(eigen_ploegen($uid), 'id')), true);
+    return ziet_alle_ploegen($uid) || (ziet_zwemschoolploegen($uid) && (ploeg($ploeg_id)->soort ?? '') === 'zwemschool')
+        || in_array($ploeg_id, array_map('intval', array_column(eigen_ploegen($uid), 'id')), true);
 }
 
 /** Open aanvragen die dit account mag behandelen (met zwemmer- en ploegnaam). */
 function te_behandelen_ploeg(?int $uid = null): array
 {
     $uid = $uid ?? get_current_user_id();
-    if (!$uid || !ziet_alle_ploegen($uid)) {
+    if (!$uid || (!mag_ploegen_beheren($uid) && !eigen_getrainde_ploegen($uid))) {
         return [];
     }
     $sql = "SELECT l.*, z.voornaam, z.naam, p.naam AS ploegnaam FROM " . t('ploegleden') . " l JOIN " . t('zwemmers') . " z ON z.id=l.zwemmer_id
@@ -237,14 +266,15 @@ function actieve_ploegen(): array
 /** Leest naam, beschrijving, trainers en actief uit het formulier. Geeft [rij, trainers, fouten]. */
 function lees_ploeg(?int $id = null): array
 {
-    $rij = ['naam' => mb_substr(post('naam'), 0, 60), 'beschrijving' => mb_substr(post('beschrijving'), 0, 200), 'actief' => isset($_POST['actief']) ? 1 : 0];
+    $rij = ['naam' => mb_substr(post('naam'), 0, 60), 'beschrijving' => mb_substr(post('beschrijving'), 0, 200),
+        'soort' => isset(PL_SOORT[post('soort')]) ? post('soort') : 'competitie', 'actief' => isset($_POST['actief']) ? 1 : 0];
     $f = [];
     if ($rij['naam'] === '') {
         $f['naam'] = 'Dit veld is verplicht.';
     } elseif (db()->get_var(db()->prepare("SELECT id FROM " . t('ploegen') . " WHERE naam=%s AND id<>%d", $rij['naam'], $id ?? 0))) {
         $f['naam'] = 'Er bestaat al een ploeg met deze naam.';
     }
-    $trainers = array_values(array_filter(array_map('intval', (array) ($_POST['trainers'] ?? [])), fn($t) => heeft_rol([TRAINER], $t)));
+    $trainers = array_values(array_filter(array_map('intval', (array) ($_POST['trainers'] ?? [])), fn($t) => is_trainer($t)));
     return [$rij, $trainers, $f];
 }
 
@@ -256,10 +286,10 @@ function bewaar_ploeg_trainers(int $ploeg_id, array $trainers): void
     }
 }
 
-/** Accounts met de rol trainer, om aan een ploeg te koppelen. */
+/** Accounts met een rol trainer (competitie of zwemschool), om aan een ploeg te koppelen. */
 function alle_trainers(): array
 {
-    return array_values(array_filter(get_users(['orderby' => 'display_name']), fn($u) => heeft_rol([TRAINER], $u)));
+    return array_values(array_filter(get_users(['orderby' => 'display_name']), fn($u) => is_trainer($u)));
 }
 
 function v_ploegen(): void
@@ -267,7 +297,7 @@ function v_ploegen(): void
     vereist_login();
     $uid = get_current_user_id();
     $beheer = mag_ploegen_beheren();
-    $v = ['naam' => '', 'beschrijving' => '', 'actief' => 1];
+    $v = ['naam' => '', 'beschrijving' => '', 'soort' => 'competitie', 'actief' => 1];
     $f = [];
     $trainers = [];
     if (is_post()) {

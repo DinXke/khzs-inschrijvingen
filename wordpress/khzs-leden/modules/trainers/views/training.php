@@ -41,7 +41,7 @@ $badge = ['ja' => ['goedgekeurd', '✓ aanwezig'], 'nee' => ['afgekeurd', '✗ n
     <span class="klein">kan niet<?= $reden ? ': ' . e($reden) : '' ?><?= isset($b->vervangen[$id]) ? ' · ' . e(tr_voornaam($b->vervangen[$id])) . ' neemt over' : '' ?></span></div>
     <div class="tr-status">
       <?php if (!isset($b->vervangen[$id])): ?><?php if (!$voorbij): ?><span class="badge afgekeurd">vervanger gezocht</span><?php endif; ?>
-        <?php if ($mag && !isset($b->aanwezig[$uid]) && $id !== $uid && !$b->afgelast && is_staf()): ?><?= $actie_form('overnemen', $voorbij ? 'Ik heb overgenomen' : 'Ik neem over', 'mini ok', ['vervangt' => $id]) ?><?php endif; ?><?php endif; ?>
+        <?php if ($mag && !isset($b->aanwezig[$uid]) && $id !== $uid && !$b->afgelast && tr_is_trainer()): ?><?= $actie_form('overnemen', $voorbij ? 'Ik heb overgenomen' : 'Ik neem over', 'mini ok', ['vervangt' => $id]) ?><?php endif; ?><?php endif; ?>
       <?php if ($mag && ($id === $uid || $beheer)): ?><?= $actie_form('aanwezig', $voorbij ? ($id === $uid ? 'Ik was er toch' : 'Was er toch') : ($id === $uid ? 'Ik kan toch' : 'Toch aanwezig'), 'mini secundair', ['user' => $id]) ?><?php endif; ?>
     </div></div>
   <?php endforeach; ?>
@@ -54,7 +54,7 @@ $badge = ['ja' => ['goedgekeurd', '✓ aanwezig'], 'nee' => ['afgekeurd', '✗ n
       <input type="hidden" name="moment" value="<?= (int) $m->id ?>"><input type="hidden" name="datum" value="<?= esc_attr($datum) ?>"><input type="hidden" name="actie" value="afwezig">
       <div style="flex:1;min-width:200px"><label for="reden">Ik kan niet</label><input id="reden" type="text" name="reden" maxlength="200" placeholder="Reden (optioneel, zichtbaar voor collega's)"></div>
       <button class="gevaar">Afmelden</button></form>
-  <?php elseif (is_staf() && !isset($b->aanwezig[$uid]) && !isset($b->afwezig[$uid]) && !$b->open): ?>
+  <?php elseif (tr_is_trainer() && !isset($b->aanwezig[$uid]) && !isset($b->afwezig[$uid]) && !$b->open): ?>
     <?= $actie_form('helpen', $voorbij ? '🙋 Ik was er ook (extra trainer)' : '🙋 Ik help mee op deze training', 'secundair') ?>
   <?php endif; ?>
   <?php if ($beheer): ?>
