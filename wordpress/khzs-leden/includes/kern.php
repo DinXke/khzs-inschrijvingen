@@ -20,6 +20,10 @@ const ZONDER_GOEDKEURING = [ZWEMMER, OUDER];
 const GEZIN = [ZWEMMER, OUDER];
 /** Rollen die een lid kan aanvragen (beheerder wordt enkel toegekend). */
 const AANVRAAGBAAR = [ZWEMMER, OUDER, TRAINER, SECRETARIS, BESTUURDER];
+/** Wie ploegen aanmaakt, trainers aanduidt en leden indeelt. */
+const PLOEGBEHEER = [SECRETARIS, BESTUURDER, BEHEERDER];
+/** Wie alle ploegen (en later hun kanalen) ziet; gewone leden zien enkel de ploegen van hun zwemmers. */
+const ALLE_PLOEGEN = [TRAINER, SECRETARIS, BESTUURDER, BEHEERDER];
 
 /**
  * Pushvoorkeuren per account (user meta): sleutel => [label, standaard, voor wie]. Voor wie: false = iedereen,
@@ -28,7 +32,9 @@ const AANVRAAGBAAR = [ZWEMMER, OUDER, TRAINER, SECRETARIS, BESTUURDER];
 function voorkeuren(): array
 {
     return apply_filters('khzs_voorkeuren', [
+        'push_beslissing' => ['Mijn aanvraag voor een rol of ploeg is behandeld', true, false],
         'push_rolaanvraag' => ['(bestuur) Nieuwe rolaanvraag om te behandelen', true, 'rolbeheer'],
+        'push_ploegaanvraag' => ['(staf) Nieuwe ploegaanvraag om te behandelen', true, 'ploegstaf'],
     ]);
 }
 
@@ -36,6 +42,7 @@ function voorkeur_zichtbaar(array $v, $user = null): bool
 {
     return match ($v[2] ?? false) {
         'rolbeheer' => mag_rollen_beheren($user),
+        'ploegstaf' => mag_ploegen_beheren($user) || (bool) eigen_getrainde_ploegen(gebruiker($user)?->ID ?? 0),
         true => is_staf($user),
         default => true,
     };
@@ -57,12 +64,13 @@ function gesorteerd(array $rollen): array
 
 /**
  * De bewaarde rollen (user meta khzs_rollen, komma-gescheiden). Een account van vóór de rollen heeft enkel
- * khzs_rol: dat wordt dan de enige rol, zodat niemand rechten verliest.
+ * khzs_rol: dat wordt dan de enige rol, zodat niemand rechten verliest. Een lege khzs_rollen betekent: nog geen rol
+ * (nieuw account dat het stappenplan nog niet doorliep).
  */
 function bewaarde_rollen(int $uid): array
 {
     $r = gesorteerd(array_filter(explode(',', (string) get_user_meta($uid, 'khzs_rollen', true))));
-    if (!$r) {
+    if (!$r && !metadata_exists('user', $uid, 'khzs_rollen')) {
         $oud = get_user_meta($uid, 'khzs_rol', true);
         $r = [isset(ROLLEN[$oud]) ? $oud : ZWEMMER];
     }
@@ -95,15 +103,12 @@ function rol($user = null): ?string
     return rollen_van($user)[0] ?? null;
 }
 
-/** Geeft het account precies deze rollen; khzs_rol houdt de hoofdrol bij (voor oudere code en backups). */
+/** Geeft het account precies deze rollen (ook geen); khzs_rol houdt de hoofdrol bij (voor oudere code en backups). */
 function zet_rollen(int $uid, array $rollen): void
 {
     $rollen = gesorteerd($rollen);
-    if (!$rollen) {
-        throw new \RuntimeException('Een account heeft minstens één rol.');
-    }
     update_user_meta($uid, 'khzs_rollen', implode(',', $rollen));
-    update_user_meta($uid, 'khzs_rol', $rollen[0]);
+    update_user_meta($uid, 'khzs_rol', $rollen[0] ?? '');
 }
 
 function is_staf($user = null): bool

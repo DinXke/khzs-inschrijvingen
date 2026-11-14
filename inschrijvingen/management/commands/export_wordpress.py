@@ -15,7 +15,7 @@ from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 
 from inschrijvingen.models import (BesteTijd, Bijlage, Deelname, Inschrijving, Leeftijdsgroep, Limiet, Limietlijst, Melding,
-                                   Nummer, PushAbonnement, Rolaanvraag, Sessie, VerstuurdeHerinnering, Wedstrijd, Zwemmer)
+                                   Nummer, Ploeg, PloegLid, PushAbonnement, Rolaanvraag, Sessie, VerstuurdeHerinnering, Wedstrijd, Zwemmer)
 from inschrijvingen.rollen import gesorteerd, rollen_van
 
 
@@ -86,6 +86,12 @@ class Command(BaseCommand):
                                     toegekende_rol=a.toegekende_rol, reden=a.reden, behandeld_door=a.behandeld_door_id,
                                     behandeld_op=dt(a.behandeld_op), gelezen=int(a.gelezen), aangemaakt=dt(a.aangemaakt))
                                for a in Rolaanvraag.objects.all()]
+        tab["ploegen"] = [dict(id=x.pk, naam=x.naam, beschrijving=x.beschrijving, actief=int(x.actief), aangemaakt=dt(x.aangemaakt))
+                          for x in Ploeg.objects.all()]
+        tab["ploeg_trainers"] = [dict(ploeg_id=x.ploeg_id, user_id=x.user_id) for x in Ploeg.trainers.through.objects.all()]
+        tab["ploegleden"] = [dict(id=x.pk, zwemmer_id=x.zwemmer_id, ploeg_id=x.ploeg_id, status=x.status, aangevraagd_door=x.aangevraagd_door_id,
+                                  reden=x.reden, behandeld_door=x.behandeld_door_id, behandeld_op=dt(x.behandeld_op),
+                                  gelezen=int(x.gelezen), aangemaakt=dt(x.aangemaakt)) for x in PloegLid.objects.all()]
 
         gebruikers, meta = [], []
         for u in User.objects.select_related("profiel"):
@@ -93,12 +99,12 @@ class Command(BaseCommand):
                                    last_name=u.last_name, wachtwoord=u.password, actief=u.is_active))
             p = getattr(u, "profiel", None)
             eigen = gesorteerd(rollen_van(u))
-            meta.append(dict(user_id=u.pk, user_login=u.username, meta_key="khzs_rol", meta_value=eigen[0]))
+            meta.append(dict(user_id=u.pk, user_login=u.username, meta_key="khzs_rol", meta_value=eigen[0] if eigen else ""))
             # Alle rollen, komma-gescheiden (de plugin leest ze met rollen_van()).
             meta.append(dict(user_id=u.pk, user_login=u.username, meta_key="khzs_rollen", meta_value=",".join(eigen)))
             if p:
                 for k in ("push_nieuwe_wedstrijd", "push_deadline", "push_wijziging", "push_nieuwe_inschrijving",
-                          "push_rolaanvraag"):
+                          "push_rolaanvraag", "push_ploegaanvraag", "push_beslissing"):
                     meta.append(dict(user_id=u.pk, user_login=u.username, meta_key=f"khzs_{k}", meta_value="1" if getattr(p, k) else "0"))
 
         data = {"versie": "django", "gemaakt": datetime.now().isoformat(), "tabellen": tab, "meta": meta, "gebruikers": gebruikers}
