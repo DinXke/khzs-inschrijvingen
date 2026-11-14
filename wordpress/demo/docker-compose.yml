@@ -1,0 +1,69 @@
+# Aparte WordPress-installatie voor de demo van KHZS Leden, los van de site van de club (www.khzs.be).
+# WordPress staat onder het pad /leden-demo/, zodat een Cloudflare Worker https://khzs.be/leden-demo/ hierheen kan sturen
+# (worker.js). De plugin komt rechtstreeks uit deze repo (../khzs-leden); update.sh houdt die bij met main.
+# Gebruik: zie README.md in deze map.
+name: khzs-demo
+
+x-wp-omgeving: &wp-omgeving
+  WORDPRESS_DB_HOST: db
+  WORDPRESS_DB_NAME: wp
+  WORDPRESS_DB_USER: wp
+  WORDPRESS_DB_PASSWORD: ${DB_WACHTWOORD:?zet DB_WACHTWOORD in .env}
+  DEMO_URL: ${DEMO_URL:-http://localhost:8094/leden-demo}
+  WORDPRESS_CONFIG_EXTRA: |
+    // Deze site is enkel de demo: de app staat op het adres van de site zelf.
+    define('KHZS_DEMO', true);
+    define('KHZS_DEMO_ENKEL', true);
+    define('WP_HOME', getenv_docker('DEMO_URL', 'http://localhost:8094/leden-demo'));
+    define('WP_SITEURL', WP_HOME);
+    // Vaste cookienamen (wordpress_logged_in_khzsdemo …): de Worker laat enkel cookies van de demo door.
+    define('COOKIEHASH', 'khzsdemo');
+    // Achter de Worker: de host zoals de bezoeker hem ziet.
+    if (!empty($$_SERVER['HTTP_X_FORWARDED_HOST'])) { $$_SERVER['HTTP_HOST'] = $$_SERVER['HTTP_X_FORWARDED_HOST']; }
+    // Geplande taken (nachtelijk terugzetten) via update.sh, niet via bezoekers.
+    define('DISABLE_WP_CRON', true);
+    define('AUTOMATIC_UPDATER_DISABLED', true);
+
+x-wp-volumes: &wp-volumes
+  - wp:/var/www/html/leden-demo
+  - ../khzs-leden:/var/www/html/leden-demo/wp-content/plugins/khzs-leden:ro
+
+services:
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: wp
+      MARIADB_USER: wp
+      MARIADB_PASSWORD: ${DB_WACHTWOORD:?zet DB_WACHTWOORD in .env}
+      MARIADB_RANDOM_ROOT_PASSWORD: "1"
+    volumes:
+      - db:/var/lib/mysql
+
+  wordpress:
+    image: wordpress:php8.2
+    restart: unless-stopped
+    depends_on: [db]
+    working_dir: /var/www/html/leden-demo   # WordPress in de submap leden-demo
+    environment: *wp-omgeving
+    volumes:
+      - wp:/var/www/html/leden-demo
+      - ../khzs-leden:/var/www/html/leden-demo/wp-content/plugins/khzs-leden:ro
+      - ./wortel.php:/var/www/html/index.php:ro   # leden-demo.khzs.be/ → de demo
+    ports:
+      # Standaard enkel lokaal (voor cloudflared op dezelfde host). Zet DEMO_BIND=0.0.0.0 als de tunnel elders draait.
+      - "${DEMO_BIND:-127.0.0.1}:${DEMO_POORT:-8094}:80"
+
+  # wp-cli voor installeer.sh en update.sh (docker compose run --rm wpcli wp …)
+  wpcli:
+    image: wordpress:cli-php8.2
+    profiles: [cli]
+    user: "33:33"
+    depends_on: [db]
+    working_dir: /var/www/html/leden-demo
+    environment: *wp-omgeving
+    volumes: *wp-volumes
+
+volumes:
+  db:
+  wp:

@@ -34,18 +34,52 @@ $ingelogd = is_user_logged_in();
   </nav>
   <?php endif; ?>
 </header>
+<?php if (is_demo()) { include KHZS_PAD . 'views/demo-balk.php'; } ?>
 <main class="<?= esc_attr($mainklasse) ?>">
   <?php foreach ($meldingen_flash as [$soort, $tekst]): ?><div class="melding <?= esc_attr($soort) ?>"><?= e($tekst) ?></div><?php endforeach; ?>
   <?php include $inhoud_sjabloon; ?>
 </main>
-<?php if ($ingelogd): ?>
+<?php if ($ingelogd):
+  // Onderbalk (gsm): hoogstens 5 knoppen. Zijn er meer (veel rollen), dan komen de rest en Afmelden onder 'Meer'.
+  $gsm = $items;
+  if ($is_beheerder) {
+      $gsm[] = ['Backup', 'backup/', ['backups'], '<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/>'];
+  }
+  $afmelden_icoon = '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>';
+  $meer = count($gsm) + 1 > 5 ? array_slice($gsm, 4) : [];
+  $balk = $meer ? array_slice($gsm, 0, 4) : $gsm;
+  $meer_actief = $actief(array_merge([], ...array_map(fn($i) => $i[2], $meer))); ?>
 <nav class="tabbalk">
-  <?php foreach ($items as [$label, $pad, $namen, $icoon]): ?><a href="<?= esc_url(app_url($pad)) ?>" class="<?= $actief($namen) ?>">
+  <?php foreach ($balk as [$label, $pad, $namen, $icoon]): ?><a href="<?= esc_url(app_url($pad)) ?>" class="<?= $actief($namen) ?>">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><?= $icoon /* vaste svg uit de code */ ?></svg><?= e($label) ?></a>
+  <?php endforeach; ?>
+  <?php if ($meer): ?>
+  <button type="button" class="<?= $meer_actief ?>" id="meer-knop" aria-expanded="false" aria-controls="meer-blad">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>Meer</button>
+  <?php else: ?>
+  <a href="#" onclick="document.getElementById('afmelden').submit();return false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><?= $afmelden_icoon ?></svg>Afmelden</a>
+  <?php endif; ?>
+</nav>
+<?php if ($meer): ?>
+<div class="meer-achtergrond" id="meer-achtergrond" hidden></div>
+<div class="meer-blad" id="meer-blad" role="dialog" aria-label="Meer" hidden>
+  <?php foreach ($meer as [$label, $pad, $namen, $icoon]): ?><a href="<?= esc_url(app_url($pad)) ?>" class="<?= $actief($namen) ?>">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><?= $icoon /* vaste svg uit de code */ ?></svg><?= e($label) ?></a>
   <?php endforeach; ?>
   <a href="#" onclick="document.getElementById('afmelden').submit();return false">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>Afmelden</a>
-</nav>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><?= $afmelden_icoon ?></svg>Afmelden</a>
+</div>
+<script>
+(function () {
+  const knop = document.getElementById("meer-knop"), blad = document.getElementById("meer-blad"), achter = document.getElementById("meer-achtergrond");
+  const zet = open => { blad.hidden = achter.hidden = !open; knop.setAttribute("aria-expanded", open); if (open) blad.querySelector("a").focus(); };
+  knop.addEventListener("click", () => zet(blad.hidden));
+  achter.addEventListener("click", () => zet(false));
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !blad.hidden) { zet(false); knop.focus(); } });
+})();
+</script>
+<?php endif; ?>
 <form id="afmelden" method="post" action="<?= esc_url(app_url('afmelden/')) ?>" hidden><?= nonce_veld() ?></form>
 <?php endif; ?>
 <script>

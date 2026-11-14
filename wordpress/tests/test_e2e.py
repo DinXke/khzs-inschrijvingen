@@ -1045,5 +1045,232 @@ class EigenDomeinTest(Basis):
         fout = hulp("eval", f="domein_controle", args=[vanuit_site.rsplit(":", 1)[0] + ":" + BASIS.rsplit(":", 1)[1]])["v"]
         self.assertIn("stuurt niet door", fout)
 
+
+
+class TabbalkTest(Basis):
+    """Onderbalk op de gsm: hoogstens 5 knoppen; bij veel menu-items de rest en Afmelden onder 'Meer'."""
+
+    def balk(self, html):
+        balk = re.search(r'<nav class="tabbalk">(.*?)</nav>', html, re.S).group(1)
+        return re.findall(r"</svg>([^<]+)</(?:a|button)>", balk)
+
+    def test_weinig_items_geen_meer(self):
+        gebruiker("ouder@x.be")
+        html = self.c.login("ouder@x.be").get("wedstrijden/").text
+        self.assertEqual(self.balk(html), ["Wedstrijden", "Profiel", "Uitleg", "Meldingen", "Afmelden"])
+        self.assertNotIn("meer-blad", html)
+
+    def test_veel_items_onder_meer_met_backup(self):
+        html = self.c.login("admin", "admin123").get("wedstrijden/").text
+        self.assertEqual(self.balk(html), ["Wedstrijden", "Zwemmers", "Trainingen", "Verloning", "Meer"])
+        blad = re.search(r'<div class="meer-blad".*?</div>', html, re.S).group(0)
+        meer = re.findall(r"</svg>([^<]+)</a>", blad)
+        self.assertEqual(meer, ["Gebruikers", "Uitleg", "Meldingen", "Backup", "Afmelden"])
+        # Actieve pagina onder 'Meer': de knop Meer licht op.
+        self.assertIn('class="actief" id="meer-knop"', self.c.get("gebruikers/").text)
+
+
+DEMO = BASIS + "/leden-demo/"
+DEMO_DAG = "2026-11-14"
+
+
+class DemoKlant(Klant):
+    """Klant voor de demo op /leden-demo/ (zelfde werking, ander adres)."""
+
+    def __init__(self):
+        super().__init__()
+        self.vandaag = DEMO_DAG
+
+    def login(self, login="demo", pw="demo"):
+        r = self.s.post(DEMO + "aanmelden/", data={"username": login, "password": pw}, allow_redirects=False, headers=self._h())
+        assert r.status_code == 302, r.text[:500]
+        self.nonce = None
+        return self
+
+    def get(self, pad, **params):
+        return self.s.get(DEMO + pad, params=params, allow_redirects=False, headers=self._h())
+
+    def _nonce(self):
+        if not self.nonce:
+            m = re.search(r'name="_khzs" value="([^"]+)"', self.s.get(DEMO + "uitleg/", headers=self._h()).text)
+            self.nonce = m.group(1) if m else ""
+        return self.nonce
+
+    def post(self, pad, data=None, files=None, query=None):
+        data = dict(data or {})
+        data.setdefault("_khzs", self._nonce())
+        return self.s.post(DEMO + pad, data=data, files=files, params=query, allow_redirects=False, headers=self._h())
+
+
+def demo_terugzetten():
+    """Zoals de nachtelijke taak: buiten de demo (gewoon verzoek), op een vaste datum."""
+    r = requests.post(f"{BASIS}/?khzs_test=eval", json={"f": "demo_terugzetten"}, headers={"X-Vandaag": DEMO_DAG}, timeout=120)
+    r.raise_for_status()
+    assert "fout" not in r.json(), r.json()
+
+
+def demo_aantal(tabel):
+    return int(een(f"SELECT COUNT(*) FROM wp_khzsdemo_{tabel}"))
+
+
+class DemoTest(Basis):
+    """Demo op /leden-demo/: alle schermen met demodata, geen PWA, volledig los van de echte app, terugzetten."""
+
+    @classmethod
+    def setUpClass(cls):
+        if requests.get(DEMO + "aanmelden/").status_code != 200:
+            raise unittest.SkipTest("Demo staat uit: zet define('KHZS_DEMO', true) in wp-config.php (testsite.sh doet dat).")
+        demo_terugzetten()
+
+    def setUp(self):
+        super().setUp()  # wist enkel de echte gegevens
+        self.d = DemoKlant().login()
+
+    def tekst(self, r):
+        return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", r.text))
+
+    def test_aanmelden_en_alle_schermen(self):
+        self.assertEqual([(c.name, c.path) for c in self.d.s.cookies], [("khzs_demo_sessie", "/leden-demo/")])
+        r = self.d.get("wedstrijden/")
+        self.assertEqual(r.status_code, 200)
+        for status in ("Concept", "Open", "Gesloten", "Doorgestuurd"):
+            self.assertContains(r, status)
+        self.assertContains(r, "Clubmeeting ZCT")
+        self.assertContains(r, "<b>Demo</b>: alle gegevens zijn verzonnen")
+        self.assertContains(r, "Demo terugzetten")
+        # Alle rollen: menu van beheerder, trainer en penningmeester; eigen zwemmers als ouder en als zwemmer.
+        menu = r.text.replace("\n", "")
+        for item in ("Wedstrijden", "Zwemmers", "Trainingen", "Verloning", "Gebruikers", "Backup"):
+            self.assertIn(f">{item}</a>", menu)
+        zw = self.d.get("zwemmers/")
+        for naam in ("Demo Gebruiker", "Lina Gebruiker", "Mats Gebruiker", "Mila Vermeulen"):
+            self.assertContains(zw, naam)
+        self.assertContains(zw, "demo@demo.invalid, sofie@demo.invalid")  # gedeeld met de andere ouder
+        tr = self.tekst(self.d.get("trainers/"))
+        self.assertIn("Competitie 3", tr)
+        self.assertIn("vervanger gezocht voor Lotte", tr)
+        beheer = self.tekst(self.d.get("trainers/beheer/"))
+        for ploeg in ("Kern", "Beloften", "Competitie 1 nationaal", "Zwemschool Startersgroep", "Zwemschool Pre-competitie 2"):
+            self.assertIn(ploeg, beheer)
+        oktober = self.tekst(self.d.get("trainers/uren/", maand="2026-10"))
+        self.assertIn("gewijzigd na uitbetaling", oktober)
+        self.assertIn("nog niet uitbetaald", oktober)
+        self.assertContains(self.d.get("trainers/tarieven/"), "Nieuw tarief na diploma Trainer B")
+        self.assertContains(self.d.get("gebruikers/"), "katrien@demo.invalid")
+        self.assertEqual(self.d.get("zwemmers/uitslagen/").status_code, 200)
+        self.assertContains(self.d.get("meldingen/"), "In de demo staan pushmeldingen uit")
+        self.assertEqual(self.d.get("backup/").status_code, 200)
+        # Een gesloten wedstrijd om na te kijken, een open wedstrijd met bijlage.
+        wid = int(een("SELECT id FROM wp_khzsdemo_wedstrijden WHERE status='gesloten'"))
+        self.assertEqual(self.d.get(f"wedstrijd/{wid}/nakijken/").status_code, 200)
+        wid = int(een("SELECT id FROM wp_khzsdemo_wedstrijden WHERE naam='Clubmeeting ZCT'"))
+        self.assertContains(self.d.get(f"wedstrijd/{wid}/"), "Busregeling")
+        # Andere demo-accounts (ook wachtwoord demo): een trainer ziet geen verloning en kan de demo niet terugzetten.
+        t = DemoKlant().login("lotte")
+        self.assertNotIn(">Verloning</a>", t.get("trainers/").text)
+        self.assertEqual(t.post("demo/terugzetten/").status_code, 403)
+
+    def test_app_als_demo_zonder_push_of_registratie(self):
+        # Installeerbaar, maar duidelijk de demo: eigen naam, iconen met DEMO, scope /leden-demo/.
+        r = self.d.get("wedstrijden/")
+        self.assertContains(r, "<title>Wedstrijden · KHZS Leden Demo</title>")
+        self.assertContains(r, 'rel="manifest"')
+        self.assertContains(r, "/assets/img/demo/apple-touch-icon.png")
+        m = self.d.get("manifest.webmanifest").json()
+        self.assertEqual((m["name"], m["short_name"]), ("KHZS Leden Demo", "KHZS Leden Demo"))
+        self.assertTrue(m["scope"].endswith("/leden-demo/"))
+        self.assertTrue(all("/img/demo/" in i["src"] for i in m["icons"]))
+        self.assertEqual(requests.head(m["icons"][0]["src"]).status_code, 200)
+        sw = self.d.get("sw.js")
+        self.assertEqual(sw.status_code, 200)
+        self.assertEqual(sw.headers["Service-Worker-Allowed"], "/leden-demo/")
+        self.assertContains(self.d.get("installeer/"), "KHZS Leden Demo")
+        # De echte app heet gewoon KHZS Leden.
+        self.assertEqual(requests.get(APP + "manifest.webmanifest").json()["name"], "KHZS Leden")
+        self.assertEqual(self.d.get("registreren/").status_code, 404)
+        self.assertEqual(self.d.s.post(DEMO + "meldingen/abonneer/", json={}).status_code, 404)
+        anoniem = requests.get(DEMO + "aanmelden/")
+        self.assertNotIn("Wachtwoord vergeten", anoniem.text)
+        self.assertNotIn("Maak een profiel aan", anoniem.text)
+        # Een backup terugzetten kan niet in de demo.
+        r = self.d.post("backup/", {"actie": "herstel", "bevestig": "HERSTEL", "naam": "x.zip"})
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("kan niet in de demo", self.tekst(self.d.get("backup/")))
+
+    def test_los_van_de_echte_app(self):
+        echt = gebruiker("ouder@x.be", first_name="Echte")
+        zwemmer(echt, "Echt", "Kind")
+        # Het demo-account bestaat niet in de echte app en niet in wp-admin.
+        r = requests.post(APP + "aanmelden/", data={"username": "demo", "password": "demo"}, allow_redirects=False)
+        self.assertEqual(r.status_code, 200)
+        r = requests.post(BASIS + "/wp-login.php", data={"log": "demo", "pwd": "demo"},
+                          cookies={"wordpress_test_cookie": "WP Cookie check"}, allow_redirects=False)
+        self.assertFalse([c for c in r.cookies if c.name.startswith("wordpress_logged_in")])
+        # Met het demo-cookie ben je in de echte app niet aangemeld.
+        r = self.d.s.get(APP + "wedstrijden/", allow_redirects=False)
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("/leden/aanmelden/", r.headers["Location"])
+        # Echte accounts bestaan niet in de demo, en wie in de echte app is aangemeld, is dat niet in de demo.
+        r = requests.post(DEMO + "aanmelden/", data={"username": "ouder@x.be", "password": "geheim123!"}, allow_redirects=False)
+        self.assertEqual(r.status_code, 200)
+        k = Klant().login("admin", "admin123")
+        r = k.s.get(DEMO + "wedstrijden/", allow_redirects=False)
+        self.assertIn("/leden-demo/aanmelden/", r.headers["Location"])
+        # In de demo aan- en afmelden laat de echte sessie ongemoeid.
+        k.s.post(DEMO + "aanmelden/", data={"username": "demo", "password": "demo"})
+        self.assertContains(k.s.get(DEMO + "zwemmers/"), "Lina Gebruiker")
+        self.assertEqual(k.get("wedstrijden/").status_code, 200)
+        n = re.search(r'name="_khzs" value="([^"]+)"', k.s.get(DEMO + "uitleg/").text).group(1)
+        k.s.post(DEMO + "afmelden/", data={"_khzs": n})
+        self.assertEqual(k.s.get(DEMO + "zwemmers/", allow_redirects=False).status_code, 302)
+        self.assertEqual(k.get("wedstrijden/").status_code, 200)
+        # Lijsten: geen demo-accounts in de echte app, geen echte accounts of zwemmers in de demo.
+        self.assertNotContains(k.get("gebruikers/"), "demo.invalid")
+        self.assertNotContains(k.get("zwemmers/"), "Lina Gebruiker")
+        self.assertNotContains(self.d.get("gebruikers/"), "ouder@x.be")
+        self.assertNotContains(self.d.get("zwemmers/"), "Echt Kind")
+        self.assertEqual(int(een("SELECT COUNT(*) FROM wp_users WHERE user_email LIKE '%demo.invalid'")), 0)
+        self.assertEqual(int(een("SELECT COUNT(*) FROM {p}zwemmers")), 1)
+        self.assertEqual(int(een("SELECT MIN(ID) FROM wp_khzsdemo_users")), 900000001)
+
+    def test_terugzetten(self):
+        echt = gebruiker("ouder@x.be")
+        zwemmer(echt, "Echt", "Kind")
+        n = demo_aantal("zwemmers")
+        self.d.post("zwemmers/nieuw/", {"voornaam": "Nieuw", "naam": "Kind", "geboortedatum": "2015-01-01", "geslacht": "F"})
+        self.assertEqual(demo_aantal("zwemmers"), n + 1)
+        r = self.d.post("demo/terugzetten/")
+        self.assertEqual(r.status_code, 302)
+        self.assertTrue(r.headers["Location"].endswith("/leden-demo/aanmelden/"))
+        self.assertEqual(demo_aantal("zwemmers"), n)
+        self.assertEqual(self.d.get("wedstrijden/").status_code, 302)  # opnieuw aanmelden
+        self.d.login()
+        self.assertEqual(self.d.get("wedstrijden/").status_code, 200)
+        # Ook de nachtelijke taak (buiten de demo); de echte gegevens blijven.
+        demo_terugzetten()
+        self.assertEqual(demo_aantal("zwemmers"), n)
+        self.assertEqual(int(een("SELECT COUNT(*) FROM {p}zwemmers")), 1)
+        self.assertEqual(int(een("SELECT COUNT(*) FROM wp_users WHERE user_login='ouder@x.be'")), 1)
+
+    def test_na_update_opnieuw_opgebouwd(self):
+        n = demo_aantal("zwemmers")
+        self.d.post("zwemmers/nieuw/", {"voornaam": "Nieuw", "naam": "Kind", "geboortedatum": "2015-01-01", "geslacht": "F"})
+        self.assertEqual(demo_aantal("zwemmers"), n + 1)
+        self.assertContains(self.d.get("wedstrijden/"), "Clubmeeting ZCT")  # zelfde versie: niets teruggezet
+        self.assertEqual(demo_aantal("zwemmers"), n + 1)
+        # Nieuwe versie van de plugin (andere code-versie): het eerste verzoek bouwt de demo opnieuw op.
+        exe("UPDATE wp_options SET option_value='oude versie' WHERE option_name='khzs_demo_code'")
+        hulp("cache")
+        self.d.get("wedstrijden/")
+        self.assertEqual(demo_aantal("zwemmers"), n)
+
+    def test_demo_uit(self):
+        # Zonder KHZS_DEMO bestaat de demo niet, ook niet via een oude rewrite-regel (nooit de echte app op dit adres).
+        r = requests.get(DEMO + "aanmelden/", headers={"X-KHZS-Demo-Uit": "1"})
+        self.assertEqual(r.status_code, 404)
+        self.assertNotIn("Aanmelden", r.text)
+        self.assertEqual(requests.get(DEMO + "aanmelden/").status_code, 200)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

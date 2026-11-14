@@ -146,6 +146,7 @@ function admin_pagina(): void
         <li>Nachtelijke backup: <?= esc_html(($t = wp_next_scheduled('khzs_backup')) ? wp_date('j/m/Y H:i', $t) : 'niet gepland') ?></li>
       </ul>
       <p class="description">Deze taken gebruiken WP-Cron. Op een site met weinig bezoekers stel je best een echte cron in die <code>wp-cron.php</code> elke 5–15 minuten oproept.</p>
+      <?php do_action('khzs_admin_onder'); ?>
     </div>
     <?php
 }

@@ -1,5 +1,9 @@
 <?php namespace KHZS; defined('ABSPATH') || exit; ?>
 <h1>Meldingen</h1>
+<?php if (is_demo()): ?>
+<div class="kaart"><h2 style="margin-top:0">Op dit toestel</h2>
+  <p class="klein">In de demo staan pushmeldingen uit. In de echte app zet je ze hier aan voor je gsm of computer.</p></div>
+<?php else: ?>
 <div class="kaart">
   <h2 style="margin-top:0">Op dit toestel</h2>
   <p class="klein" id="push-status">Even kijken…</p>
@@ -11,6 +15,7 @@
   <p class="help" id="ios-tip" hidden>Op iPhone/iPad werken meldingen enkel als je de app eerst op je beginscherm zet: tik op Delen ⬆ → ‘Zet op beginscherm’, en open de app van daaruit.</p>
   <p class="help">Je ontvangt meldingen op <?= (int) $toestellen ?> toestel(len).</p>
 </div>
+<?php endif; ?>
 <form method="post" class="kaart" action="<?= esc_url(app_url('meldingen/')) ?>"><?= nonce_veld() ?>
   <h2 style="margin-top:0">Waarvoor?</h2>
   <?php foreach ($velden as $k):
@@ -20,6 +25,7 @@
   <?php endforeach; ?>
   <p><button>Bewaren</button></p>
 </form>
+<?php if (!is_demo()): ?>
 <script>
 (function () {
   const VAPID = <?= wp_json_encode($vapid) ?>;
@@ -57,3 +63,4 @@
   toon();
 })();
 </script>
+<?php endif; ?>
