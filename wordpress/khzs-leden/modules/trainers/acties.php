@@ -40,13 +40,17 @@ function tr_moment_tekst(object $m, string $datum): string
     return "{$m->naam} " . datum($datum, 'D j/m') . ' ' . substr($m->start, 0, 5);
 }
 
-/** Mag de aangemelde gebruiker de aanwezigheid van $uid op deze training aanpassen? */
+/**
+ * Mag de aangemelde gebruiker de aanwezigheid van $uid op deze training aanpassen?
+ * Voor de eigen trainingen gelden altijd de regels van een trainer, ook voor wie in het bestuur zit:
+ * na uitbetaling corrigeert een ander lid van het bestuur of het secretariaat.
+ */
 function tr_mag_bevestigen(object $b, int $uid): bool
 {
-    if (!$b->afgelast && isset($b->aanwezig[$uid]) && tr_afgelopen($b)) {
-        return tr_mag_beheren() || ($uid === get_current_user_id() && !tr_vergrendeld($uid, $b->datum));
+    if ($b->afgelast || !isset($b->aanwezig[$uid]) || !tr_afgelopen($b)) {
+        return false;
     }
-    return false;
+    return $uid === get_current_user_id() ? !tr_vergrendeld($uid, $b->datum) : tr_mag_beheren();
 }
 
 /** Zet alle niet bevestigde, voorbije trainingen van $uid in [van, tot] op 'aanwezig'. Geeft het aantal terug. */
@@ -229,7 +233,8 @@ function v_tr_actie(): void
         geen_toegang('Enkel het bestuur en het sportsecretariaat kunnen de planning van anderen aanpassen.');
     }
     $voorbij = $datum < vandaag()->format('Y-m-d');
-    if ($voorbij && !$sec) {
+    // Eigen trainingen: trainersregels, ook voor wie in het bestuur zit (niemand keurt zijn eigen uren goed na uitbetaling).
+    if ($voorbij && (!$sec || $doel === $ik)) {
         if ($actie === 'afwezig') {
             flash('Deze training is al voorbij. Duid aan of je aanwezig was: ja of nee.', 'error');
             naar($terug);
@@ -398,7 +403,7 @@ function v_tr_vast(): void
         geen_toegang();
     }
     $v = (dag(post('vanaf')) ?? vandaag())->format('Y-m-d');
-    if (!$beheer) {
+    if (!$beheer || $doel === $ik) {
         $v = max($v, vandaag()->modify('first day of previous month')->format('Y-m-d'), tr_eerste_open_dag($ik));
     }
     $gisteren = (new \DateTimeImmutable($v))->modify('-1 day')->format('Y-m-d');

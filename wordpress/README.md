@@ -40,7 +40,7 @@ Vereisten: WordPress 6.2+, PHP 8.0+ met de extensies `zip`, `simplexml`, `dom` e
 
 **Penningmeester** staat los van de app-rol, want het kan ook een ouder zijn. Een beheerder duidt die aan bij *Gebruikers* in de app of op het WordPress-profiel. De penningmeester ziet **Verloning**: de tarieven en het overzicht per maand.
 
-**Bestuur** in de module Trainers: de penningmeester, de beheerder en (zodra de rollen er zijn) de bestuurder (functie `tr_is_bestuur()` in `modules/trainers/regels.php`). Het bestuur en het sportsecretariaat zien en wijzigen de schema's, aanwezigheden en uren van alle trainers.
+**Bestuur** in de module Trainers: de penningmeester, de beheerder en (zodra de rollen er zijn) de bestuurder (functie `tr_is_bestuur()` in `modules/trainers/regels.php`). Het bestuur en het sportsecretariaat zien en wijzigen de schema's, aanwezigheden en uren van alle trainers. Wie in het bestuur zit en ook traint (en eventueel zelf zwemt), heeft bij *Trainingen* zijn of haar eigen trainingen én de knop *Overzicht trainers*. Voor de **eigen** trainingen gelden altijd de regels van een trainer: na uitbetaling corrigeert een ander lid van het bestuur of het secretariaat, zodat niemand zijn eigen uren achteraf goedkeurt.
 
 ## Zelf zwemmer
 

@@ -1083,6 +1083,41 @@ class AanwezigheidTest(TrainersBasis):
         self.assertContains(pm.get("trainers/uren/", maand="2026-09"), "gewijzigd na uitbetaling")
         self.assertContains(self.t.get("trainers/"), "Niet aanwezig op A-groep")
 
+    def test_bestuurder_die_ook_trainer_is(self):
+        # Bert is trainer én zit in het bestuur (hier: penningmeester).
+        bert = gebruiker("bert@khzs.be", "trainer", first_name="Bert", penningmeester=True)
+        b = Klant().login("bert@khzs.be")
+        b.vandaag = "2026-09-01"
+        b.post("trainers/vast/", {"moment": self.m, "aan": 1})
+        # Hij ziet zijn eigen trainingen én kan naar het overzicht van alle trainers.
+        r = b.get("trainers/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Mijn trainingen")
+        self.assertContains(r, "Overzicht trainers")
+        self.assertContains(b.get("trainers/overzicht/", maand="2026-09"), "Bert")
+        b.vandaag = "2026-09-30"
+        # Eigen schema: ook voor hem begrensd tot het begin van vorige maand.
+        b.post("trainers/vast/", {"moment": self.m, "aan": 0, "vanaf": "2026-09-01"})
+        b.post("trainers/vast/", {"moment": self.m, "aan": 1, "vanaf": "2026-01-01"})
+        self.assertEqual(een("SELECT MIN(van) FROM {p}tr_vast WHERE user_id=%d" % bert), "2026-09-01")
+        # Eigen trainingen bevestigen zoals elke trainer; geen melding aan zichzelf.
+        self.actie(b, "ja", "2026-09-07")
+        self.assertEqual(self.bevestiging(bert, "2026-09-07")["bron"], "trainer")
+        self.assertFalse(sql("SELECT id FROM {p}tr_log WHERE user_id=%d" % bert))
+        # Na uitbetaling kan hij zijn eigen uren niet meer wijzigen; een andere bestuurder of het secretariaat wel.
+        b.post("trainers/uren/", {"user": bert, "actie": "uitbetaald"}, query={"maand": "2026-09"})
+        b.vandaag = "2026-10-02"
+        self.actie(b, "nee", "2026-09-07")
+        self.assertEqual(self.bevestiging(bert, "2026-09-07")["aanwezig"], "1")
+        self.s.vandaag = "2026-10-02"
+        self.actie(self.s, "nee", "2026-09-07", user=bert)
+        self.assertEqual(self.bevestiging(bert, "2026-09-07")["aanwezig"], "0")
+        self.assertContains(b.get("trainers/"), "Aangepast door het bestuur")
+        # De uren van anderen past hij als bestuurder wel aan (Tom krijgt een melding).
+        self.actie(b, "ja", "2026-09-28", user=self.tom)
+        self.assertEqual(self.bevestiging(self.tom, "2026-09-28")["bron"], "bestuur")
+        self.assertIn("Bert", hulp("push")[-1]["bericht"]["tekst"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)
