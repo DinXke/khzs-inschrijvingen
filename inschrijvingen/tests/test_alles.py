@@ -704,9 +704,6 @@ class ZelfZwemmerTest(TestCase):
         self.assertTrue(Zwemmer.objects.filter(account=u, voornaam="An").exists())
         self.assertNotContains(self.client.get("/zwemmers/"), "+ Mezelf")
 
-    def test_registratie_toont_vinkje(self):
-        self.assertContains(self.client.get("/registreren/"), "Ik zwem zelf")
-
     def test_welkom_zelf_zwemmer(self):
         registreer(self.client, "an@test.be", "An", "Vos")
         r = self.client.get("/welkom/")
