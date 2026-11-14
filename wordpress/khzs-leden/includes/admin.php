@@ -83,7 +83,6 @@ function admin_pagina(): void
             <label><input type="checkbox" name="khzs_pwa_enkel_home" value="1" <?php checked(get_option('khzs_pwa_enkel_home', 0)); ?>> Op de website enkel op de startpagina (in de app altijd)</label>
             <p><input name="khzs_pwa_tekst" class="large-text" value="<?= esc_attr(get_option('khzs_pwa_tekst', '')) ?>" placeholder="Schrijf je kinderen in voor wedstrijden en krijg meldingen, rechtstreeks vanaf je beginscherm."></p>
             <p class="description">Wie op ‘Niet nu’ tikt, ziet de melding 30 dagen niet meer. Vaste link om te delen (bv. in een nieuwsbrief): <code><?= esc_html(app_url('installeer/')) ?></code></p></td></tr>
-          <?php do_action('khzs_admin_velden'); ?>
         </table>
         <?php submit_button(); ?>
       </form>

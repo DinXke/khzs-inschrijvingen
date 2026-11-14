@@ -10,6 +10,8 @@ defined('ABSPATH') || exit;
 add_filter('khzs_vandaag', fn($d) => $_SERVER['HTTP_X_VANDAAG'] ?? $d);
 // Push synchroon en zonder netwerk: berichten worden in een optie bijgehouden.
 add_filter('khzs_push_synchroon', '__return_true');
+// Demo (KHZS_DEMO in wp-config.php) voor één verzoek uitzetten via de header X-KHZS-Demo-Uit.
+add_filter('khzs_demo_aan', fn($aan) => isset($_SERVER['HTTP_X_KHZS_DEMO_UIT']) ? false : $aan);
 add_filter('khzs_push_verzend', function ($kort, $a, $bericht) {
     $log = get_option('khzs_test_push', []);
     $log[] = ['endpoint' => $a->endpoint, 'bericht' => $bericht];
@@ -70,10 +72,6 @@ add_action('init', function () {
             wp_send_json(['ok' => wp_delete_user((int) $d['id'])]);
         case 'versleutel':
             wp_send_json(['v' => base64_encode(\KHZS\versleutel($d['tekst'], $d['p256dh'], $d['auth']))]);
-        case 'optie':
-            // Via update_option, zodat de hooks meedraaien (bv. de demo aan- of uitzetten).
-            update_option($d['naam'], $d['waarde']);
-            wp_send_json(['ok' => true]);
         case 'cache':
             wp_cache_flush();
             wp_send_json(['ok' => true]);

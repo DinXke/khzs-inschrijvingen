@@ -39,7 +39,7 @@ mkdir -p "$MAP/site/wp-content/plugins" "$MAP/site/wp-content/mu-plugins"
 ln -sfn "$PLUGIN" "$MAP/site/wp-content/plugins/khzs-leden"
 ln -sfn "$HIER/khzs-test-helper.php" "$MAP/site/wp-content/mu-plugins/khzs-test-helper.php"
 WP plugin activate khzs-leden >/dev/null
-WP option update khzs_demo 1 >/dev/null   # demo op /leden-demo/ (demo / demo)
+WP config set KHZS_DEMO true --raw >/dev/null   # demo op /leden-demo/ (demo / demo); nooit op een echte site
 WP rewrite flush >/dev/null
 
 # PHP-webserver met router voor mooie permalinks

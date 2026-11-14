@@ -1,6 +1,10 @@
 <?php
 /**
- * Demo van de app op een eigen adres (standaard /leden-demo/), naast de echte app, op dezelfde WordPress-site.
+ * Demo van de app op een eigen adres (standaard /leden-demo/).
+ *
+ * De demo draait op een aparte WordPress-installatie, los van de site van de club (zie wordpress/demo/). Ze staat enkel
+ * aan met de constante KHZS_DEMO in wp-config.php; op een gewone site wordt ze nooit vanzelf actief. Met KHZS_DEMO_ENKEL
+ * verwijzen de rest van de site en /leden/ door naar de demo. Ook dan blijft de demo afgeschermd zoals hieronder.
  *
  * Hoe de demo gescheiden blijft van de echte gegevens:
  * - Tabellen van de app: t() geeft in de demo wp_khzsdemo_… in plaats van wp_khzs_….
@@ -32,10 +36,22 @@ function is_demo(): bool
     return !empty($GLOBALS['khzs_demo']);
 }
 
-/** Staat de demo aan (wp-admin → Instellingen → KHZS Leden)? */
+/** Staat de demo aan? Enkel met define('KHZS_DEMO', true) in wp-config.php (filter khzs_demo_aan: enkel voor tests). */
 function demo_aan(): bool
 {
-    return (bool) get_option('khzs_demo', 0);
+    return (bool) apply_filters('khzs_demo_aan', defined('KHZS_DEMO') && KHZS_DEMO);
+}
+
+/** Is de hele site een demo (aparte installatie)? Dan verwijst alles door naar de demo. */
+function demo_enkel(): bool
+{
+    return demo_aan() && defined('KHZS_DEMO_ENKEL') && KHZS_DEMO_ENKEL;
+}
+
+/** Versie van de code van de demo: verandert ze (update van de plugin), dan wordt de demo opnieuw opgebouwd. */
+function demo_code_versie(): string
+{
+    return VERSIE . '|' . DB_VERSIE . '|' . md5_file(KHZS_PAD . 'includes/demo-data.php');
 }
 
 function demo_slug(): string
@@ -188,13 +204,25 @@ function demo_cookies(): void
 if (demo_verzoek()) {
     demo_start();
     demo_cookies();
-    // Eerste bezoek of na een update: tabellen maken en vullen (installeer_db draait al via plugins_loaded).
+    // Eerste bezoek of na een update van de plugin: tabellen maken en opnieuw vullen, zodat de demodata altijd klopt.
     add_action('plugins_loaded', function () {
-        if (!get_option('khzs_demo_gevuld')) {
+        if (!get_option('khzs_demo_gevuld') || get_option('khzs_demo_code') !== demo_code_versie()) {
             demo_terugzetten();
         }
     }, 20);
 }
+
+// Aparte demo-installatie: de rest van de site en de gewone app verwijzen door naar de demo.
+add_action('template_redirect', function () {
+    if (!demo_enkel() || is_demo()) {
+        return;
+    }
+    $pad = get_query_var('khzs_pad');
+    if (($pad !== '' && $pad !== null) || is_front_page() || is_home() || is_404()) {
+        wp_safe_redirect(home_url('/' . demo_slug() . '/'), 302);
+        exit;
+    }
+}, -1);
 
 // ---------- routes in de demo ----------
 
@@ -276,6 +304,7 @@ function demo_terugzetten(): void
         require_once KHZS_PAD . 'includes/demo-data.php';
         demo_vul();
         update_option('khzs_demo_gevuld', time(), false);
+        update_option('khzs_demo_code', demo_code_versie(), false);
     } finally {
         demo_cache_leeg();
         if (!$was) {
@@ -310,30 +339,19 @@ add_action('khzs_demo_reset', function () {
     }
 });
 
-// ---------- wp-admin ----------
-
-add_action('admin_init', function () {
-    register_setting('khzs', 'khzs_demo', ['type' => 'integer', 'default' => 0, 'sanitize_callback' => fn($v) => $v ? 1 : 0]);
-});
-
-// Demo aan- of uitgezet: route en nachtelijke taak aanpassen.
-foreach (['add_option_khzs_demo', 'update_option_khzs_demo'] as $hook) {
-    add_action($hook, function () {
+// Demo aan- of uitgezet (constante gewijzigd): rewrite-regel en nachtelijke taak bijwerken.
+add_action('wp_loaded', function () {
+    $regels = get_option('rewrite_rules');
+    $heeft = is_array($regels) && isset($regels['^' . preg_quote(demo_slug(), '#') . '(?:/(.*))?/?$']);
+    if (is_array($regels) && $heeft !== demo_aan()) {
+        delete_option('rewrite_rules'); // WordPress bouwt ze bij het volgende verzoek opnieuw op
+    }
+    if (!demo_aan() && wp_next_scheduled('khzs_demo_reset')) {
         wp_clear_scheduled_hook('khzs_demo_reset');
-        plan_taken();
-        // WordPress bouwt de rewrite-regels bij het volgende verzoek opnieuw op (met alle routes, ook van andere plugins).
-        delete_option('rewrite_rules');
-    });
-}
-
-add_action('khzs_admin_velden', function () {
-    ?>
-    <tr><th scope="row">Demo</th>
-      <td><label><input type="checkbox" name="khzs_demo" value="1" <?php checked(demo_aan()); ?>> Demo van de app op <code><?= esc_html(home_url('/' . demo_slug() . '/')) ?></code></label>
-      <p class="description">Met verzonnen gegevens en een eigen account <b>demo</b> / <b>demo</b> met alle rechten. De demo staat volledig los van de echte gegevens:
-        eigen tabellen en accounts, geen pushmeldingen of mails, geen toegang tot wp-admin. Elke nacht om 03:30 staat ze terug in de begintoestand.</p></td></tr>
-    <?php
+    }
 });
+
+// ---------- wp-admin ----------
 
 add_action('khzs_admin_onder', function () {
     if (!demo_aan()) {
@@ -342,6 +360,8 @@ add_action('khzs_admin_onder', function () {
     $gevuld = (int) get_option('khzs_demo_gevuld');
     ?>
     <h2>Demo</h2>
+    <p>Deze site draait de demo (<code>KHZS_DEMO</code> in wp-config.php), met verzonnen gegevens en een account <b>demo</b> / <b>demo</b> met alle rechten.
+      De demo staat elke nacht om 03:30 en na elke update van de plugin terug in de begintoestand.</p>
     <p><a class="button" href="<?= esc_url(home_url('/' . demo_slug() . '/')) ?>" target="_blank">Open de demo ↗</a>
       Aanmelden met <code>demo</code> / <code>demo</code>.
       <?= $gevuld ? 'Laatst teruggezet: ' . esc_html(wp_date('j/m/Y H:i', $gevuld)) . '.' : 'Nog niet aangemaakt.' ?>

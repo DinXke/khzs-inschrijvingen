@@ -958,7 +958,8 @@ class DemoTest(Basis):
 
     @classmethod
     def setUpClass(cls):
-        hulp("optie", naam="khzs_demo", waarde=1)
+        if requests.get(DEMO + "aanmelden/").status_code != 200:
+            raise unittest.SkipTest("Demo staat uit: zet define('KHZS_DEMO', true) in wp-config.php (testsite.sh doet dat).")
         demo_terugzetten()
 
     def setUp(self):
@@ -1080,12 +1081,23 @@ class DemoTest(Basis):
         self.assertEqual(int(een("SELECT COUNT(*) FROM {p}zwemmers")), 1)
         self.assertEqual(int(een("SELECT COUNT(*) FROM wp_users WHERE user_login='ouder@x.be'")), 1)
 
+    def test_na_update_opnieuw_opgebouwd(self):
+        n = demo_aantal("zwemmers")
+        self.d.post("zwemmers/nieuw/", {"voornaam": "Nieuw", "naam": "Kind", "geboortedatum": "2015-01-01", "geslacht": "F"})
+        self.assertEqual(demo_aantal("zwemmers"), n + 1)
+        self.assertContains(self.d.get("wedstrijden/"), "Clubmeeting ZCT")  # zelfde versie: niets teruggezet
+        self.assertEqual(demo_aantal("zwemmers"), n + 1)
+        # Nieuwe versie van de plugin (andere code-versie): het eerste verzoek bouwt de demo opnieuw op.
+        exe("UPDATE wp_options SET option_value='oude versie' WHERE option_name='khzs_demo_code'")
+        hulp("cache")
+        self.d.get("wedstrijden/")
+        self.assertEqual(demo_aantal("zwemmers"), n)
+
     def test_demo_uit(self):
-        hulp("optie", naam="khzs_demo", waarde=0)
-        try:
-            self.assertEqual(requests.get(DEMO + "aanmelden/").status_code, 404)
-        finally:
-            hulp("optie", naam="khzs_demo", waarde=1)
+        # Zonder KHZS_DEMO bestaat de demo niet, ook niet via een oude rewrite-regel (nooit de echte app op dit adres).
+        r = requests.get(DEMO + "aanmelden/", headers={"X-KHZS-Demo-Uit": "1"})
+        self.assertEqual(r.status_code, 404)
+        self.assertNotIn("Aanmelden", r.text)
         self.assertEqual(requests.get(DEMO + "aanmelden/").status_code, 200)
 
 

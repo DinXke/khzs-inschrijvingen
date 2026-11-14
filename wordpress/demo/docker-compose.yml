@@ -1,0 +1,59 @@
+# Aparte WordPress-installatie voor de demo van KHZS Leden, los van de site van de club (www.khzs.be).
+# De plugin komt rechtstreeks uit deze repo (../khzs-leden); update.sh houdt die bij met main.
+# Gebruik: zie README.md in deze map.
+name: khzs-demo
+
+x-wp-omgeving: &wp-omgeving
+  WORDPRESS_DB_HOST: db
+  WORDPRESS_DB_NAME: wp
+  WORDPRESS_DB_USER: wp
+  WORDPRESS_DB_PASSWORD: ${DB_WACHTWOORD:?zet DB_WACHTWOORD in .env}
+  DEMO_URL: ${DEMO_URL:-http://localhost:8094}
+  WORDPRESS_CONFIG_EXTRA: |
+    // Deze site is enkel een demo: /leden-demo/ met demodata, de rest verwijst door.
+    define('KHZS_DEMO', true);
+    define('KHZS_DEMO_ENKEL', true);
+    define('WP_HOME', getenv_docker('DEMO_URL', 'http://localhost:8094'));
+    define('WP_SITEURL', WP_HOME);
+    // Geplande taken (nachtelijk terugzetten) via update.sh, niet via bezoekers.
+    define('DISABLE_WP_CRON', true);
+    define('AUTOMATIC_UPDATER_DISABLED', true);
+
+x-wp-volumes: &wp-volumes
+  - wp:/var/www/html
+  - ../khzs-leden:/var/www/html/wp-content/plugins/khzs-leden:ro
+
+services:
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: wp
+      MARIADB_USER: wp
+      MARIADB_PASSWORD: ${DB_WACHTWOORD:?zet DB_WACHTWOORD in .env}
+      MARIADB_RANDOM_ROOT_PASSWORD: "1"
+    volumes:
+      - db:/var/lib/mysql
+
+  wordpress:
+    image: wordpress:php8.2
+    restart: unless-stopped
+    depends_on: [db]
+    environment: *wp-omgeving
+    volumes: *wp-volumes
+    ports:
+      # Standaard enkel lokaal (voor cloudflared op dezelfde host). Zet DEMO_BIND=0.0.0.0 als de tunnel elders draait.
+      - "${DEMO_BIND:-127.0.0.1}:${DEMO_POORT:-8094}:80"
+
+  # wp-cli voor installeer.sh en update.sh (docker compose run --rm wpcli wp …)
+  wpcli:
+    image: wordpress:cli-php8.2
+    profiles: [cli]
+    user: "33:33"
+    depends_on: [db]
+    environment: *wp-omgeving
+    volumes: *wp-volumes
+
+volumes:
+  db:
+  wp:
