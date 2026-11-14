@@ -183,11 +183,13 @@ Daarna nog drie bijsturingen:
     - Daarna `lxc/firstboot.sh` met `DEMO_TAK=wordpress/demo` (zolang PR #8 niet gemerged is). Zet het na de merge op `main` in `/opt/khzs-demo/wordpress/demo/.env`.
     - De demo draait: met de headers van de Worker getest in de container; cron voor `update.sh` staat in `/etc/cron.d/khzs-demo`.
     - Het wachtwoord van wp-admin van de demo (gebruiker `beheer`) staat in `/var/log/khzs-demo-firstboot.log` op CT 139.
-  - **Nog te doen door de eigenaar** in Cloudflare:
-    - een tunnel `leden-demo` met public hostname `leden-demo.khzs.be` → `http://localhost:8094`;
-    - het token installeren op CT 139: `cloudflared service install <token>`, of aan Claude bezorgen;
-    - de Worker met `BRON=https://leden-demo.khzs.be` en de route `khzs.be/leden-demo*`.
-  - Daarna: de tunnel, en de Worker en de route in Cloudflare (stappen in `wordpress/demo/README.md`).
+  - **Live sinds 14/11/2026** op https://khzs.be/leden-demo/.
+    - Tunnel `leden-demo` → `leden-demo.khzs.be` → `localhost:8094`, met cloudflared op CT 139.
+    - Worker `khzs-leden-demo` met `BRON=https://leden-demo.khzs.be` en de route `khzs.be/leden-demo*` (fail open).
+    - Van buitenaf getest: aanmelden, alle schermen, manifest, iconen en service worker.
+  - **Nog open**:
+    - PR #8 mergen en daarna `DEMO_TAK=main` zetten in `.env` op CT 139;
+    - het tunneltoken vernieuwen: het stond in de chat.
 
 ## Werken aan de plugin
 
