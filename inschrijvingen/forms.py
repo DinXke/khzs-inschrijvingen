@@ -22,6 +22,12 @@ class RegistratieForm(UserCreationForm):
     koppelcode = forms.CharField(label="Koppelcode (optioneel)", max_length=12, required=False,
                                  help_text="Heeft de andere ouder je kind al ingeschreven? Vraag een koppelcode (bij de zwemmer → "
                                            "‘Koppelcode maken’) en vul ze hier in. Je hoeft je kind dan niet opnieuw toe te voegen.")
+    rollen = forms.MultipleChoiceField(
+        label="Ik ben (meerdere mogelijk)", required=False, widget=forms.CheckboxSelectMultiple,
+        choices=[(Profiel.ZWEMMER, "Zwemmer"), (Profiel.OUDER, "Ouder van een zwemmer"), (Profiel.TRAINER, "Trainer"),
+                 (Profiel.SECRETARIS, "Sportsecretaris"), (Profiel.BESTUURDER, "Bestuurder")],
+        help_text="Zwemmer en ouder krijg je meteen. Trainer, sportsecretaris en bestuurder worden eerst goedgekeurd door "
+                  "het bestuur. Later aanvragen kan bij Mijn zwemmers → Mijn rollen.")
 
     class Meta:
         model = User
@@ -147,19 +153,15 @@ class TrainerInstellingenForm(forms.ModelForm):
         help_texts = {"dagen_trainer": "Extra dagen vóór de deadline van het sportsecretariaat dat zwemmers moeten ingeschreven zijn."}
 
 
-class RolForm(forms.ModelForm):
-    class Meta:
-        model = Profiel
-        fields = ["rol"]
-
-
 class MeldingenForm(forms.ModelForm):
     class Meta:
         model = Profiel
-        fields = ["push_nieuwe_wedstrijd", "push_deadline", "push_wijziging", "push_nieuwe_inschrijving"]
+        fields = ["push_nieuwe_wedstrijd", "push_deadline", "push_wijziging", "push_nieuwe_inschrijving", "push_rolaanvraag"]
 
-    def __init__(self, *a, staf=False, **kw):
+    def __init__(self, *a, staf=False, rolbeheer=False, **kw):
         super().__init__(*a, **kw)
+        if not rolbeheer:
+            del self.fields["push_rolaanvraag"]
         if not staf:
             del self.fields["push_nieuwe_inschrijving"]
         else:

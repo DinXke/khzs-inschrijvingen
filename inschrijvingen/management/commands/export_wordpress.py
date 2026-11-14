@@ -15,7 +15,8 @@ from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 
 from inschrijvingen.models import (BesteTijd, Bijlage, Deelname, Inschrijving, Leeftijdsgroep, Limiet, Limietlijst, Melding,
-                                   Nummer, Profiel, PushAbonnement, Sessie, VerstuurdeHerinnering, Wedstrijd, Zwemmer)
+                                   Nummer, PushAbonnement, Rolaanvraag, Sessie, VerstuurdeHerinnering, Wedstrijd, Zwemmer)
+from inschrijvingen.rollen import gesorteerd, rollen_van
 
 
 def hon(td):
@@ -87,10 +88,13 @@ class Command(BaseCommand):
             gebruikers.append(dict(id=u.pk, login=u.username, email=u.email or u.username, first_name=u.first_name,
                                    last_name=u.last_name, wachtwoord=u.password, actief=u.is_active))
             p = getattr(u, "profiel", None)
-            rol = Profiel.BEHEERDER if u.is_superuser else (p.rol if p else Profiel.ZWEMMER)
-            meta.append(dict(user_id=u.pk, user_login=u.username, meta_key="khzs_rol", meta_value=rol))
+            eigen = gesorteerd(rollen_van(u))
+            meta.append(dict(user_id=u.pk, user_login=u.username, meta_key="khzs_rol", meta_value=eigen[0]))
+            # Alle rollen, komma-gescheiden (de plugin leest ze met rollen_van()).
+            meta.append(dict(user_id=u.pk, user_login=u.username, meta_key="khzs_rollen", meta_value=",".join(eigen)))
             if p:
-                for k in ("push_nieuwe_wedstrijd", "push_deadline", "push_wijziging", "push_nieuwe_inschrijving"):
+                for k in ("push_nieuwe_wedstrijd", "push_deadline", "push_wijziging", "push_nieuwe_inschrijving",
+                          "push_rolaanvraag"):
                     meta.append(dict(user_id=u.pk, user_login=u.username, meta_key=f"khzs_{k}", meta_value="1" if getattr(p, k) else "0"))
 
         data = {"versie": "django", "gemaakt": datetime.now().isoformat(), "tabellen": tab, "meta": meta, "gebruikers": gebruikers}

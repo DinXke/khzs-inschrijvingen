@@ -17,6 +17,7 @@ from django.db import transaction
 from inschrijvingen import lenex
 from inschrijvingen.models import (BesteTijd, Bijlage, Deelname, Inschrijving, Melding, Profiel, Wedstrijd, Zwemmer)
 from inschrijvingen.regels import leeftijd, past_in_nummer
+from inschrijvingen.rollen import zet_rollen
 
 JEUGD = [(11, 11), (12, 12), (13, 13), (14, 14), (15, 16), (17, -1)]
 MINIEM = [(9, 9), (10, 10)]
@@ -130,7 +131,7 @@ class Command(BaseCommand):
                 "first_name": vn, "last_name": nm, "email": f"{account}@demo.khzs.be"})
             u.set_password("demo")
             u.save()
-            Profiel.objects.update_or_create(user=u, defaults={"rol": Profiel.ZWEMMER})
+            zet_rollen(u, [Profiel.ZWEMMER])
             for kvn, gd, gs in kinderen:
                 Zwemmer.objects.get_or_create(account=u, voornaam=kvn, naam=nm, defaults={"geboortedatum": gd, "geslacht": gs})
 
