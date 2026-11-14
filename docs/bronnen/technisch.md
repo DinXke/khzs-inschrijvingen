@@ -11,6 +11,12 @@
 | Hosting | Proxmox LXC (Debian 12, VLAN 10.10.30.0/24) |
 | Push | Web Push met VAPID (`pywebpush`), sleutel in `/opt/khzs/data/vapid.pem` |
 
+## Naam en iconen
+
+- De app heet **KHZS Leden** (titel, app op de gsm, mails). Het adres blijft `https://inschrijvingen.khzs.be`.
+- App-iconen: het HZS-logo met *Leden* eronder. Opnieuw maken met `python3 tools/logo/maak_iconen.py` (schrijft naar `static/img/` en naar de WordPress-plugin).
+- Een zwemmer kan bij meerdere accounts horen: het eerste in `account`, de andere in `extra_accounts` (migratie `0011_zwemmer_accounts`). Koppelcodes: 8 tekens, 7 dagen geldig, max. 10 foute pogingen per uur.
+
 ## Lenex
 
 - Import: `.lxf` (zip) en `.lef` (XML), Lenex 2.x en 3.0. Veilig ingelezen met `defusedxml`.
@@ -29,7 +35,7 @@
 ## Documentatie bijwerken
 
 ```
-.venv/bin/python docs/build.py
+.venv/bin/python docs/build.py          # Windows: .venv/Scripts/python docs/build.py
 ```
 
 Het script start de app met demodata, maakt alle screenshots opnieuw (gsm + pc, licht + donker) en bouwt de PDF's in `docs/pdf/`.
@@ -40,7 +46,7 @@ Het script start de app met demodata, maakt alle screenshots opnieuw (gsm + pc, 
 .venv/bin/python docs/video.py            # alle drie, of: docs/video.py zwemmer
 ```
 
-Het script (macOS) start de app met demodata en neemt met Playwright een gescripte rondleiding per rol op. De voice-over komt van de Vlaamse stem *nathalie* van Piper (lokaal, open source, licentie CC0; het model wordt automatisch gedownload, met de macOS-stem *Ellen* als reserve), en ffmpeg (`imageio-ffmpeg`) voegt beeld, stem en ondertitels samen tot `docs/video/<rol>.mp4`, met `.srt` en `.vtt`. Er zijn een geanimeerd splashscreen, hoofdstukkaarten en zachte overgangen. **Andere stem (bv. Artlist):** `docs/video.py --script` exporteert de tekst per filmpje. Bewaar de gegenereerde audio in `docs/video/stem/<rol>.mp3`, en `docs/stem.py` knipt die per stap: faster-whisper geeft de woordtijden, difflib lijnt ze uit met het script. Stappen die niet gevonden worden, vallen terug op de standaardstem. Meer uitleg in `docs/video/stem/LEESMIJ.md`.
+Het script (macOS en Windows; met Piper is geen macOS-stem nodig) start de app met demodata en neemt met Playwright een gescripte rondleiding per rol op. De voice-over komt van de Vlaamse stem *nathalie* van Piper (lokaal, open source, licentie CC0; het model wordt automatisch gedownload, met de macOS-stem *Ellen* als reserve), en ffmpeg (`imageio-ffmpeg`) voegt beeld, stem en ondertitels samen tot `docs/video/<rol>.mp4`, met `.srt` en `.vtt`. Er zijn een geanimeerd splashscreen, hoofdstukkaarten en zachte overgangen. **Andere stem (bv. Artlist):** `docs/video.py --script` exporteert de tekst per filmpje. Bewaar de gegenereerde audio in `docs/video/stem/<rol>.mp3`, en `docs/stem.py` knipt die per stap: faster-whisper geeft de woordtijden, difflib lijnt ze uit met het script. Stappen die niet gevonden worden, vallen terug op de standaardstem. Meer uitleg in `docs/video/stem/LEESMIJ.md`.
 
 De app toont de filmpjes en PDF's op `/uitleg/`: ze worden via `STATICFILES_DIRS` aangeboden als `/static/video/` en `/static/docs/`.
 

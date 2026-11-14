@@ -27,7 +27,7 @@ Via **Beheer** (`/beheer/`) zie en wijzig je alle gegevens rechtstreeks: gebruik
 
 | Rol | Kan |
 |---|---|
-| Zwemmer | Eigen zwemmers beheren, deelname kiezen, inschrijven tot de deadline. Ziet geen bedragen |
+| Zwemmer | Eigen zwemmers beheren, zwemmers delen met een tweede account (koppelcode), deelname kiezen, inschrijven tot de deadline. Ziet geen bedragen |
 | Trainer | Inschrijvingen nakijken, aanpassen, deelname weigeren, uitslagen importeren, info per wedstrijd |
 | Sportsecretaris | Alles van de trainer + wedstrijden opladen, instellingen, export, gebruikersrollen |
 | Beheerder | Alles van de sportsecretaris + backups, beheerpaneel, beheerders aanstellen |

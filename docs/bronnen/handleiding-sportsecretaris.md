@@ -7,6 +7,8 @@ Als sportsecretaris laad je wedstrijden op, bepaal je de deadlines en selectiecr
 Het **eerste account** dat op een nieuwe installatie wordt aangemaakt, krijgt automatisch de rol *Sportsecretaris*.
 Andere rollen (zwemmer, trainer, sportsecretaris) ken je toe onder **Gebruikers**. Beheerders kan enkel een beheerder aanstellen.
 
+Volgen twee ouders dezelfde zwemmer, elk met een eigen account? Dat regelen ze zelf met een koppelcode. Je kan een account ook rechtstreeks koppelen bij de zwemmer, via **Account koppelen (staf)** (zie de handleiding voor trainers).
+
 ![pc gebruikers](../screenshots/secretaris-gebruikers.png)
 
 ## 2. Wedstrijd opladen

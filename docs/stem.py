@@ -46,7 +46,7 @@ def opname_voor(rol):
     samen = STEMMAP / f".{rol}-samengevoegd.wav"
     if not samen.exists() or samen.stat().st_mtime < max(d.stat().st_mtime for d in delen):
         lijst = STEMMAP / f".{rol}-delen.txt"
-        lijst.write_text("".join(f"file '{d.resolve()}'\n" for d in delen))
+        lijst.write_text("".join(f"file '{d.resolve()}'\n" for d in delen), encoding="utf-8")
         subprocess.run([FFMPEG, "-loglevel", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(lijst),
                         "-ac", "1", "-ar", "44100", str(samen)], check=True)
     return samen
@@ -56,7 +56,7 @@ def transcribeer(audio):
     """Woorden met tijden; gecachet naast de opname (opnieuw berekend als de opname wijzigt)."""
     cache = audio.with_suffix(".woorden.json")
     if cache.exists() and cache.stat().st_mtime >= audio.stat().st_mtime:
-        return json.loads(cache.read_text())
+        return json.loads(cache.read_text(encoding="utf-8"))
     from faster_whisper import WhisperModel
 
     import numpy as np
@@ -68,7 +68,7 @@ def transcribeer(audio):
     model = WhisperModel(MODEL, device="cpu", compute_type="int8")
     segmenten, _ = model.transcribe(golf, language="nl", word_timestamps=True, vad_filter=False)
     lijst = [{"w": w.word, "s": round(w.start, 3), "e": round(w.end, 3)} for seg in segmenten for w in seg.words]
-    cache.write_text(json.dumps(lijst, ensure_ascii=False))
+    cache.write_text(json.dumps(lijst, ensure_ascii=False), encoding="utf-8")
     return lijst
 
 
