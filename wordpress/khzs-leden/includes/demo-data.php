@@ -586,6 +586,37 @@ function demo_vul_trainers(object $c): void
     };
     $bevestig($seizoen, $v->modify('-3 days')->format('Y-m-d'));
 
+    // Zwemmers: een trainer van de training duidde aan wie er was, op alle voorbije trainingen behalve de laatste twee
+    // dagen (die staan nog bij 'Zwemmers aanduiden'). Elke zwemmer heeft een eigen kans om er te zijn; soms te laat of
+    // vroeger weg, en een deel van de afwezigheden is ziekte.
+    $alle = array_column(db()->get_results("SELECT * FROM " . t('ploegen')), null, 'id');
+    $kans = [];
+    foreach (tr_trainingen($seizoen, $v->modify('-3 days')->format('Y-m-d')) as $b) {
+        if ($b->afgelast || !$b->ploegen || !$b->aanwezig) {
+            continue;
+        }
+        $lijst = tr_zw_lijst($b, array_intersect_key($alle, array_flip($b->ploegen)));
+        $ja = $status = [];
+        foreach ($lijst as $l) {
+            foreach ($l['zwemmers'] as $z) {
+                $zid = (int) $z->id;
+                $kans[$zid] ??= demo_rnd(0.6, 0.97);
+                $x = demo_rnd();
+                if (demo_rnd() < $kans[$zid]) {
+                    $ja[] = $zid;
+                    if ($x < 0.07) {
+                        $status[$zid] = 'laat';
+                    } elseif ($x < 0.11) {
+                        $status[$zid] = 'vroeger';
+                    }
+                } elseif ($x < 0.35) {
+                    $status[$zid] = 'ziek';
+                }
+            }
+        }
+        tr_zw_bewaar($b, $lijst, $ja, (int) array_key_first($b->aanwezig), $status);
+    }
+
     // Tarieven: competitietrainers per uur, lesgevers per training. Eén trainer kreeg een nieuw tarief.
     $tarief = fn(string $wie, string $soort, int $cent, string $vanaf, string $opm = '') => db()->insert(t('tr_tarieven'),
         ['user_id' => $u[$wie], 'soort' => $soort, 'bedrag_cent' => $cent, 'geldig_vanaf' => $vanaf, 'opmerking' => $opm, 'aangemaakt' => $nu]);

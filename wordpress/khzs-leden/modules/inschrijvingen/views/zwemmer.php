@@ -27,6 +27,7 @@ $url = app_url("zwemmers/{$z->id}/"); ?>
         <button class="mini"><?= $is_staf ? 'Toevoegen' : 'Aanvragen' ?></button></form>
         <p class="help">De trainer of het bestuur keurt de ploeg goed. Je krijgt een melding.</p><?php endif; ?>
     </div>
+    <?php do_action('khzs_zwemmer_pagina', $z); // bv. aanwezigheid op trainingen (module trainers) ?>
     <h2>Inschrijvingen</h2>
     <div class="kaart">
       <?php foreach ($inschrijvingen as $i): ?><div class="rij tussen" style="padding:.35rem 0;border-bottom:1px solid var(--lijn)">
