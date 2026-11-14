@@ -2199,8 +2199,8 @@ class CommunicatieTest(Basis):
 
     def test_aankondigingen_en_hulpvraag(self):
         self.abonneer(("ouder@khzs.be", self.ouder), ("trz@khzs.be", self.tr_z), ("andere@khzs.be", self.andere), ("bestuur@khzs.be", self.bestuur))
-        self.assertEqual(self.o.post("berichten/aankondigingen/", {"soort": "info", "titel": "x", "kanaal_id": 0}).status_code, 403)
-        r = self.b.post("berichten/aankondigingen/", {"soort": "hulp", "titel": "Helpers pastadag", "tekst": "Wie helpt mee?", "kanaal_id": 0,
+        self.assertEqual(self.o.post("berichten/aankondigingen/", {"soort": "info", "titel": "x", "kanalen[]": 0}).status_code, 403)
+        r = self.b.post("berichten/aankondigingen/", {"soort": "hulp", "titel": "Helpers pastadag", "tekst": "Wie helpt mee?", "kanalen[]": 0,
                                                        "nodig": 5, "wanneer": "zaterdag 6 december"})
         self.assertEqual(r.status_code, 302, r.text[:1000])
         aid = int(een("SELECT id FROM {p}com_aankondigingen"))
@@ -2233,8 +2233,8 @@ class CommunicatieTest(Basis):
         for stuk in ("Ann", "ouder@khzs.be", "Misschien", "Totaal Ja", "<v>3</v>"):
             self.assertIn(stuk, blad)
         # Een trainer maakt een aankondiging voor zijn eigen ploeg, niet voor iedereen.
-        self.tc.post("berichten/aankondigingen/", {"soort": "dringend", "titel": "Voor iedereen", "kanaal_id": 0})
-        self.tc.post("berichten/aankondigingen/", {"soort": "dringend", "titel": "Training valt weg", "kanaal_id": self.kanaal("A-groep")})
+        self.tc.post("berichten/aankondigingen/", {"soort": "dringend", "titel": "Voor iedereen", "kanalen[]": 0})
+        self.tc.post("berichten/aankondigingen/", {"soort": "dringend", "titel": "Training valt weg", "kanalen[]": self.kanaal("A-groep")})
         self.assertEqual([r["titel"] for r in sql("SELECT titel FROM {p}com_aankondigingen ORDER BY id")], ["Helpers pastadag", "Training valt weg"])
         self.assertIn("Training valt weg", self.o.get(f"berichten/kanaal/{self.kanaal('A-groep')}/").text)
         self.assertNotIn("Training valt weg", Klant().login("andere@khzs.be").get("berichten/").text)
@@ -2245,6 +2245,47 @@ class CommunicatieTest(Basis):
         self.assertEqual(self.o.post(f"berichten/aankondiging/{aid}/", {"actie": "verwijderen"}).status_code, 403)
         self.b.post(f"berichten/aankondiging/{aid}/", {"actie": "verwijderen"})
         self.assertFalse(sql("SELECT id FROM {p}com_rsvp"))
+
+    def test_aankondiging_voor_meerdere_kanalen(self):
+        a, d = self.kanaal("A-groep"), self.kanaal("Dolfijnen")
+        andere = Klant().login("andere@khzs.be")
+        # Het formulier toont vinkjes: Iedereen en elk kanaal.
+        r = self.b.get("berichten/aankondigingen/")
+        self.assertIn('name="kanalen[]" value="0" checked', r.text)
+        self.assertIn(f'name="kanalen[]" value="{d}"', r.text)
+        r = self.b.post("berichten/aankondigingen/", {"soort": "info", "titel": "Zwembad dicht", "kanalen[]": [a, d]})
+        self.assertEqual(r.status_code, 302, r.text[:1000])
+        aid = int(een("SELECT id FROM {p}com_aankondigingen WHERE titel='Zwembad dicht'"))
+        self.assertEqual(een(f"SELECT kanalen FROM {{p}}com_aankondigingen WHERE id={aid}"), f"{min(a, d)},{max(a, d)}")
+        # Wie minstens één van de kanalen ziet, ziet de aankondiging, ook in elk van die kanalen.
+        self.assertIn("Zwembad dicht", self.o.get("berichten/").text)
+        self.assertIn("Zwembad dicht", andere.get("berichten/").text)
+        self.assertIn("Zwembad dicht", self.o.get(f"berichten/kanaal/{a}/").text)
+        self.assertIn("Zwembad dicht", andere.get(f"berichten/kanaal/{d}/").text)
+        self.assertIn("A-groep, Dolfijnen", self.tekst(self.b.get(f"berichten/aankondiging/{aid}/")))
+        # Enkel Dolfijnen: de ouder van de A-groep ziet ze niet meer.
+        self.b.post(f"berichten/aankondiging/{aid}/", {"actie": "bewaar", "soort": "info", "titel": "Zwembad dicht", "kanalen[]": [d]})
+        self.assertNotIn("Zwembad dicht", self.o.get("berichten/").text)
+        self.assertEqual(self.o.get(f"berichten/aankondiging/{aid}/").status_code, 403)
+        self.assertIn("Zwembad dicht", andere.get("berichten/").text)
+        # Iedereen samen met een kanaal: voor iedereen.
+        self.b.post(f"berichten/aankondiging/{aid}/", {"actie": "bewaar", "soort": "info", "titel": "Zwembad dicht", "kanalen[]": [0, d]})
+        self.assertEqual(een(f"SELECT kanalen FROM {{p}}com_aankondigingen WHERE id={aid}"), "")
+        self.assertIn("Zwembad dicht", self.o.get("berichten/").text)
+        # Een trainer kiest enkel uit de eigen kanalen, en minstens één.
+        r = self.tc.post("berichten/aankondigingen/", {"soort": "info", "titel": "Ook Dolfijnen", "kanalen[]": [a, d]})
+        self.assertIn("Kies voor wie de aankondiging is.", r.text)
+        r = self.tc.post("berichten/aankondigingen/", {"soort": "info", "titel": "Niemand"})
+        self.assertIn("Kies voor wie de aankondiging is.", r.text)
+        self.assertFalse(sql("SELECT id FROM {p}com_aankondigingen WHERE titel IN ('Ook Dolfijnen', 'Niemand')"))
+        # Overzetting van versie 1: één kanaal in kanaal_id wordt de lijst kanalen.
+        exe(f"INSERT INTO {{p}}com_aankondigingen (soort, titel, tekst, kanaal_id, aangemaakt) VALUES ('info', 'Oud', '', {a}, NOW())")
+        exe("UPDATE wp_options SET option_value='1' WHERE option_name='khzs_com_db_versie'")
+        hulp("cache")
+        self.o.get("berichten/")
+        self.assertEqual(sql("SELECT kanaal_id, kanalen FROM {p}com_aankondigingen WHERE titel='Oud'"), [{"kanaal_id": "0", "kanalen": str(a)}])
+        self.assertIn("Oud", self.o.get(f"berichten/kanaal/{a}/").text)
+        self.assertNotIn("Oud", andere.get("berichten/").text)
 
     def test_voorkeuren_en_avg(self):
         r = self.o.get("meldingen/")
