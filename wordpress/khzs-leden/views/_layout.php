@@ -34,6 +34,7 @@ $ingelogd = is_user_logged_in();
   </nav>
   <?php endif; ?>
 </header>
+<?php if (is_demo()) { include KHZS_PAD . 'views/demo-balk.php'; } ?>
 <main class="<?= esc_attr($mainklasse) ?>">
   <?php foreach ($meldingen_flash as [$soort, $tekst]): ?><div class="melding <?= esc_attr($soort) ?>"><?= e($tekst) ?></div><?php endforeach; ?>
   <?php include $inhoud_sjabloon; ?>
