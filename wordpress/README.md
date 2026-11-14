@@ -89,7 +89,13 @@ De demo staat op **https://khzs.be/leden-demo/**, maar draait op een **aparte Wo
 - Met `KHZS_DEMO_ENKEL` is de hele site de demo: de app staat dan op het adres van de site zelf (behalve wp-admin).
 
 - **Aanmelden** met `demo` / `demo`. Dat account heeft alle rollen: beheerder (dus ook sportsecretaris), trainer, penningmeester, ouder van drie kinderen en zelf zwemmer.
-  Andere demo-accounts, ook met wachtwoord `demo`:
+  Accounts met precies **één rol**, met als wachtwoord telkens de gebruikersnaam:
+  - `trainer` / `trainer`: trainer van Competitie 2
+  - `zwemmer` / `zwemmer`: een zwemster die zelf haar account heeft
+  - `ouder` / `ouder`: ouder van twee kinderen
+  - `bestuur` / `bestuur`: bestuurslid. Zolang er geen rollenmodule is (PR #7), is dat een penningmeester (verloning); daarna de rol bestuurder.
+
+  Andere demo-accounts, met wachtwoord `demo`:
   - `katrien` (sportsecretaris)
   - `lotte`, `bram`, `tom`, `wout`, `annelies` (competitie) en `nina`, `ruben`, `elise`, `jasper` (zwemschool): trainers
   - `koen`, `an`, `pieter`, `hilde`, `sofie`, `marc`: ouders
