@@ -8,16 +8,23 @@ namespace KHZS;
 
 defined('ABSPATH') || exit;
 
+/** Adres van de app; in de demo het adres van de demo. */
 function slug(): string
+{
+    return is_demo() ? demo_slug() : echte_slug();
+}
+
+function echte_slug(): string
 {
     return trim(get_option('khzs_slug', 'leden'), '/') ?: 'leden';
 }
 
 function registreer_routes(): void
 {
-    add_rewrite_rule('^' . preg_quote(slug(), '#') . '(?:/(.*))?/?$', 'index.php?khzs_pad=/$matches[1]', 'top');
+    add_rewrite_rule('^' . preg_quote(echte_slug(), '#') . '(?:/(.*))?/?$', 'index.php?khzs_pad=/$matches[1]', 'top');
+    registreer_demo_route();
     // Oude adressen (/inschrijvingen/, /club/) blijven werken (doorverwijzing).
-    foreach (array_diff(['inschrijvingen', 'club'], [slug()]) as $oud) {
+    foreach (array_diff(['inschrijvingen', 'club'], [echte_slug()]) as $oud) {
         add_rewrite_rule('^' . $oud . '(?:/(.*))?/?$', 'index.php?khzs_oud=/$matches[1]', 'top');
     }
 }
@@ -39,15 +46,18 @@ function app_url(string $pad = '', array $query = []): string
 {
     $pad = ltrim($pad, '/');
     if (get_option('permalink_structure')) {
-        $url = home_url('/' . slug() . '/' . $pad);
+        $url = home_url('/' . ltrim(slug() . '/' . $pad, '/')); // slug kan leeg zijn (demo op een aparte site)
     } else {
-        $url = add_query_arg('khzs_pad', '/' . $pad, home_url('/'));
+        $url = add_query_arg(['khzs_pad' => '/' . $pad] + (is_demo() ? ['khzs_demo' => 1] : []), home_url('/'));
     }
     return $query ? add_query_arg(array_map('rawurlencode', $query), $url) : $url;
 }
 
 function asset(string $pad): string
 {
+    if (is_demo() && str_starts_with($pad, 'img/') && is_file(KHZS_PAD . 'assets/img/demo/' . substr($pad, 4))) {
+        $pad = 'img/demo/' . substr($pad, 4); // iconen met 'DEMO' (tools/logo/maak_demo_iconen.py)
+    }
     $v = @filemtime(KHZS_PAD . "assets/$pad") ?: VERSIE;
     return KHZS_URL . "assets/$pad?v=$v";
 }
@@ -55,7 +65,9 @@ function asset(string $pad): string
 /** Huidig pad + query (voor 'terug'-velden), relatief binnen de app. */
 function huidige_url(): string
 {
-    return home_url(wp_unslash($_SERVER['REQUEST_URI'] ?? '/'));
+    // REQUEST_URI bevat al het pad van WordPress (ook in een submap): enkel schema, host en poort van de site ervoor.
+    $h = wp_parse_url(home_url('/'));
+    return $h['scheme'] . '://' . $h['host'] . (isset($h['port']) ? ':' . $h['port'] : '') . wp_unslash($_SERVER['REQUEST_URI'] ?? '/');
 }
 
 // ---------- invoer ----------
