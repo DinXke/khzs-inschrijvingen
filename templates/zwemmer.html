@@ -3,23 +3,6 @@
 <h1>{{ z.voornaam }} {{ z.naam }}</h1>
 <div class="grid twee">
   <div>
-    <h2>Beste tijden</h2>
-    <div class="kaart">
-      {% if tijden %}<div class="tabelwrap"><table>
-        <tr><th>Nummer</th><th>Tijd</th><th>Datum</th><th></th></tr>
-        {% for t in tijden %}<tr><td>{{ t.afstand }} m {{ t.get_slag_display|lower }} <span class="klein">{{ t.get_baan_display }}</span></td>
-          <td><b>{{ t.tijd|tijd }}</b></td><td class="klein">{{ t.datum|date:"j/m/y" }}</td>
-          <td>{% if is_staf %}<form method="post" action="{% url 'tijd_verwijderen' t.pk %}">{% csrf_token %}<button class="mini secundair" title="Verwijderen">✕</button></form>{% endif %}</td></tr>{% endfor %}
-      </table></div>{% else %}<p class="klein">Nog geen tijden. Je beste tijden worden door de club bijgehouden op basis van de wedstrijduitslagen.</p>{% endif %}
-      {% if z.swimrankings_url %}<p><a class="knop secundair mini" href="{{ z.swimrankings_url }}" target="_blank" rel="noopener">Bekijk op Swimrankings ↗</a></p>
-      {% else %}<p class="help">Vul je Swimrankings-ID in bij je gegevens voor een directe link naar je tijden.</p>{% endif %}
-    </div>
-    {% if is_staf %}<details class="kaart" {% if tijdform.errors %}open{% endif %}>
-      <summary><strong>+ Tijd toevoegen (staf)</strong></summary>
-      <form method="post">{% csrf_token %}{% with form=tijdform %}{% include "_form.html" %}{% endwith %}<p><button class="vol">Toevoegen</button></p></form>
-    </details>{% endif %}
-  </div>
-  <div>
     {% if meldingen %}<h2>Wijzigingen door de club</h2>
     <div class="kaart melding-lijst">{% for m in meldingen %}
       <div class="melding-item{% if not m.gelezen %} nieuw{% endif %}"><div class="klein">{{ m.door_naam }} · {{ m.wedstrijd.naam }} · {{ m.aangemaakt|date:"j M H:i" }}</div>
@@ -46,8 +29,25 @@
         <div style="flex:1;min-width:180px"><label for="acc-email">Account koppelen (staf)</label><input id="acc-email" type="email" name="email" placeholder="e-mail van het account" required></div>
         <button class="mini secundair">Koppelen</button></form>{% endif %}
     </div>
+  </div>
+  <div>
     <h2>Gegevens</h2>
     <form method="post" class="kaart">{% csrf_token %}{% include "_form.html" %}<p><button>Bewaren</button></p></form>
+    <details class="kaart beste-tijden"{% if tijdform.errors %} open{% endif %}>
+      <summary><strong>Beste tijden</strong> <span class="klein">({{ tijden|length }} · bijgehouden door de club)</span></summary>
+      {% if tijden %}<div class="tabelwrap"><table>
+        <tr><th>Nummer</th><th>Tijd</th><th>Datum</th><th></th></tr>
+        {% for t in tijden %}<tr><td>{{ t.afstand }} m {{ t.get_slag_display|lower }} <span class="klein">{{ t.get_baan_display }}</span></td>
+          <td><b>{{ t.tijd|tijd }}</b></td><td class="klein">{{ t.datum|date:"j/m/y" }}</td>
+          <td>{% if is_staf %}<form method="post" action="{% url 'tijd_verwijderen' t.pk %}">{% csrf_token %}<button class="mini secundair" title="Verwijderen">✕</button></form>{% endif %}</td></tr>{% endfor %}
+      </table></div>{% else %}<p class="klein">Nog geen tijden. Je beste tijden worden door de club bijgehouden op basis van de wedstrijduitslagen.</p>{% endif %}
+      {% if z.swimrankings_url %}<p><a class="knop secundair mini" href="{{ z.swimrankings_url }}" target="_blank" rel="noopener">Bekijk op Swimrankings ↗</a></p>
+      {% else %}<p class="help">Vul je Swimrankings-ID in bij je gegevens voor een directe link naar je tijden.</p>{% endif %}
+    </details>
+    {% if is_staf %}<details class="kaart" {% if tijdform.errors %}open{% endif %}>
+      <summary><strong>+ Tijd toevoegen (staf)</strong></summary>
+      <form method="post">{% csrf_token %}{% with form=tijdform %}{% include "_form.html" %}{% endwith %}<p><button class="vol">Toevoegen</button></p></form>
+    </details>{% endif %}
   </div>
 </div>
 {% endblock %}
