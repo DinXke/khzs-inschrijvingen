@@ -20,8 +20,9 @@ function meld(object $z, object $w, int $door, array $regels): void
 {
     db()->insert(t('meldingen'), ['zwemmer_id' => $z->id, 'wedstrijd_id' => $w->id, 'door_id' => $door,
         'tekst' => implode("\n", $regels), 'gelezen' => 0, 'aangemaakt' => nu_sql()]);
-    if (voorkeur((int) $z->account_id, 'push_wijziging')) {
-        stuur([(int) $z->account_id], "Inschrijving {$z->voornaam} gewijzigd", mb_substr("{$w->naam}: " . implode('; ', $regels), 0, 180 + mb_strlen($w->naam) + 2),
+    $ontvangers = array_values(array_filter(zwemmer_accounts($z), fn($uid) => voorkeur($uid, 'push_wijziging')));
+    if ($ontvangers) {
+        stuur($ontvangers, "Inschrijving {$z->voornaam} gewijzigd", mb_substr("{$w->naam}: " . implode('; ', $regels), 0, 180 + mb_strlen($w->naam) + 2),
             wedstrijd_url($w, $z));
     }
 }
@@ -68,11 +69,22 @@ function v_registreren(): void
     if (!registratie_open()) {
         toon('fout', ['titel' => 'Registreren', 'tekst' => 'Zelf een account aanmaken is uitgeschakeld. Vraag een account aan de club.'], 'Registreren', 'smal');
     }
-    $form = ['email' => '', 'voornaam' => '', 'naam' => ''];
+    $form = ['email' => '', 'voornaam' => '', 'naam' => '', 'koppelcode' => ''];
     $fouten = [];
     $zwemmers = [[[], []]];
+    $gekoppeld = null;
     if (is_post()) {
-        $form = ['email' => strtolower(post('email')), 'voornaam' => post('voornaam'), 'naam' => post('naam')];
+        $form = ['email' => strtolower(post('email')), 'voornaam' => post('voornaam'), 'naam' => post('naam'), 'koppelcode' => post('koppelcode')];
+        if ($form['koppelcode'] !== '') {
+            try {
+                $gekoppeld = koppel_zoek($form['koppelcode']);
+                if (!$gekoppeld) {
+                    $fouten['koppelcode'] = 'Deze koppelcode klopt niet of is verlopen.';
+                }
+            } catch (\RuntimeException $e) {
+                $fouten['koppelcode'] = $e->getMessage();
+            }
+        }
         if (!is_email($form['email'])) {
             $fouten['email'] = 'Geef een geldig e-mailadres op.';
         } elseif (username_exists($form['email']) || email_exists($form['email'])) {
@@ -97,12 +109,16 @@ function v_registreren(): void
         $ok_zwemmers = true;
         for ($i = 0; $i < $aantal; $i++) {
             [$v, $f] = lees_zwemmer("zw-$i-");
+            // Een volledig leeg blok mag als er een koppelcode is.
+            $leeg = !array_filter(array_intersect_key($v, array_flip(['voornaam', 'naam', 'geboortedatum', 'geslacht'])));
+            if ($leeg && $gekoppeld) {
+                continue;
+            }
             $zwemmers[] = [$v, $f];
             $ok_zwemmers = $ok_zwemmers && !$f;
         }
-        if (!$zwemmers) {
-            $fouten['__zwemmers'] = 'Voeg minstens één zwemmer toe.';
-            $zwemmers = [[[], []]];
+        if (!$zwemmers && !$gekoppeld) {
+            $fouten['__zwemmers'] = 'Voeg minstens één zwemmer toe, of geef de koppelcode van de andere ouder in.';
         }
         if (!$fouten && $ok_zwemmers) {
             $uid = wp_insert_user(['user_login' => $form['email'], 'user_email' => $form['email'], 'user_pass' => $w1,
@@ -114,15 +130,18 @@ function v_registreren(): void
                 foreach ($zwemmers as [$v]) {
                     db()->insert(t('zwemmers'), $v + ['account_id' => $uid]);
                 }
+                if ($gekoppeld) {
+                    koppel($gekoppeld, $uid);
+                }
                 wp_set_current_user($uid);
                 wp_set_auth_cookie($uid, true, is_ssl());
-                $n = count($zwemmers);
+                $n = count($zwemmers) + ($gekoppeld ? 1 : 0);
                 flash("Account aangemaakt met $n zwemmer" . ($n !== 1 ? 's' : '') . '. Kies een wedstrijd om in te schrijven.');
                 naar(app_url('wedstrijden/'));
             }
         }
     }
-    toon('inschrijvingen/registreren', ['form' => $form, 'fouten' => $fouten, 'zwemmers' => $zwemmers], 'Profiel aanmaken', 'smal');
+    toon('inschrijvingen/registreren', ['form' => $form, 'fouten' => $fouten, 'zwemmers' => $zwemmers ?: [[[], []]]], 'Profiel aanmaken', 'smal');
 }
 
 function v_wedstrijden(): void
@@ -259,8 +278,86 @@ function v_zwemmer($id): void
         JOIN " . t('sessies') . " s ON s.id=n.sessie_id JOIN " . t('wedstrijden') . " w ON w.id=s.wedstrijd_id
         WHERE i.zwemmer_id=%d ORDER BY s.datum DESC, s.nummer, n.volgorde", $z->id));
     toon('inschrijvingen/zwemmer', ['z' => $z, 'v' => $v, 'f' => $f, 'tijd' => $tijd, 'tf' => $tf, 'tijden' => tijden_van((int) $z->id),
-        'meldingen' => meldingen(db()->prepare('m.zwemmer_id=%d', $z->id)), 'inschrijvingen' => $inschrijvingen],
+        'meldingen' => meldingen(db()->prepare('m.zwemmer_id=%d', $z->id)), 'inschrijvingen' => $inschrijvingen,
+        'accounts' => array_filter(array_map('get_userdata', zwemmer_accounts($z))), 'koppelcode' => koppel_toon(koppel_geldige_code($z) ?? '')],
         "{$z->voornaam} {$z->naam}");
+}
+
+/** Een zwemmer van een ander account (bv. de andere ouder) koppelen met een koppelcode. */
+function v_zwemmer_koppelen(): void
+{
+    vereist_login();
+    vereist_post();
+    try {
+        $z = koppel_zoek(post('code'));
+    } catch (\RuntimeException $e) {
+        flash($e->getMessage(), 'error');
+        naar(app_url('zwemmers/'));
+    }
+    if (!$z) {
+        flash('Deze koppelcode klopt niet of is verlopen. Vraag de andere ouder om een nieuwe code.', 'error');
+        naar(app_url('zwemmers/'));
+    }
+    if (koppel($z, get_current_user_id())) {
+        flash("{$z->voornaam} {$z->naam} is gekoppeld aan je account. Je ziet nu dezelfde inschrijvingen en meldingen.");
+    } else {
+        flash("{$z->voornaam} {$z->naam} hoort al bij je account.", 'info');
+    }
+    naar(app_url("zwemmers/{$z->id}/"));
+}
+
+function v_zwemmer_delen($id): void
+{
+    vereist_login();
+    vereist_post();
+    $z = zwemmer_voor($id);
+    $code = koppel_nieuwe_code($z);
+    flash("Koppelcode voor {$z->voornaam}: " . koppel_toon($code) . ' (' . KOPPEL_DAGEN . ' dagen geldig).');
+    naar(app_url("zwemmers/{$z->id}/"));
+}
+
+/** Een account loskoppelen: zelf altijd; anderen enkel door het eerste account of de staf. */
+function v_zwemmer_ontkoppelen($id): void
+{
+    vereist_login();
+    vereist_post();
+    $z = zwemmer_voor($id);
+    $ik = get_current_user_id();
+    $weg = (int) post('user');
+    if ($weg !== $ik && (int) $z->account_id !== $ik && !is_staf()) {
+        geen_toegang();
+    }
+    $u = get_userdata($weg) ?: niet_gevonden();
+    try {
+        ontkoppel($z, $weg);
+    } catch (\RuntimeException $e) {
+        flash($e->getMessage(), 'error');
+        naar(app_url("zwemmers/{$z->id}/"));
+    }
+    if ($weg === $ik && !is_staf()) {
+        flash("{$z->voornaam} {$z->naam} is niet meer gekoppeld aan je account.");
+        naar(app_url('zwemmers/'));
+    }
+    flash((volle_naam($u) ?: $u->user_login) . " is losgekoppeld van {$z->voornaam}.");
+    naar(app_url("zwemmers/{$z->id}/"));
+}
+
+/** Staf: een bestaand account (op e-mail) koppelen, bv. als een ouder hulp vraagt. */
+function v_zwemmer_account(): void
+{
+    vereist_rol(STAF);
+    vereist_post();
+    $z = zwemmer((int) post('zwemmer')) ?: niet_gevonden();
+    $email = post('email');
+    $u = get_user_by('email', $email) ?: get_user_by('login', $email);
+    if (!$u) {
+        flash("Geen account gevonden met e-mail $email.", 'error');
+    } elseif (koppel($z, $u->ID)) {
+        flash((volle_naam($u) ?: $u->user_login) . " is gekoppeld aan {$z->voornaam}.");
+    } else {
+        flash('Dit account was al gekoppeld.', 'info');
+    }
+    naar(app_url("zwemmers/{$z->id}/"));
 }
 
 function v_tijd_verwijderen($id): void
@@ -300,7 +397,7 @@ function v_wedstrijd($id): void
             'bestaande' => $bestaande, 'meldingen' => $meldingen, 'ongelezen' => count(array_filter($meldingen, fn($m) => !$m->gelezen)),
             'totaal' => array_sum(array_map(fn($i) => (int) $i->nummer->kost_cent, $bestaande)),
             'heeft_tijden' => (bool) db()->get_var(db()->prepare("SELECT COUNT(*) FROM " . t('tijden') . " WHERE zwemmer_id=%d", $gekozen->id))];
-        if ((int) $gekozen->account_id === get_current_user_id()) {
+        if (heeft_account($gekozen, get_current_user_id())) {
             db()->update(t('meldingen'), ['gelezen' => 1], ['zwemmer_id' => $gekozen->id, 'wedstrijd_id' => $w->id, 'gelezen' => 0]);
         }
     }

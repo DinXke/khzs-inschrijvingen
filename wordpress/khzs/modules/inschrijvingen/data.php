@@ -26,12 +26,15 @@ function startdatum(object $w): ?\DateTimeImmutable
 
 function zwemmers_van(int $user_id): array
 {
-    return db()->get_results(db()->prepare("SELECT * FROM " . t('zwemmers') . " WHERE account_id=%d ORDER BY naam, voornaam", $user_id));
+    // Eigen zwemmers en zwemmers die met dit account gedeeld zijn (bv. gescheiden ouders).
+    return db()->get_results(db()->prepare("SELECT * FROM " . t('zwemmers') . " WHERE account_id=%d OR id IN (SELECT zwemmer_id FROM "
+        . t('zwemmer_accounts') . " WHERE user_id=%d) ORDER BY naam, voornaam", $user_id, $user_id));
 }
 
 function alle_zwemmers(string $q = ''): array
 {
-    $sql = "SELECT z.*, u.user_email AS email FROM " . t('zwemmers') . " z LEFT JOIN " . db()->users . " u ON u.ID=z.account_id";
+    $sql = "SELECT z.*, CONCAT_WS(', ', u.user_email, (SELECT GROUP_CONCAT(u2.user_email ORDER BY za.id SEPARATOR ', ') FROM " . t('zwemmer_accounts')
+        . " za JOIN " . db()->users . " u2 ON u2.ID=za.user_id WHERE za.zwemmer_id=z.id)) AS email FROM " . t('zwemmers') . " z LEFT JOIN " . db()->users . " u ON u.ID=z.account_id";
     if ($q !== '') {
         $like = '%' . db()->esc_like($q) . '%';
         $sql .= db()->prepare(" WHERE z.naam LIKE %s OR z.voornaam LIKE %s", $like, $like);
@@ -43,7 +46,7 @@ function alle_zwemmers(string $q = ''): array
 function zwemmer_voor($id): object
 {
     $z = zwemmer((int) $id);
-    if (!$z || (!is_staf() && (int) $z->account_id !== get_current_user_id())) {
+    if (!$z || (!is_staf() && !heeft_account($z, get_current_user_id()))) {
         niet_gevonden();
     }
     return $z;

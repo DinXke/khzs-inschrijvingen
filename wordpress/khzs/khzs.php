@@ -15,13 +15,14 @@ namespace KHZS;
 defined('ABSPATH') || exit;
 
 const VERSIE = '2.0.0';
-const DB_VERSIE = '2';
+const DB_VERSIE = '3';
 define('KHZS_PAD', plugin_dir_path(__FILE__));
 define('KHZS_URL', plugin_dir_url(__FILE__));
 
 // ---------- kern ----------
 require_once KHZS_PAD . 'includes/kern.php';
 require_once KHZS_PAD . 'includes/db.php';
+require_once KHZS_PAD . 'includes/koppelen.php';
 require_once KHZS_PAD . 'includes/xlsx.php';
 require_once KHZS_PAD . 'includes/push.php';
 require_once KHZS_PAD . 'includes/backup.php';

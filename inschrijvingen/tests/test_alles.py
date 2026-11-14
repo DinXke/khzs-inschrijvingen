@@ -218,7 +218,8 @@ class WijzigTest(StroomTest):
         self.assertEqual(Melding.objects.count(), 2)
 
         self.c.force_login(ouder)
-        r = self.c.get("/wedstrijden/")
+        with mock.patch("inschrijvingen.views.vandaag", return_value=date(2026, 10, 1)):  # wedstrijd nog niet voorbij
+            r = self.c.get("/wedstrijden/")
         self.assertContains(r, "gewijzigd door de club")
         r = self.c.get(f"/wedstrijd/{self.w.pk}/?zwemmer={z.pk}")
         self.assertContains(r, "Trainer Tom".split()[0])
@@ -595,3 +596,88 @@ class BijlageTest(StroomTest):
             self.c.force_login(self.sec)
             self.c.post(f"/bijlage/{b.pk}/verwijderen/")
             self.assertFalse(Bijlage.objects.exists())
+
+
+class KoppelTest(StroomTest):
+    """Een zwemmer delen met een tweede account (bv. gescheiden ouders)."""
+
+    def _gezin(self):
+        mama = User.objects.create_user("mama@o.be", "mama@o.be", "geheim123!", first_name="Mama")
+        papa = User.objects.create_user("papa@o.be", "papa@o.be", "geheim123!", first_name="Papa")
+        z = Zwemmer.objects.create(account=mama, voornaam="Lien", naam="P", geboortedatum=date(2013, 3, 2), geslacht="F")
+        return mama, papa, z
+
+    def test_koppelen_met_code(self):
+        from inschrijvingen.models import Melding
+        from unittest import mock
+        mama, papa, z = self._gezin()
+        self.c.force_login(papa)
+        self.assertEqual(self.c.get(f"/zwemmers/{z.pk}/").status_code, 404)
+        self.c.force_login(mama)
+        self.c.post(f"/zwemmers/{z.pk}/delen/")
+        z.refresh_from_db()
+        self.assertEqual(len(z.koppelcode), 8)
+        self.assertContains(self.c.get(f"/zwemmers/{z.pk}/"), f"{z.koppelcode[:4]}-{z.koppelcode[4:]}")
+        self.c.force_login(papa)
+        r = self.c.post("/zwemmers/koppelen/", {"code": f"{z.koppelcode[:4].lower()}-{z.koppelcode[4:]}"})
+        self.assertRedirects(r, f"/zwemmers/{z.pk}/")
+        self.assertTrue(z.heeft_account(papa))
+        self.assertContains(self.c.get("/zwemmers/"), "Lien")
+        self.assertEqual(self.c.get(f"/wedstrijd/{self.w.pk}/?zwemmer={z.pk}").status_code, 200)
+        # Papa schrijft in; een wijziging door de trainer geeft een melding voor beide ouders.
+        with mock.patch("inschrijvingen.regels.vandaag", return_value=date(2026, 10, 1)):
+            self.c.post(f"/wedstrijd/{self.w.pk}/inschrijven/", {"zwemmer": z.pk, "nummer": [Nummer.objects.get(sessie__wedstrijd=self.w, nummer=6).pk]})
+        self.assertTrue(Inschrijving.objects.filter(zwemmer=z).exists())
+        self.c.force_login(self.tr)
+        with mock.patch("inschrijvingen.push.stuur") as stuur:
+            self.c.post(f"/wedstrijd/{self.w.pk}/beoordelen/", {"actie": "afgekeurd", "inschrijving": [Inschrijving.objects.get().pk]})
+        self.assertEqual({u.pk for u in stuur.call_args.args[0]}, {mama.pk, papa.pk})
+        self.assertEqual(Melding.objects.count(), 1)
+
+    def test_foute_code_en_ontkoppelen(self):
+        mama, papa, z = self._gezin()
+        self.c.force_login(papa)
+        self.c.post("/zwemmers/koppelen/", {"code": "AAAA-AAAA"})
+        self.assertFalse(z.heeft_account(papa))
+        z.extra_accounts.add(papa)
+        # Papa kan mama niet loskoppelen (enkel zichzelf); mama (eerste account) en staf wel.
+        self.assertEqual(self.c.post(f"/zwemmers/{z.pk}/ontkoppelen/", {"user": mama.pk}).status_code, 403)
+        self.c.post(f"/zwemmers/{z.pk}/ontkoppelen/", {"user": papa.pk})
+        self.assertFalse(z.heeft_account(papa))
+        # Het enige account kan niet weg.
+        self.c.force_login(mama)
+        self.c.post(f"/zwemmers/{z.pk}/ontkoppelen/", {"user": mama.pk})
+        z.refresh_from_db()
+        self.assertEqual(z.account, mama)
+        # Eerste account weg → de andere ouder wordt het eerste account.
+        z.extra_accounts.add(papa)
+        self.c.post(f"/zwemmers/{z.pk}/ontkoppelen/", {"user": mama.pk})
+        z.refresh_from_db()
+        self.assertEqual(z.account, papa)
+        self.assertFalse(z.extra_accounts.exists())
+
+    def test_account_verwijderd_zwemmer_blijft(self):
+        mama, papa, z = self._gezin()
+        z.extra_accounts.add(papa)
+        mama.delete()
+        z.refresh_from_db()
+        self.assertEqual(z.account, papa)
+
+    def test_registreren_met_koppelcode_zonder_zwemmer(self):
+        from inschrijvingen import koppelen
+        mama, papa, z = self._gezin()
+        code = koppelen.nieuwe_code(z)
+        self.c.logout()
+        r = self.c.post("/registreren/", {
+            "email": "plusmama@test.be", "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!", "voornaam": "Els", "naam": "V",
+            "koppelcode": koppelen.toon(code), "zw-TOTAL_FORMS": 1, "zw-INITIAL_FORMS": 0, "zw-MIN_NUM_FORMS": 0, "zw-MAX_NUM_FORMS": 10,
+        })
+        self.assertEqual(r.status_code, 302, r.content[:2000])
+        self.assertTrue(z.heeft_account(User.objects.get(username="plusmama@test.be")))
+        self.assertEqual(Zwemmer.objects.count(), 1)
+
+    def test_staf_koppelt_op_email(self):
+        mama, papa, z = self._gezin()
+        self.c.force_login(self.tr)
+        self.c.post(f"/zwemmers/{z.pk}/account/", {"email": "papa@o.be"})
+        self.assertTrue(z.heeft_account(papa))

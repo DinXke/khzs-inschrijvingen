@@ -45,7 +45,10 @@ class Command(BaseCommand):
         import hashlib
         tab = {}
         tab["zwemmers"] = [dict(id=z.pk, account_id=z.account_id, voornaam=z.voornaam, naam=z.naam, geboortedatum=d(z.geboortedatum),
-                                geslacht=z.geslacht, licentie=z.licentie, swimrankings_id=z.swimrankings_id) for z in Zwemmer.objects.all()]
+                                geslacht=z.geslacht, licentie=z.licentie, swimrankings_id=z.swimrankings_id, koppelcode=z.koppelcode,
+                                koppelcode_tot=dt(z.koppelcode_tot)) for z in Zwemmer.objects.all()]
+        tab["zwemmer_accounts"] = [dict(zwemmer_id=r.zwemmer_id, user_id=r.user_id, aangemaakt=dt(datetime.now()))
+                                   for r in Zwemmer.extra_accounts.through.objects.all()]
         tab["tijden"] = [dict(id=x.pk, zwemmer_id=x.zwemmer_id, afstand=x.afstand, slag=x.slag, baan=x.baan, tijd=hon(x.tijd),
                               datum=d(x.datum), wedstrijd=x.wedstrijd, bron=x.bron) for x in BesteTijd.objects.all()]
         tab["wedstrijden"] = [dict(id=w.pk, naam=w.naam, stad=w.stad, zwembad=w.zwembad, baan=w.baan, deadline=d(w.deadline),

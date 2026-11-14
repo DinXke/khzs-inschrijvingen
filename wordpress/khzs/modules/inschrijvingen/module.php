@@ -35,6 +35,10 @@ add_filter('khzs_routes', fn($r) => array_merge($r, [
     ['zwemmers/uitslagen', 'uitslagen', 'v_uitslagen'],
     ['zwemmers/nieuw', 'zwemmer_nieuw', 'v_zwemmer_nieuw'],
     ['zwemmers/(\d+)', 'zwemmer', 'v_zwemmer'],
+    ['zwemmers/koppelen', 'zwemmers', 'v_zwemmer_koppelen'],
+    ['zwemmers/(\d+)/delen', 'zwemmer', 'v_zwemmer_delen'],
+    ['zwemmers/(\d+)/ontkoppelen', 'zwemmer', 'v_zwemmer_ontkoppelen'],
+    ['zwemmers/account', 'zwemmer', 'v_zwemmer_account'],
     ['tijd/(\d+)/verwijderen', 'tijd_verwijderen', 'v_tijd_verwijderen'],
     ['uitleg', 'uitleg', 'v_uitleg'],
 ]));

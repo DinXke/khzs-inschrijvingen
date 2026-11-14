@@ -8,7 +8,7 @@ defined('ABSPATH') || exit;
 /** Alle tabellen van de kern en de actieve modules (voor backup). Modules voegen de hunne toe via khzs_tabellen. */
 function alle_tabellen(): array
 {
-    return apply_filters('khzs_tabellen', ['zwemmers', 'push']);
+    return apply_filters('khzs_tabellen', ['zwemmers', 'zwemmer_accounts', 'push']);
 }
 
 /** Volledige tabelnaam, bv. t('zwemmers') → wp_khzs_zwemmers. */
@@ -37,8 +37,21 @@ function installeer_db(): void
   geslacht char(1) NOT NULL,
   licentie varchar(30) NOT NULL DEFAULT '',
   swimrankings_id varchar(20) NOT NULL DEFAULT '',
+  koppelcode varchar(8) NOT NULL DEFAULT '',
+  koppelcode_tot datetime NULL,
   PRIMARY KEY  (id),
-  KEY account_id (account_id)
+  KEY account_id (account_id),
+  KEY koppelcode (koppelcode)
+) $c;";
+    // Extra accounts van een zwemmer (bv. de andere ouder), gekoppeld met een koppelcode.
+    $sql[] = "CREATE TABLE " . t('zwemmer_accounts') . " (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  zwemmer_id bigint(20) unsigned NOT NULL,
+  user_id bigint(20) unsigned NOT NULL,
+  aangemaakt datetime NOT NULL,
+  PRIMARY KEY  (id),
+  UNIQUE KEY uniek (zwemmer_id,user_id),
+  KEY user_id (user_id)
 ) $c;";
     $sql[] = "CREATE TABLE " . t('push') . " (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -104,15 +117,23 @@ function in_lijst(array $ids): string
 function verwijder_zwemmer(int $id): void
 {
     do_action('khzs_zwemmer_verwijderd', $id); // modules ruimen hun gegevens van deze zwemmer op
+    db()->delete(t('zwemmer_accounts'), ['zwemmer_id' => $id]);
     db()->delete(t('zwemmers'), ['id' => $id]);
 }
 
-/** WordPress-gebruiker verwijderd: zijn zwemmers en toestellen gaan mee. */
+/** WordPress-gebruiker verwijderd: gedeelde zwemmers gaan naar het andere account, de rest verdwijnt mee. */
 function verwijder_gebruiker_data(int $user_id): void
 {
     foreach (db()->get_col(db()->prepare("SELECT id FROM " . t('zwemmers') . " WHERE account_id=%d", $user_id)) as $zid) {
-        verwijder_zwemmer((int) $zid);
+        $ander = db()->get_var(db()->prepare("SELECT user_id FROM " . t('zwemmer_accounts') . " WHERE zwemmer_id=%d AND user_id<>%d ORDER BY id LIMIT 1", $zid, $user_id));
+        if ($ander) {
+            db()->update(t('zwemmers'), ['account_id' => (int) $ander], ['id' => $zid]);
+            db()->delete(t('zwemmer_accounts'), ['zwemmer_id' => $zid, 'user_id' => (int) $ander]);
+        } else {
+            verwijder_zwemmer((int) $zid);
+        }
     }
+    db()->delete(t('zwemmer_accounts'), ['user_id' => $user_id]);
     db()->delete(t('push'), ['user_id' => $user_id]);
     do_action('khzs_gebruiker_verwijderd', $user_id);
 }

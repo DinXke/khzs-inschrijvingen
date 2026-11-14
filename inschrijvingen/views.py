@@ -21,7 +21,7 @@ from django.http import FileResponse, Http404
 from django.http import JsonResponse
 from django.urls import reverse
 
-from . import lenex, push
+from . import koppelen, lenex, push
 from .export import excel_overzicht
 from .forms import (BesteTijdForm, BijlageForm, MeldingenForm, ZwemmerFormSet, RegistratieForm, RolForm, SecretarisInstellingenForm,
                     TrainerInstellingenForm, UploadForm, ZwemmerForm)
@@ -50,8 +50,9 @@ def is_staf(user):
 
 def meld(zwemmer, wedstrijd, door, regels):
     Melding.objects.create(zwemmer=zwemmer, wedstrijd=wedstrijd, door=door, tekst="\n".join(regels))
-    if getattr(getattr(zwemmer.account, "profiel", None), "push_wijziging", False):
-        push.stuur([zwemmer.account], f"Inschrijving {zwemmer.voornaam} gewijzigd",
+    ontvangers = [u for u in zwemmer.accounts if getattr(getattr(u, "profiel", None), "push_wijziging", False)]
+    if ontvangers:
+        push.stuur(ontvangers, f"Inschrijving {zwemmer.voornaam} gewijzigd",
                    f"{wedstrijd.naam}: " + "; ".join(regels)[:180],
                    f"{reverse('wedstrijd', args=[wedstrijd.pk])}?zwemmer={zwemmer.pk}")
 
@@ -64,7 +65,7 @@ def markeer_gewijzigd(zwemmer, wedstrijd):
 
 def zwemmer_voor(request, pk):
     """Een zwemmer die deze gebruiker mag zien: eigen zwemmers, of alle voor staf."""
-    qs = Zwemmer.objects.all() if is_staf(request.user) else request.user.zwemmers.all()
+    qs = Zwemmer.objects.all() if is_staf(request.user) else Zwemmer.objects.van(request.user)
     return get_object_or_404(qs, pk=pk)
 
 
@@ -76,14 +77,19 @@ def registreren(request):
     form = RegistratieForm(request.POST or None)
     zwemmers = ZwemmerFormSet(request.POST or None, prefix="zw")
     if request.method == "POST" and form.is_valid() and zwemmers.is_valid():
+        if not form.cleaned_data.get("gekoppeld") and not any(zf.has_changed() for zf in zwemmers):
+            form.add_error(None, "Voeg minstens één zwemmer toe, of geef de koppelcode van de andere ouder in.")
+    if request.method == "POST" and form.is_valid() and zwemmers.is_valid():
         user = form.save()
         for zf in zwemmers:
             if zf.has_changed():
                 z = zf.save(commit=False)
                 z.account = user
                 z.save()
+        if form.cleaned_data.get("gekoppeld"):
+            koppelen.koppel(form.cleaned_data["gekoppeld"], user)
         login(request, user, backend="django.contrib.auth.backends.ModelBackend")
-        n = user.zwemmers.count()
+        n = Zwemmer.objects.van(user).count()
         messages.success(request, f"Account aangemaakt met {n} zwemmer{'s' if n != 1 else ''}. Kies een wedstrijd om in te schrijven.")
         return redirect("wedstrijden")
     return render(request, "registration/registreren.html", {"form": form, "zwemmers": zwemmers})
@@ -108,11 +114,12 @@ def wedstrijden(request):
     )
     eigen, nieuw, keuzes = defaultdict(int), defaultdict(int), defaultdict(list)
     if r not in STAF:
-        for d in Deelname.objects.filter(zwemmer__account=request.user).select_related("zwemmer"):
+        mijn = Zwemmer.objects.van(request.user)
+        for d in Deelname.objects.filter(zwemmer__in=mijn).select_related("zwemmer"):
             keuzes[d.wedstrijd_id].append(d)
-        for i in Inschrijving.objects.filter(zwemmer__account=request.user).select_related("nummer__sessie"):
+        for i in Inschrijving.objects.filter(zwemmer__in=mijn).select_related("nummer__sessie"):
             eigen[i.nummer.sessie.wedstrijd_id] += 1
-        for m in Melding.objects.filter(zwemmer__account=request.user, gelezen=False):
+        for m in Melding.objects.filter(zwemmer__in=mijn, gelezen=False):
             nieuw[m.wedstrijd_id] += 1
     qs = qs.annotate(start=Min("sessies__datum"))
     nu = vandaag()
@@ -133,7 +140,7 @@ def mijn_zwemmers(request):
         if q:
             zwemmers = zwemmers.filter(Q(naam__icontains=q) | Q(voornaam__icontains=q))
         return render(request, "zwemmers.html", {"zwemmers": zwemmers, "q": q, "alle": True})
-    return render(request, "zwemmers.html", {"zwemmers": request.user.zwemmers.all()})
+    return render(request, "zwemmers.html", {"zwemmers": Zwemmer.objects.van(request.user)})
 
 
 @login_required
@@ -169,7 +176,74 @@ def zwemmer(request, pk):
     inschrijvingen = z.inschrijvingen.select_related("nummer__sessie__wedstrijd").order_by("-nummer__sessie__datum")
     meldingen = z.meldingen.select_related("wedstrijd", "door__profiel")[:10]
     return render(request, "zwemmer.html", {"z": z, "form": form, "tijdform": tijdform, "meldingen": meldingen,
+                                            "accounts": z.accounts, "koppelcode": koppelen.toon(koppelen.geldige_code(z) or ""),
+                                            "koppelcode_tot": z.koppelcode_tot,
                                             "tijden": z.tijden.all(), "inschrijvingen": inschrijvingen})
+
+
+@login_required
+@require_POST
+def zwemmer_koppelen(request):
+    """Een zwemmer van een ander account (bv. de andere ouder) aan dit account koppelen met een koppelcode."""
+    try:
+        z = koppelen.zoek(request.POST.get("code", ""), request.user)
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect("zwemmers")
+    if z is None:
+        messages.error(request, "Deze koppelcode klopt niet of is verlopen. Vraag de andere ouder om een nieuwe code.")
+        return redirect("zwemmers")
+    if koppelen.koppel(z, request.user):
+        messages.success(request, f"{z} is gekoppeld aan je account. Je ziet nu dezelfde inschrijvingen en meldingen.")
+    else:
+        messages.info(request, f"{z} hoort al bij je account.")
+    return redirect("zwemmer", pk=z.pk)
+
+
+@login_required
+@require_POST
+def zwemmer_delen(request, pk):
+    """Nieuwe koppelcode voor een zwemmer (de vorige vervalt)."""
+    z = zwemmer_voor(request, pk)
+    code = koppelen.nieuwe_code(z)
+    messages.success(request, f"Koppelcode voor {z.voornaam}: {koppelen.toon(code)} (7 dagen geldig).")
+    return redirect("zwemmer", pk=z.pk)
+
+
+@login_required
+@require_POST
+def zwemmer_ontkoppelen(request, pk):
+    """Een account loskoppelen van een zwemmer. Zelf kan altijd; anderen enkel door het eerste account of de staf."""
+    z = zwemmer_voor(request, pk)
+    weg = get_object_or_404(User, pk=request.POST.get("user"))
+    if weg != request.user and z.account_id != request.user.pk and not is_staf(request.user):
+        raise PermissionDenied
+    try:
+        koppelen.ontkoppel(z, weg)
+    except ValueError as e:
+        messages.error(request, str(e))
+        return redirect("zwemmer", pk=z.pk)
+    if weg == request.user and not is_staf(request.user):
+        messages.success(request, f"{z} is niet meer gekoppeld aan je account.")
+        return redirect("zwemmers")
+    messages.success(request, f"{weg.get_full_name() or weg.username} is losgekoppeld van {z}.")
+    return redirect("zwemmer", pk=z.pk)
+
+
+@vereist_rol(*STAF)
+@require_POST
+def zwemmer_account_toevoegen(request, pk):
+    """Staf: een bestaand account (op e-mail) koppelen, bv. als een ouder hulp vraagt."""
+    z = get_object_or_404(Zwemmer, pk=pk)
+    email = request.POST.get("email", "").strip()
+    u = User.objects.filter(Q(username__iexact=email) | Q(email__iexact=email)).first()
+    if not u:
+        messages.error(request, f"Geen account gevonden met e-mail {email}.")
+    elif koppelen.koppel(z, u):
+        messages.success(request, f"{u.get_full_name() or u.username} is gekoppeld aan {z}.")
+    else:
+        messages.info(request, "Dit account was al gekoppeld.")
+    return redirect("zwemmer", pk=z.pk)
 
 
 @login_required
@@ -190,7 +264,7 @@ def wedstrijd(request, pk):
     w = get_object_or_404(Wedstrijd, pk=pk)
     staf = is_staf(request.user)
 
-    zwemmers = list(Zwemmer.objects.all() if staf else request.user.zwemmers.all())
+    zwemmers = list(Zwemmer.objects.all() if staf else Zwemmer.objects.van(request.user))
     gekozen = None
     if request.GET.get("zwemmer"):
         gekozen = zwemmer_voor(request, request.GET["zwemmer"])
@@ -208,7 +282,7 @@ def wedstrijd(request, pk):
         ctx.update(jaren=jaren, programma=programma, bestaande=bestaande, meldingen=meldingen,
                    ongelezen=sum(not m.gelezen for m in meldingen),
                    totaal=sum(i.nummer.kost for i in bestaande.values()))
-        if gekozen.account_id == request.user.id:
+        if gekozen.heeft_account(request.user):
             gekozen.meldingen.filter(wedstrijd=w, gelezen=False).update(gelezen=True)
     return render(request, "wedstrijd.html", ctx)
 

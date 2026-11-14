@@ -668,6 +668,92 @@ class RolTest(StroomTest):
         self.assertEqual(int(een("SELECT COUNT(*) FROM {p}inschrijvingen")), 0)
 
 
+class KoppelTest(StroomTest):
+    """Een zwemmer delen met een tweede account (bv. gescheiden ouders)."""
+
+    def _gezin(self):
+        mama = gebruiker("mama@o.be", first_name="Mama")
+        papa = gebruiker("papa@o.be", first_name="Papa")
+        z = zwemmer(mama, "Lien", "P")
+        return mama, papa, z
+
+    def accounts(self, z):
+        return {int(z_["account_id"]) for z_ in sql(f"SELECT account_id FROM {{p}}zwemmers WHERE id={z}")} | \
+            {int(r["user_id"]) for r in sql(f"SELECT user_id FROM {{p}}zwemmer_accounts WHERE zwemmer_id={z}")}
+
+    def test_koppelen_met_code(self):
+        mama, papa, z = self._gezin()
+        p = Klant().login("papa@o.be")
+        self.assertEqual(p.get(f"zwemmers/{z}/").status_code, 404)
+        m = Klant().login("mama@o.be")
+        m.post(f"zwemmers/{z}/delen/")
+        code = een(f"SELECT koppelcode FROM {{p}}zwemmers WHERE id={z}")
+        self.assertEqual(len(code), 8)
+        self.assertContains(m.get(f"zwemmers/{z}/"), f"{code[:4]}-{code[4:]}")
+        r = p.post("zwemmers/koppelen/", {"code": f"{code[:4].lower()}-{code[4:]}"})
+        self.assertTrue(r.headers["Location"].endswith(f"/zwemmers/{z}/"))
+        self.assertEqual(self.accounts(z), {mama, papa})
+        self.assertContains(p.get("zwemmers/"), "Lien")
+        self.assertEqual(p.get(f"wedstrijd/{self.w}/", zwemmer=z).status_code, 200)
+        # Papa schrijft in; een wijziging door de trainer gaat naar beide ouders.
+        p.json("meldingen/abonneer/", {"endpoint": "https://push.example/papa", "keys": {"p256dh": "x", "auth": "y"}})
+        m.json("meldingen/abonneer/", {"endpoint": "https://push.example/mama", "keys": {"p256dh": "x", "auth": "y"}})
+        p.vandaag = "2026-10-01"
+        p.post(f"wedstrijd/{self.w}/inschrijven/", {"zwemmer": z, "nummer[]": [nummer_id(self.w, 6)]})
+        i = een("SELECT id FROM {p}inschrijvingen")
+        self.assertTrue(i)
+        t = Klant().login("tr@khzs.be")
+        t.post(f"wedstrijd/{self.w}/beoordelen/", {"actie": "afgekeurd", "inschrijving[]": [i]})
+        self.assertEqual({x["endpoint"] for x in hulp("push") if "gewijzigd" in x["bericht"]["titel"]},
+                         {"https://push.example/papa", "https://push.example/mama"})
+        # Mama ziet de melding ook in haar overzicht.
+        m.vandaag = "2026-10-01"
+        self.assertContains(m.get("wedstrijden/"), "gewijzigd door de club")
+
+    def test_foute_code_en_ontkoppelen(self):
+        mama, papa, z = self._gezin()
+        p = Klant().login("papa@o.be")
+        p.post("zwemmers/koppelen/", {"code": "AAAA-AAAA"})
+        self.assertEqual(self.accounts(z), {mama})
+        exe(f"INSERT INTO {{p}}zwemmer_accounts (zwemmer_id, user_id, aangemaakt) VALUES ({z}, {papa}, NOW())")
+        self.assertEqual(p.post(f"zwemmers/{z}/ontkoppelen/", {"user": mama}).status_code, 403)
+        p.post(f"zwemmers/{z}/ontkoppelen/", {"user": papa})
+        self.assertEqual(self.accounts(z), {mama})
+        m = Klant().login("mama@o.be")
+        m.post(f"zwemmers/{z}/ontkoppelen/", {"user": mama})  # enige account: kan niet
+        self.assertEqual(int(een(f"SELECT account_id FROM {{p}}zwemmers WHERE id={z}")), mama)
+        exe(f"INSERT INTO {{p}}zwemmer_accounts (zwemmer_id, user_id, aangemaakt) VALUES ({z}, {papa}, NOW())")
+        m.post(f"zwemmers/{z}/ontkoppelen/", {"user": mama})
+        self.assertEqual(int(een(f"SELECT account_id FROM {{p}}zwemmers WHERE id={z}")), papa)
+        self.assertFalse(sql("SELECT id FROM {p}zwemmer_accounts"))
+
+    def test_account_verwijderd_zwemmer_blijft(self):
+        mama, papa, z = self._gezin()
+        exe(f"INSERT INTO {{p}}zwemmer_accounts (zwemmer_id, user_id, aangemaakt) VALUES ({z}, {papa}, NOW())")
+        hulp("deluser", id=mama)
+        self.assertEqual(int(een(f"SELECT account_id FROM {{p}}zwemmers WHERE id={z}")), papa)
+        self.assertFalse(sql("SELECT id FROM {p}zwemmer_accounts"))
+
+    def test_registreren_met_koppelcode_zonder_zwemmer(self):
+        mama, papa, z = self._gezin()
+        Klant().login("mama@o.be").post(f"zwemmers/{z}/delen/")
+        code = een(f"SELECT koppelcode FROM {{p}}zwemmers WHERE id={z}")
+        k = Klant()
+        r = k.post("registreren/", {"email": "plusmama@test.be", "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!",
+                                    "voornaam": "Els", "naam": "V", "koppelcode": code, "zw-TOTAL_FORMS": 1})
+        self.assertEqual(r.status_code, 302, r.text[:2000])
+        nieuw = int(een("SELECT ID FROM wp_users WHERE user_login='plusmama@test.be'"))
+        self.assertIn(nieuw, self.accounts(z))
+        self.assertEqual(int(een("SELECT COUNT(*) FROM {p}zwemmers")), 1)
+
+    def test_staf_koppelt_op_email(self):
+        mama, papa, z = self._gezin()
+        Klant().login("tr@khzs.be").post("zwemmers/account/", {"zwemmer": z, "email": "papa@o.be"})
+        self.assertEqual(self.accounts(z), {mama, papa})
+        r = Klant().login("tr@khzs.be").get("zwemmers/")
+        self.assertContains(r, "mama@o.be, papa@o.be")
+
+
 class TrainersTest(Basis):
     """Module trainers: rooster, vaste trainers, afmelden/overnemen, afgelast, uren en verloning."""
 

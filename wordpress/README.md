@@ -40,6 +40,16 @@ Vereisten: WordPress 6.2+, PHP 8.0+ met de extensies `zip`, `simplexml`, `dom` e
 
 **Penningmeester** staat los van de app-rol, want het kan ook een ouder zijn. Een beheerder duidt die aan bij *Gebruikers* in de app of op het WordPress-profiel. De penningmeester ziet **Verloning**: de tarieven en het overzicht per maand.
 
+## Zwemmer delen met meerdere accounts
+
+Een zwemmer kan bij meerdere accounts horen, bv. bij gescheiden ouders.
+- Een ouder maakt bij de zwemmer een **koppelcode** aan (*Ouders & accounts → Koppelcode maken*). Die code is 7 dagen geldig.
+- De andere ouder vult de code in bij *Mijn zwemmers → Zwemmer koppelen*, of meteen bij het aanmaken van een profiel. Dan hoeft die ouder het kind niet opnieuw toe te voegen.
+- Beide accounts zien dezelfde inschrijvingen en krijgen dezelfde meldingen.
+- Iedereen kan zichzelf loskoppelen. Het eerste account en de staf kunnen ook anderen loskoppelen.
+- De staf kan een account ook rechtstreeks koppelen via het e-mailadres.
+- Wordt een account verwijderd, dan blijft een gedeelde zwemmer bij de andere ouder.
+
 ## Module Trainers
 
 - **Rooster** (*Trainingen → Trainingen beheren*, door het sportsecretariaat): vaste trainingen per week met naam, dag, uur en plaats, en een start- en einddatum. Afgelaste periodes (vakantie, zwembad dicht) voor één training of voor alle trainingen.

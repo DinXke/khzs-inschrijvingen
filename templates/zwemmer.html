@@ -32,6 +32,20 @@
         <span class="badge {{ i.status }}">{{ i.get_status_display }}</span></div>
       {% empty %}<p class="klein">Nog geen inschrijvingen.</p>{% endfor %}
     </div>
+    <h2>Ouders &amp; accounts</h2>
+    <div class="kaart">
+      {% for u in accounts %}<div class="rij tussen" style="padding:.3rem 0;border-bottom:1px solid var(--lijn)">
+        <span>{{ u.get_full_name|default:u.username }}{% if u == user %} <span class="klein">(jij)</span>{% endif %}<br><span class="klein">{{ u.email|default:u.username }}</span></span>
+        {% if accounts|length > 1 %}{% if u == user or z.account == user or is_staf %}<form method="post" action="{% url 'zwemmer_ontkoppelen' z.pk %}" onsubmit="return confirm('{% if u == user %}Jezelf loskoppelen van {{ z.voornaam|escapejs }}?{% else %}{{ u.get_full_name|default:u.username|escapejs }} loskoppelen?{% endif %}')">{% csrf_token %}
+          <input type="hidden" name="user" value="{{ u.pk }}"><button class="mini secundair">{% if u == user %}Mij loskoppelen{% else %}Loskoppelen{% endif %}</button></form>{% endif %}{% endif %}
+      </div>{% endfor %}
+      <p class="klein" style="margin-top:.6rem"><b>Delen met een andere ouder</b> (bv. bij gescheiden ouders): maak een koppelcode en geef ze door. De andere ouder vult ze in bij <i>Mijn zwemmers → Zwemmer koppelen</i> of bij het aanmaken van een profiel. Jullie zien dan allebei dezelfde inschrijvingen en meldingen.</p>
+      {% if koppelcode %}<div class="melding success" style="margin:.4rem 0">Koppelcode: <b style="font-size:1.3rem;letter-spacing:.08em">{{ koppelcode }}</b><br><span class="klein">Geldig tot {{ koppelcode_tot|date:"j M H:i" }}</span></div>{% endif %}
+      <form method="post" action="{% url 'zwemmer_delen' z.pk %}">{% csrf_token %}<button class="mini {% if koppelcode %}secundair{% endif %}">{% if koppelcode %}Nieuwe code maken{% else %}🔗 Koppelcode maken{% endif %}</button></form>
+      {% if is_staf %}<form method="post" action="{% url 'zwemmer_account_toevoegen' z.pk %}" class="rij" style="margin-top:.6rem;align-items:end">{% csrf_token %}
+        <div style="flex:1;min-width:180px"><label for="acc-email">Account koppelen (staf)</label><input id="acc-email" type="email" name="email" placeholder="e-mail van het account" required></div>
+        <button class="mini secundair">Koppelen</button></form>{% endif %}
+    </div>
     <h2>Gegevens</h2>
     <form method="post" class="kaart">{% csrf_token %}{% include "_form.html" %}<p><button>Bewaren</button></p></form>
   </div>

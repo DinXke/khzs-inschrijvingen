@@ -7,4 +7,10 @@
   <?php if ($alle): ?><div class="klein"><?= e($z->email ?? '') ?><?= $z->licentie ? ' · licentie ' . e($z->licentie) : '' ?></div><?php endif; ?></a>
 <?php endforeach; ?>
 <?php if (!$zwemmers): ?><div class="leeg">Nog geen zwemmers.</div><?php endif; ?>
+<form method="post" action="<?= esc_url(app_url('zwemmers/koppelen/')) ?>" class="kaart rij" style="align-items:end"><?= nonce_veld() ?>
+  <div style="flex:1;min-width:200px"><label for="koppelcode">Zwemmer koppelen met een code</label>
+    <input id="koppelcode" name="code" placeholder="bv. K7QM-2PXA" autocomplete="off" autocapitalize="characters" required></div>
+  <button class="secundair">Koppelen</button>
+  <p class="help" style="flex-basis:100%;margin:0">Heeft de andere ouder je kind al toegevoegd? Vraag een koppelcode (bij de zwemmer → ‘Koppelcode maken’) en vul ze hier in.</p>
+</form>
 <?php if (!$alle): ?><p class="klein">Eén account kan meerdere zwemmers hebben, bv. al je kinderen. Voeg ze toe met <b>+ Zwemmer</b>; bij elke wedstrijd kies je dan voor wie je inschrijft.</p><?php endif; ?>
