@@ -8,7 +8,6 @@ VMID="${1:?geef een vrij vmid}"
 OPSLAG="${2:-local-lvm}"
 BRUG="${3:-vmbr0}"
 VLAN="${4:-}"
-: "${CF_TUNNEL_TOKEN:?zet CF_TUNNEL_TOKEN (token van de Cloudflare-tunnel)}"
 HIER="$(cd "$(dirname "$0")" && pwd)"
 
 pveam update >/dev/null
@@ -23,5 +22,5 @@ pct start "$VMID"
 for _ in $(seq 60); do pct exec "$VMID" -- getent hosts deb.debian.org >/dev/null 2>&1 && break; sleep 2; done
 
 pct push "$VMID" "$HIER/firstboot.sh" /root/khzs-demo-firstboot.sh
-pct exec "$VMID" -- env CF_TUNNEL_TOKEN="$CF_TUNNEL_TOKEN" bash /root/khzs-demo-firstboot.sh
+pct exec "$VMID" -- env CF_TUNNEL_TOKEN="${CF_TUNNEL_TOKEN:-}" DEMO_TAK="${DEMO_TAK:-main}" bash /root/khzs-demo-firstboot.sh
 echo "LXC $VMID klaar. Log: pct exec $VMID -- cat /var/log/khzs-demo-firstboot.log"
