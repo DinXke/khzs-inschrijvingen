@@ -7,10 +7,14 @@ import base64
 import io
 import os
 import re
+import shutil
+import subprocess
 import sys
+import time
 import unittest
 import zipfile
 from pathlib import Path
+from urllib.parse import quote
 from xml.etree import ElementTree as ET
 
 import requests
@@ -107,7 +111,8 @@ def kind(k, voornaam, naam, gd, geslacht, ploeg=""):
 
 
 class Klant:
-    def __init__(self):
+    def __init__(self, app=APP):
+        self.app = app
         self.s = requests.Session()
         self.nonce = None
         self.vandaag = None
@@ -117,7 +122,7 @@ class Klant:
 
     def login(self, login, pw="geheim123!"):
         self.s.cookies.clear()
-        r = self.s.post(APP + "aanmelden/", data={"username": login, "password": pw}, allow_redirects=False)
+        r = self.s.post(self.app + "aanmelden/", data={"username": login, "password": pw}, allow_redirects=False)
         assert r.status_code == 302, r.text[:500]
         self.nonce = None
         return self
@@ -127,11 +132,11 @@ class Klant:
         self.nonce = None
 
     def get(self, pad, **params):
-        return self.s.get(APP + pad, params=params, allow_redirects=False, headers=self._h())
+        return self.s.get(self.app + pad, params=params, allow_redirects=False, headers=self._h())
 
     def _nonce(self):
         if not self.nonce:
-            html = self.s.get(APP + "uitleg/", headers=self._h()).text
+            html = self.s.get(self.app + "uitleg/", headers=self._h()).text
             m = re.search(r'name="_khzs" value="([^"]+)"', html)
             self.nonce = m.group(1) if m else ""
         return self.nonce
@@ -139,10 +144,10 @@ class Klant:
     def post(self, pad, data=None, files=None, query=None):
         data = dict(data or {})
         data.setdefault("_khzs", self._nonce())
-        return self.s.post(APP + pad, data=data, files=files, params=query, allow_redirects=False, headers=self._h())
+        return self.s.post(self.app + pad, data=data, files=files, params=query, allow_redirects=False, headers=self._h())
 
     def json(self, pad, body):
-        return self.s.post(APP + pad, json=body, headers={"X-KHZS-Nonce": self._nonce(), **self._h()}, allow_redirects=False)
+        return self.s.post(self.app + pad, json=body, headers={"X-KHZS-Nonce": self._nonce(), **self._h()}, allow_redirects=False)
 
 
 class Basis(unittest.TestCase):
@@ -933,6 +938,137 @@ class TrainersTest(TrainersBasis):
             r = requests.get(f"{BASIS}/{oud}/wedstrijden/", allow_redirects=False)
             self.assertEqual(r.status_code, 301)
             self.assertTrue(r.headers["Location"].endswith("/leden/wedstrijden/"))
+
+
+# ---------- eigen domein (leden.khzs.be via een Cloudflare Worker) ----------
+
+WORKER_POORT = int(os.environ.get("KHZS_WORKER_POORT", "8098"))
+# Domein van de app: de Worker, nagebootst met Node. 127.0.0.1 is een andere host dan localhost, dus andere cookies.
+DOMEIN = f"http://127.0.0.1:{WORKER_POORT}"
+
+
+def domein_optie(waarde):
+    exe("DELETE FROM wp_options WHERE option_name='khzs_app_domein'")
+    if waarde:
+        exe(f"INSERT INTO wp_options (option_name, option_value, autoload) VALUES ('khzs_app_domein', '{waarde}', 'auto')")
+    requests.post(f"{BASIS}/?khzs_test=cache")
+
+
+@unittest.skipUnless(shutil.which("node"), "Node is nodig om de Worker na te bootsen")
+class EigenDomeinTest(Basis):
+    """De app op een eigen domein: de Worker (wordpress/leden-domein/worker.js) stuurt door naar BASIS/leden/."""
+
+    @classmethod
+    def setUpClass(cls):
+        worker = HIER.parent / "leden-domein" / "worker.js"
+        cls.proces = subprocess.Popen(["node", str(HIER / "worker_sim.mjs"), str(worker), str(WORKER_POORT), BASIS + "/leden"],
+                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        for _ in range(50):
+            try:
+                requests.get(DOMEIN + "/domein-test/", timeout=2)
+                break
+            except requests.ConnectionError:
+                time.sleep(0.1)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.proces.terminate()
+        cls.proces.wait()
+        domein_optie("")
+
+    def setUp(self):
+        super().setUp()
+        domein_optie(DOMEIN)
+        gebruiker("ouder@khzs.be")
+        self.d = Klant(DOMEIN + "/")
+
+    def tearDown(self):
+        domein_optie("")
+
+    def test_oud_adres_verwijst_naar_domein(self):
+        r = requests.get(f"{BASIS}/leden/wedstrijden/?a=1", allow_redirects=False)
+        self.assertEqual((r.status_code, r.headers["Location"]), (302, f"{DOMEIN}/wedstrijden/?a=1"))
+        self.assertIn("no-store", r.headers["Cache-Control"])
+        r = requests.get(f"{BASIS}/leden/", allow_redirects=False)
+        self.assertEqual(r.headers["Location"], f"{DOMEIN}/")
+        r = requests.post(f"{BASIS}/leden/aanmelden/", data={"username": "x"}, allow_redirects=False)
+        self.assertEqual((r.status_code, r.headers["Location"]), (307, f"{DOMEIN}/aanmelden/"))
+        r = requests.get(f"{BASIS}/club/meldingen/", allow_redirects=False)
+        self.assertEqual(r.headers["Location"], f"{DOMEIN}/meldingen/")
+        # Een app die nog op het oude adres geïnstalleerd is, krijgt een service worker die zichzelf opruimt.
+        sw = requests.get(f"{BASIS}/leden/sw.js", allow_redirects=False)
+        self.assertEqual(sw.status_code, 200)
+        self.assertIn("unregister", sw.text)
+        # Zonder eigen domein blijft alles op /leden/.
+        domein_optie("")
+        self.assertEqual(requests.get(f"{BASIS}/leden/aanmelden/", allow_redirects=False).status_code, 200)
+
+    def test_aanmelden_op_domein(self):
+        r = self.d.get("meldingen/")
+        self.assertEqual(r.headers["Location"], f"{DOMEIN}/aanmelden/?next={quote(DOMEIN + '/meldingen/', safe='')}")
+        r = self.d.s.post(DOMEIN + "/aanmelden/", data={"username": "ouder@khzs.be", "password": "geheim123!",
+                                                        "next": DOMEIN + "/meldingen/"}, allow_redirects=False)
+        self.assertEqual((r.status_code, r.headers["Location"]), (302, f"{DOMEIN}/meldingen/"))
+        # De aanmeldcookies horen enkel bij het domein van de app (zonder COOKIE_DOMAIN).
+        self.assertTrue([c for c in self.d.s.cookies if c.name.startswith("wordpress_logged_in_")])
+        self.assertEqual({c.domain for c in self.d.s.cookies}, {"127.0.0.1"})
+        r = self.d.get("meldingen/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, f'href="{DOMEIN}/meldingen/"')
+        self.assertNotContains(r, f'href="{BASIS}/leden/')
+        # Formulieren met nonce werken via het domein.
+        r = self.d.post("afmelden/")
+        self.assertEqual((r.status_code, r.headers["Location"]), (302, f"{DOMEIN}/aanmelden/"))
+        self.assertEqual(self.d.get("meldingen/").status_code, 302)
+
+    def test_next_enkel_naar_toegelaten_hosts(self):
+        for doel, verwacht in [(DOMEIN + "/meldingen/", DOMEIN + "/meldingen/"), ("https://kwaad.example/", DOMEIN + "/")]:
+            r = requests.post(DOMEIN + "/aanmelden/", data={"username": "ouder@khzs.be", "password": "geheim123!", "next": doel},
+                              allow_redirects=False)
+            self.assertEqual(r.headers["Location"], verwacht)
+
+    def test_manifest_service_worker_en_assets(self):
+        m = requests.get(DOMEIN + "/manifest.webmanifest").json()
+        self.assertEqual((m["id"], m["scope"], m["start_url"]), (DOMEIN + "/", DOMEIN + "/", DOMEIN + "/?bron=app"))
+        self.assertTrue(all(i["src"].startswith(DOMEIN + "/wp-content/plugins/khzs-leden/assets/img/") for i in m["icons"]))
+        sw = requests.get(DOMEIN + "/sw.js")
+        self.assertEqual(sw.headers["Service-Worker-Allowed"], "/")
+        self.assertIn(f'"{DOMEIN}/wp-content/plugins/khzs-leden/assets/app.css?v=', sw.text)  # zelfde domein: cache werkt
+        self.assertIn(f'const START = "{DOMEIN}/"', sw.text)
+        html = requests.get(DOMEIN + "/aanmelden/").text
+        self.assertIn(f'href="{DOMEIN}/manifest.webmanifest"', html)
+        self.assertIn('{scope: "\\/"}', html)
+        css = requests.get(DOMEIN + "/wp-content/plugins/khzs-leden/assets/app.css")
+        self.assertEqual(css.status_code, 200)
+        self.assertIn("--primair", css.text)
+        # Wachtwoord vergeten loopt via wp-login.php van de site en komt daarna terug op het domein.
+        self.assertIn(f"{BASIS}/wp-login.php?action=lostpassword&#038;redirect_to={quote(DOMEIN + '/aanmelden/', safe='')}", html)
+
+    def test_installatiemelding_op_website(self):
+        html = requests.get(BASIS + "/").text
+        self.assertIn(f'"installeer":"{DOMEIN}/installeer/"', html)
+
+    def test_worker_herschrijft_doorverwijzingen(self):
+        # Domein nog niet ingesteld: de plugin verwijst naar BASIS/leden/…, de Worker zet dat om naar het domein.
+        domein_optie("")
+        r = requests.post(DOMEIN + "/aanmelden/", data={"username": "ouder@khzs.be", "password": "geheim123!"}, allow_redirects=False)
+        self.assertEqual((r.status_code, r.headers["Location"]), (302, f"{DOMEIN}/"))
+        r = requests.get(DOMEIN + "/meldingen/", allow_redirects=False)
+        self.assertTrue(r.headers["Location"].startswith(f"{DOMEIN}/aanmelden/"))
+
+    def test_domein_controle(self):
+        self.assertIn("niet bereikbaar", hulp("eval", f="domein_controle", args=["http://127.0.0.1:9"])["v"])
+        self.assertEqual(requests.get(DOMEIN + "/domein-test/").json(), {"app": "khzs-leden", "domein": f"127.0.0.1:{WORKER_POORT}"})
+        self.assertEqual(requests.get(f"{BASIS}/leden/domein-test/").json()["domein"], "")
+        # Vanaf de site zelf naar de nagebootste Worker (in Docker: KHZS_DOMEIN_VANUIT_SITE=http://host.docker.internal:8098).
+        vanuit_site = os.environ.get("KHZS_DOMEIN_VANUIT_SITE", DOMEIN)
+        fout = hulp("eval", f="domein_controle", args=[vanuit_site])["v"]
+        if "niet bereikbaar" in fout:
+            self.skipTest("de site kan de nagebootste Worker niet bereiken")
+        self.assertEqual(fout, "")
+        # De site zelf (zonder Worker) antwoordt niet als de app.
+        fout = hulp("eval", f="domein_controle", args=[vanuit_site.rsplit(":", 1)[0] + ":" + BASIS.rsplit(":", 1)[1]])["v"]
+        self.assertIn("stuurt niet door", fout)
 
 
 class AanwezigheidTest(TrainersBasis):

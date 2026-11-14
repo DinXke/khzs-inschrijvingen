@@ -12,6 +12,7 @@ const OPTIES = [
     'khzs_app_naam' => ['Naam van de app', 'KHZS Leden', 'Zoals de app heet op het beginscherm van de gsm.'],
     'khzs_app_kort' => ['Korte naam', 'KHZS Leden', 'Onder het icoon op de gsm en in de titel van het tabblad.'],
     'khzs_slug' => ['Adres van de app', 'leden', 'De app staat op jouwsite.be/<dit adres>/'],
+    'khzs_app_domein' => ['Eigen domein', '', 'Leeg, of bv. https://leden.khzs.be als een Cloudflare Worker dat domein doorstuurt naar het adres hierboven (zie de README). Bij het bewaren wordt gecontroleerd of de Worker werkt.'],
     'khzs_webshop' => ['Webshop', 'https://www.robsport.nl/nl/796-hzs-hasselt', 'Link naar de webshop van de club: knop in de app. Leeg = geen knop.'],
 ];
 
@@ -24,14 +25,64 @@ const PRIVACY_OPTIES = [
     'khzs_privacy_versie' => ['Versie van de privacyverklaring', PRIVACY_VERSIE, 'Verander dit (bv. naar de datum van vandaag) na een inhoudelijke wijziging: leden krijgen dan een melding om de nieuwe versie te lezen.'],
 ];
 
+const SANITEER = ['khzs_slug' => __NAMESPACE__ . '\\saniteer_slug', 'khzs_app_domein' => __NAMESPACE__ . '\\saniteer_app_domein',
+    'khzs_webshop' => 'esc_url_raw'];
+
+function saniteer_slug($v): string
+{
+    return sanitize_title($v) ?: 'leden';
+}
+
+/** Bewaart enkel schema://host[:poort], en enkel als de Worker op dat domein naar deze app doorstuurt. */
+function saniteer_app_domein($v): string
+{
+    static $gecontroleerd = []; // WordPress kan dit twee keer oproepen bij één keer bewaren
+    $oud = (string) get_option('khzs_app_domein', '');
+    $v = trim((string) $v);
+    if ($v === '') {
+        return '';
+    }
+    $u = wp_parse_url(str_contains($v, '://') ? $v : "https://$v");
+    if (empty($u['host']) || !in_array($u['scheme'] ?? '', ['http', 'https'], true)) {
+        add_settings_error('khzs_app_domein', 'khzs_domein', 'Eigen domein niet bewaard: ongeldig adres.');
+        return $oud;
+    }
+    $domein = $u['scheme'] . '://' . strtolower($u['host']) . (isset($u['port']) ? ':' . $u['port'] : '');
+    if ($domein === $oud) {
+        return $domein;
+    }
+    $fout = $gecontroleerd[$domein] ??= domein_controle($domein);
+    if ($fout !== '') {
+        add_settings_error('khzs_app_domein', 'khzs_domein', "Eigen domein niet bewaard: $fout");
+        return $oud;
+    }
+    return $domein;
+}
+
+/** Stuurt de Worker op dit domein door naar deze app, met de header X-KHZS-Domein? '' als alles klopt, anders de fout. */
+function domein_controle(string $domein): string
+{
+    $r = wp_remote_get("$domein/domein-test/", ['timeout' => 15, 'redirection' => 0]);
+    if (is_wp_error($r)) {
+        return "$domein is niet bereikbaar vanaf deze server (" . $r->get_error_message() . ').';
+    }
+    $d = json_decode(wp_remote_retrieve_body($r), true);
+    if (($d['app'] ?? '') !== 'khzs-leden') {
+        return "$domein stuurt niet door naar deze app (antwoord " . wp_remote_retrieve_response_code($r) . '). Staan de Worker en de route in Cloudflare goed?';
+    }
+    if (($d['domein'] ?? '') !== host_van($domein)) {
+        return 'de Worker stuurt de header X-KHZS-Domein niet (juist) mee. Gebruik wordpress/leden-domein/worker.js.';
+    }
+    return '';
+}
+
 add_action('admin_menu', function () {
     add_options_page('KHZS Leden', 'KHZS Leden', 'manage_options', 'khzs', __NAMESPACE__ . '\\admin_pagina');
 });
 
 add_action('admin_init', function () {
     foreach (OPTIES as $k => $o) {
-        register_setting('khzs', $k, ['type' => 'string', 'default' => $o[1], 'sanitize_callback' => $k === 'khzs_slug'
-            ? fn($v) => sanitize_title($v) ?: 'leden' : ($k === 'khzs_webshop' ? 'esc_url_raw' : 'sanitize_text_field')]);
+        register_setting('khzs', $k, ['type' => 'string', 'default' => $o[1], 'sanitize_callback' => SANITEER[$k] ?? 'sanitize_text_field']);
     }
     foreach (['khzs_registratie' => 1, 'khzs_pwa_melding' => 1, 'khzs_pwa_enkel_gsm' => 1, 'khzs_pwa_enkel_home' => 0] as $k => $std) {
         register_setting('khzs', $k, ['type' => 'integer', 'default' => $std, 'sanitize_callback' => fn($v) => $v ? 1 : 0]);

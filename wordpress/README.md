@@ -23,7 +23,7 @@ De app staat op `https://jouwsite.be/leden/`. De oudere adressen `/inschrijvinge
 4. Stel de plugin in via **Instellingen → KHZS Leden**:
    - welke modules aanstaan
    - clubnaam en clubcode
-   - het adres van de app
+   - het adres van de app, en eventueel een eigen domein (zie *Eigen domein*)
    - of zelf registreren mag
    - de installatiemelding
 
@@ -167,6 +167,19 @@ Bezoekers op gsm zien op de website en in de app een melding *"Installeer de app
 - Op de rest van de website gaat de knop naar `/leden/installeer/`. Daar installeer je met één tik op Android; op iPhone legt de pagina stap voor stap uit hoe het moet.
 - Wie op *Niet nu* tikt, ziet de melding 30 dagen niet.
 
+## Eigen domein (bv. leden.khzs.be)
+
+De app kan ook op een eigen domein draaien in plaats van op `jouwsite.be/leden/`:
+- Een **Cloudflare Worker** (`leden-domein/worker.js`) stuurt `leden.khzs.be/…` door naar dezelfde WordPress.
+- Het blijft dezelfde WordPress, dus met dezelfde accounts en gegevens.
+- In *Instellingen → KHZS Leden → Eigen domein* vul je `https://leden.khzs.be` in. Bij het bewaren controleert de plugin of de Worker werkt.
+
+Daarna:
+- wijzen alle links, het manifest, de service worker, de pushmeldingen en de installatiemelding naar het domein;
+- verwijst `jouwsite.be/leden/` door.
+
+Hoe je dat instelt in Cloudflare, wat er gebeurt met de aanmelding (cookies) en hoe je het terugdraait, staat in [`leden-domein/README.md`](leden-domein/README.md).
+
 ## Demo op /leden-demo/
 
 De demo staat op **https://khzs.be/leden-demo/**, maar draait op een **aparte WordPress-installatie** in het homelab, volledig los van de site van de club.
@@ -280,3 +293,5 @@ Een nieuwe module voeg je toe met een map `modules/<id>/` (`db.php` met `schema_
 ```bash
 KHZS_URL=http://localhost:8080 python3 tests/test_e2e.py
 ```
+
+De scenario's voor het eigen domein (`EigenDomeinTest`) bootsen de Cloudflare Worker na met Node (`tests/worker_sim.mjs`). Zonder Node worden ze overgeslagen.
