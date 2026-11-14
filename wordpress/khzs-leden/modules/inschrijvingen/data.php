@@ -205,7 +205,7 @@ function meldingen(string $waar, int $limiet = 10): array
     foreach ($rijen as $m) {
         $m->regels = preg_split('/\r?\n/', $m->tekst);
         $u = $m->door_id ? get_userdata((int) $m->door_id) : null;
-        $m->door_naam = $u ? trim(ROLLEN[rol($u)] . ' ' . ($u->first_name ?: $u->user_login)) : 'De club';
+        $m->door_naam = $u ? trim((in_array(rol($u), TRAINERS, true) ? 'Trainer' : ROLLEN[rol($u)]) . ' ' . ($u->first_name ?: $u->user_login)) : 'De club';
     }
     return $rijen;
 }

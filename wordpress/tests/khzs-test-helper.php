@@ -10,6 +10,8 @@ defined('ABSPATH') || exit;
 add_filter('khzs_vandaag', fn($d) => $_SERVER['HTTP_X_VANDAAG'] ?? $d);
 // Push synchroon en zonder netwerk: berichten worden in een optie bijgehouden.
 add_filter('khzs_push_synchroon', '__return_true');
+// Demo (KHZS_DEMO in wp-config.php) voor één verzoek uitzetten via de header X-KHZS-Demo-Uit.
+add_filter('khzs_demo_aan', fn($aan) => isset($_SERVER['HTTP_X_KHZS_DEMO_UIT']) ? false : $aan);
 add_filter('khzs_push_verzend', function ($kort, $a, $bericht) {
     $log = get_option('khzs_test_push', []);
     $log[] = ['endpoint' => $a->endpoint, 'bericht' => $bericht];
@@ -33,7 +35,7 @@ add_action('init', function () {
                 wp_delete_user($u->ID);
             }
             delete_option('khzs_test_push');
-            $wpdb->query("DELETE FROM {$wpdb->usermeta} WHERE meta_key='khzs_penningmeester'");
+            $wpdb->query("DELETE FROM {$wpdb->usermeta} WHERE meta_key IN ('khzs_penningmeester','khzs_rollen','khzs_rol')");
             foreach (\KHZS\backup_lijst() as $f) {
                 unlink($f);
             }

@@ -1,12 +1,40 @@
 {% extends "base.html" %}{% block titel %}Gebruikers{% endblock %}
 {% block inhoud %}
 <h1>Gebruikers & rollen</h1>
+{% if aanvragen %}
+<div class="kaart melding-lijst" id="aanvragen">
+  <h2 style="margin-top:0">Rolaanvragen ({{ aanvragen|length }})</h2>
+  {% for a in aanvragen %}
+  <div class="melding-item">
+    <div class="rij tussen"><span><strong>{{ a.user.get_full_name|default:a.user.username }}</strong> vraagt de rol <strong>{{ a.get_rol_display|lower }}</strong></span>
+      <span class="klein">{{ a.aangemaakt|date:"j/m/Y" }} · {{ a.user.email|default:a.user.username }}</span></div>
+    {% if a.motivatie %}<p class="klein" style="margin:.25rem 0">“{{ a.motivatie }}”</p>{% endif %}
+    <form method="post" action="{% url 'rolaanvraag_behandelen' a.pk %}" class="rij" style="margin-top:.4rem;align-items:start">{% csrf_token %}
+      <button name="actie" value="goedkeuren" class="mini">Goedkeuren</button>
+      <details style="flex:1;min-width:240px"><summary class="klein">Afkeuren of een andere rol geven</summary>
+        <div class="rij" style="margin-top:.4rem;align-items:end">
+          <div style="flex:1;min-width:180px"><label for="reden-{{ a.pk }}">Reden of toelichting</label>
+            <input type="text" id="reden-{{ a.pk }}" name="reden" maxlength="300" placeholder="Verplicht bij afkeuren"></div>
+          <button name="actie" value="afkeuren" class="mini secundair">Afkeuren</button>
+          <select name="rol" aria-label="Andere rol" style="width:auto">{% for k, l in keuzes %}{% if k != a.rol %}<option value="{{ k }}">{{ l }}</option>{% endif %}{% endfor %}</select>
+          <button name="actie" value="andere" class="mini secundair">Deze rol geven</button>
+        </div></details>
+    </form>
+  </div>{% endfor %}
+</div>
+{% endif %}
 <form method="get" class="kaart"><input type="search" name="q" value="{{ q }}" placeholder="Zoek op naam of e-mail…"></form>
 <div class="kaart tabelwrap"><table>
-  <tr><th>Naam</th><th>E-mail</th><th>Rol</th></tr>
-  {% for u in users %}<tr><td>{{ u.get_full_name|default:"—" }}</td><td>{{ u.email|default:u.username }}</td>
-    <td><form method="post" class="rij">{% csrf_token %}<input type="hidden" name="user" value="{{ u.pk }}">
-      <select name="rol" onchange="this.form.submit()" style="width:auto" {% if u.profiel.rol == 'beheerder' and not is_beheerder %}disabled{% endif %}>{% if u.profiel.rol == 'beheerder' and not is_beheerder %}<option>Beheerder</option>{% endif %}{% for k, l in rollen %}<option value="{{ k }}" {% if u.profiel.rol == k %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
-    </form></td></tr>{% endfor %}
+  <tr><th>Naam</th><th>E-mail</th><th>Rollen</th></tr>
+  {% for r in rijen %}{% with u=r.u %}<tr><td>{{ u.get_full_name|default:"—" }}</td><td>{{ u.email|default:u.username }}</td>
+    <td><div class="rollen">{% for k, l in r.rollen %}
+      {% if r.vergrendeld or r.rollen|length == 1 %}<span class="badge rol">{{ l }}</span>{% else %}
+      <form method="post">{% csrf_token %}<input type="hidden" name="user" value="{{ u.pk }}"><input type="hidden" name="rol" value="{{ k }}">
+        <button name="actie" value="afnemen" class="badge rol" title="Rol {{ l|lower }} afnemen" onclick="return confirm('Rol {{ l|lower|escapejs }} afnemen van {{ u.get_full_name|default:u.username|escapejs }}?')">{{ l }} ✕</button></form>{% endif %}
+      {% endfor %}
+      {% if not r.vergrendeld and r.erbij %}<form method="post">{% csrf_token %}<input type="hidden" name="user" value="{{ u.pk }}"><input type="hidden" name="actie" value="toevoegen">
+        <select name="rol" onchange="if(this.value)this.form.submit()" aria-label="Rol toevoegen voor {{ u.get_full_name|default:u.username }}"><option value="">+ rol</option>{% for k, l in r.erbij %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></form>{% endif %}
+    </div></td></tr>{% endwith %}{% endfor %}
 </table></div>
+<p class="help">Een account kan meerdere rollen hebben. Zwemmer en ouder geven toegang tot de eigen zwemmers; trainer, sportsecretaris en beheerder geven de rechten van de staf; een bestuurder beheert leden en rollen. Enkel een beheerder kan beheerders aanstellen of wijzigen.</p>
 {% endblock %}

@@ -8,16 +8,23 @@ namespace KHZS;
 
 defined('ABSPATH') || exit;
 
+/** Adres van de app; in de demo het adres van de demo. */
 function slug(): string
+{
+    return is_demo() ? demo_slug() : echte_slug();
+}
+
+function echte_slug(): string
 {
     return trim(get_option('khzs_slug', 'leden'), '/') ?: 'leden';
 }
 
 function registreer_routes(): void
 {
-    add_rewrite_rule('^' . preg_quote(slug(), '#') . '(?:/(.*))?/?$', 'index.php?khzs_pad=/$matches[1]', 'top');
+    add_rewrite_rule('^' . preg_quote(echte_slug(), '#') . '(?:/(.*))?/?$', 'index.php?khzs_pad=/$matches[1]', 'top');
+    registreer_demo_route();
     // Oude adressen (/inschrijvingen/, /club/) blijven werken (doorverwijzing).
-    foreach (array_diff(['inschrijvingen', 'club'], [slug()]) as $oud) {
+    foreach (array_diff(['inschrijvingen', 'club'], [echte_slug()]) as $oud) {
         add_rewrite_rule('^' . $oud . '(?:/(.*))?/?$', 'index.php?khzs_oud=/$matches[1]', 'top');
     }
 }
@@ -39,15 +46,18 @@ function app_url(string $pad = '', array $query = []): string
 {
     $pad = ltrim($pad, '/');
     if (get_option('permalink_structure')) {
-        $url = home_url('/' . slug() . '/' . $pad);
+        $url = home_url('/' . ltrim(slug() . '/' . $pad, '/')); // slug kan leeg zijn (demo op een aparte site)
     } else {
-        $url = add_query_arg('khzs_pad', '/' . $pad, home_url('/'));
+        $url = add_query_arg(['khzs_pad' => '/' . $pad] + (is_demo() ? ['khzs_demo' => 1] : []), home_url('/'));
     }
     return $query ? add_query_arg(array_map('rawurlencode', $query), $url) : $url;
 }
 
 function asset(string $pad): string
 {
+    if (is_demo() && str_starts_with($pad, 'img/') && is_file(KHZS_PAD . 'assets/img/demo/' . substr($pad, 4))) {
+        $pad = 'img/demo/' . substr($pad, 4); // iconen met 'DEMO' (tools/logo/maak_demo_iconen.py)
+    }
     $v = @filemtime(KHZS_PAD . "assets/$pad") ?: VERSIE;
     return KHZS_URL . "assets/$pad?v=$v";
 }
@@ -55,7 +65,9 @@ function asset(string $pad): string
 /** Huidig pad + query (voor 'terug'-velden), relatief binnen de app. */
 function huidige_url(): string
 {
-    return home_url(wp_unslash($_SERVER['REQUEST_URI'] ?? '/'));
+    // REQUEST_URI bevat al het pad van WordPress (ook in een submap): enkel schema, host en poort van de site ervoor.
+    $h = wp_parse_url(home_url('/'));
+    return $h['scheme'] . '://' . $h['host'] . (isset($h['port']) ? ':' . $h['port'] : '') . wp_unslash($_SERVER['REQUEST_URI'] ?? '/');
 }
 
 // ---------- invoer ----------
@@ -148,9 +160,13 @@ function toon(string $sjabloon, array $ctx = [], string $titel = 'KHZS Leden', s
     nocache_headers();
     header('Content-Type: text/html; charset=utf-8');
     header('X-Frame-Options: SAMEORIGIN');
-    $rol = rol();
-    $ctx += ['rol' => $rol, 'is_staf' => in_array($rol, STAF, true), 'is_secretaris' => in_array($rol, SECRETARIAAT, true),
-        'is_beheerder' => $rol === BEHEERDER, 'pagina' => $GLOBALS['khzs_route'] ?? '', 'meldingen_flash' => flash_lezen()];
+    $ingelogd = is_user_logged_in();
+    $ctx += ['rol' => rol(), 'is_staf' => is_staf(), 'is_secretaris' => is_secretariaat(), 'is_beheerder' => heeft_rol([BEHEERDER]),
+        'is_rolbeheerder' => mag_rollen_beheren(), 'pagina' => $GLOBALS['khzs_route'] ?? '', 'meldingen_flash' => flash_lezen(),
+        // Melding in de app: beslissingen over eigen rolaanvragen die het lid nog niet gezien heeft.
+        'rolbeslissingen' => $ingelogd ? ongelezen_rolbeslissingen(get_current_user_id()) : [],
+        'ploegbeslissingen' => $ingelogd ? ongelezen_ploegbeslissingen(get_current_user_id()) : [],
+        'privacy_lezen' => privacy_lezen()];
     extract($ctx, EXTR_SKIP);
     $inhoud_sjabloon = sjabloon($sjabloon);
     include KHZS_PAD . 'views/_layout.php';
@@ -187,7 +203,7 @@ function vereist_login(): void
 function vereist_rol(array $rollen): void
 {
     vereist_login();
-    if (!in_array(rol(), $rollen, true)) {
+    if (!heeft_rol($rollen)) {
         geen_toegang();
     }
 }
@@ -223,6 +239,11 @@ function routes(): array
         ['aanmelden', 'login', 'v_aanmelden'],
         ['afmelden', 'logout', 'v_afmelden'],
         ['gebruikers', 'gebruikers', 'v_gebruikers'],
+        ['gebruikers/aanvraag/(\\d+)', 'gebruikers', 'v_rolaanvraag_behandelen'],
+        ['rollen', 'mijn_rollen', 'v_mijn_rollen'],
+        ['ploegen', 'ploegen', 'v_ploegen'],
+        ['ploegen/(\\d+)', 'ploeg', 'v_ploeg'],
+        ['ploegen/lid/(\\d+)', 'ploeg', 'v_ploeglid'],
         ['meldingen', 'meldingen', 'v_meldingen'],
         ['meldingen/abonneer', 'push_abonneer', 'v_push_abonneer'],
         ['meldingen/afmelden', 'push_afmelden', 'v_push_afmelden'],
@@ -243,7 +264,8 @@ function routes(): array
 function menu(): array
 {
     $items = apply_filters('khzs_menu', [
-        50 => ['Gebruikers', 'gebruikers/', ['gebruikers'], '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20c0-3 3-5 7-5s7 2 7 5M16 14c3 0 6 1.5 6 4.5"/>', fn() => is_secretariaat()],
+        50 => ['Gebruikers', 'gebruikers/', ['gebruikers'], '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20c0-3 3-5 7-5s7 2 7 5M16 14c3 0 6 1.5 6 4.5"/>', fn() => mag_rollen_beheren()],
+        45 => ['Ploegen', 'ploegen/', ['ploegen', 'ploeg'], '<circle cx="7" cy="9" r="2.5"/><circle cx="17" cy="9" r="2.5"/><circle cx="12" cy="7" r="2.5"/><path d="M2 19c0-3 2-5 5-5M22 19c0-3-2-5-5-5M7 20c0-3 2-5 5-5s5 2 5 5"/>', fn() => ziet_ploegenmenu()],
         80 => ['Meldingen', 'meldingen/', ['meldingen'], '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/>', fn() => true],
     ]);
     ksort($items);
@@ -260,7 +282,8 @@ function verwerk_verzoek(): void
     foreach (routes() as [$regex, $naam, $functie]) {
         if (preg_match('#^' . $regex . '$#', $pad, $m)) {
             $GLOBALS['khzs_route'] = $naam;
-            if (is_post() && !in_array($naam, ['push_abonneer', 'push_afmelden', 'push_test'], true)) {
+            // Routes zonder nonce: JSON (nonce in de header) en routes van modules met een eigen beveiliging (filter khzs_zonder_nonce).
+            if (is_post() && !in_array($naam, apply_filters('khzs_zonder_nonce', ['push_abonneer', 'push_afmelden', 'push_test']), true)) {
                 $nonce = $_POST['_khzs'] ?? '';
                 // Aanmelden/registreren mag ook zonder geldige nonce van een (verlopen) anonieme sessie.
                 if (!wp_verify_nonce($nonce, 'khzs') && !in_array($naam, ['login', 'registreren'], true)) {

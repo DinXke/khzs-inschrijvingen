@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% block titel %}Ploegen{% endblock %}
+{% block inhoud %}
+<h1>Ploegen</h1>
+{% if aanvragen %}
+<div class="kaart melding-lijst">
+  <h2 style="margin-top:0">Aanvragen ({{ aanvragen|length }})</h2>
+  {% for l in aanvragen %}{% include "_ploegaanvraag.html" with terug=request.path %}{% endfor %}
+</div>
+{% endif %}
+{% for p in ploegen %}
+<a class="kaart" href="{% url 'ploeg' p.pk %}"><div class="rij tussen"><strong>{{ p.naam }}{% if p.soort == "zwemschool" %} <span class="badge">zwemschool</span>{% endif %}{% if not p.actief %} <span class="badge doorgestuurd">gearchiveerd</span>{% endif %}</strong>
+  <span class="klein">{{ p.leden }} zwemmer{{ p.leden|pluralize:"s" }}{% if p.open_ %} · <span class="badge wacht">{{ p.open_ }} wacht</span>{% endif %}</span></div>
+  {% if p.beschrijving or p.trainers.all %}<div class="klein">{{ p.beschrijving }}{% if p.beschrijving and p.trainers.all %} · {% endif %}{% for t in p.trainers.all %}{{ t.get_full_name|default:t.username }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}</a>
+{% empty %}<div class="leeg">{% if beheer %}Nog geen ploegen. Maak hieronder de eerste aan.{% else %}Je zwemmers zitten nog in geen enkele ploeg. Kies een ploeg bij de zwemmer.{% endif %}</div>{% endfor %}
+{% if form %}
+<details class="kaart" {% if form.errors %}open{% endif %}><summary><strong>+ Nieuwe ploeg</strong></summary>
+  <form method="post">{% csrf_token %}{% include "_form.html" %}<p><button class="vol">Aanmaken</button></p></form>
+</details>
+{% endif %}
+{% endblock %}

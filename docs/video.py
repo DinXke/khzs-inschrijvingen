@@ -1,6 +1,7 @@
 """Instructiefilmpjes met voice-over (zwemmer, trainer, sportsecretaris).
 
-Gebruik (vanuit de projectmap, op macOS):  .venv/bin/python docs/video.py [zwemmer|trainer|sportsecretaris]
+Gebruik (vanuit de projectmap):  .venv/bin/python docs/video.py [zwemmer|trainer|sportsecretaris]
+(Windows: .venv/Scripts/python docs/video.py)
 Vereist: playwright + chromium, imageio-ffmpeg en piper-tts (stem 'nathalie', nl_BE; wordt automatisch
 gedownload). Zonder piper-tts valt het script terug op de macOS-stem 'Ellen'.
 De app draait tijdelijk met demodata; resultaat in docs/video/<rol>.mp4 (+ .srt ondertitels).
@@ -43,6 +44,7 @@ def piper_stem():
     global _piper
     if _piper is None:
         try:
+            import piper
             from piper import PiperVoice
         except ImportError:
             _piper = False
@@ -53,8 +55,18 @@ def piper_stem():
             if not doel.exists():
                 print(f"  stemmodel downloaden: {doel.name}")
                 urllib.request.urlretrieve(PIPER_URL + suffix, doel)
-        _piper = PiperVoice.load(str(PIPER_MODEL))
+        _piper = PiperVoice.load(str(PIPER_MODEL), espeak_data_dir=kort_pad(Path(piper.__file__).parent / "espeak-ng-data"))
     return _piper or None
+
+
+def kort_pad(pad):
+    """Windows: espeak-ng vindt zijn data niet in een pad met bv. een ö; de korte 8.3-naam is enkel ASCII."""
+    if sys.platform != "win32" or str(pad).isascii():
+        return pad
+    import ctypes
+    buf = ctypes.create_unicode_buffer(1024)
+    ctypes.windll.kernel32.GetShortPathNameW(str(pad), buf, len(buf))
+    return buf.value or pad
 
 
 def spreek(tekst, wav):
@@ -203,7 +215,7 @@ def schrijf_scripts():
     map_.mkdir(parents=True, exist_ok=True)
     for naam, (script, _) in ROLLEN.items():
         teksten = teksten_van(script)
-        (map_ / f"{naam}.txt").write_text("\n\n".join(teksten) + "\n")
+        (map_ / f"{naam}.txt").write_text("\n\n".join(teksten) + "\n", encoding="utf-8")
         print(f"  script/{naam}.txt: {len(teksten)} stappen, {sum(len(t) for t in teksten)} tekens")
     print(f"Plak de tekst in je stemgenerator en bewaar de audio als docs/video/stem/<rol>.mp3")
 
@@ -260,7 +272,7 @@ def open_wedstrijd(page, naam):
 def zwemmer(o, logo):
     p = o.page
     p.set_content(splash("Inschrijven als zwemmer", "Voor zwemmers en ouders · Hasseltse Zwemvereniging Spartacus", logo))
-    o.stap("Hallo! Welkom bij de inschrijvingen van de Hasseltse Zwemvereniging Spartacus. "
+    o.stap("Hallo! Welkom bij KHZS Leden, de app van de Hasseltse Zwemvereniging Spartacus. "
            "In dit filmpje leggen we stap voor stap uit hoe je je inschrijft voor een zwemwedstrijd. "
            "Het filmpje is bedoeld voor zwemmers, en voor ouders die hun kinderen inschrijven.")
     o.hoofdstuk(1, "De app openen")
@@ -276,8 +288,14 @@ def zwemmer(o, logo):
            "De geboortedatum is belangrijk, want die bepaalt in welke categorie je zwemt, en dus op welke nummers je mag inschrijven.",
            lambda p: scroll(p, 450))
     o.stap("Zwemmen er meerdere kinderen in het gezin? Tik dan op nog een zwemmer, en vul ook hun gegevens in. "
-           "Zwem je als ouder zelf ook? Voeg jezelf dan gewoon toe als zwemmer. Het licentienummer is niet verplicht.",
+           "Het licentienummer is niet verplicht.",
            lambda p: (beweeg_klik(p, "#nog-zwemmer"), scroll(p, 500)))
+    o.stap("Zwem je zelf, bijvoorbeeld bij de masters? Vink dan ik zwem zelf aan. Je eigen naam komt dan meteen in het "
+           "eerste zwemmerblok. Je vult enkel nog je geboortedatum en geslacht in.",
+           lambda p: (p.fill("#id_voornaam", "Ann"), p.fill("#id_naam", "Peeters"), beweeg_klik(p, "#zelf")))
+    o.stap("Heeft de andere ouder je kind al in de app gezet, bijvoorbeeld bij gescheiden ouders? Vul dan de koppelcode in "
+           "die je van hem of haar kreeg. Zo hoef je je kind niet opnieuw in te voeren.",
+           lambda p: beweeg_klik(p, "#id_koppelcode", klik=False))
     o.stap("Heb je al een account? Dan meld je je gewoon aan met je e-mailadres en je wachtwoord. "
            "Wachtwoord vergeten? Via de link onder de knop kan je een nieuw wachtwoord aanvragen.",
            lambda p: login(p, "zwemmer1"))
@@ -326,6 +344,11 @@ def zwemmer(o, logo):
            lambda p: (ga(p, "/zwemmers/"), beweeg_klik(p, "a.kaart >> nth=0")))
     o.stap("Je kan bij je gegevens ook je Swimrankings nummer invullen. Dan krijg je een knop die meteen je pagina op "
            "Swimrankings opent.", lambda p: scroll(p, 900))
+    o.stap("Wonen de ouders apart? Dan kan je de zwemmer delen met de andere ouder. Tik bij de zwemmer op koppelcode maken, "
+           "en geef de code door. De andere ouder vult ze in bij zwemmer koppelen. Jullie zien dan allebei dezelfde "
+           "inschrijvingen, en krijgen allebei de meldingen.",
+           lambda p: (beweeg_klik(p, "form[action$='/delen/'] button"),
+                      p.locator("form[action$='/delen/']").first.scroll_into_view_if_needed()))
     o.stap("Zet tot slot de meldingen aan. Tik op meldingen, en dan op meldingen aanzetten. Je kiest zelf waarvoor je een "
            "bericht wil krijgen: een nieuwe wedstrijd, de herinnering een dag voor je deadline, "
            "of een wijziging door je trainer.", lambda p: ga(p, "/meldingen/"))
@@ -485,10 +508,10 @@ def monteer(naam, webm, stappen, tmp, duur):
     def ts(s):
         return f"{int(s // 3600):02d}:{int(s % 3600 // 60):02d}:{int(s % 60):02d},{int(s * 1000 % 1000):03d}"
     srt = UIT / f"{naam}.srt"
-    srt.write_text("\n".join(f"{i}\n{ts(s)} --> {ts(s + d)}\n{t}\n" for i, (s, d, t, _) in enumerate(stappen, 1)))
+    srt.write_text("\n".join(f"{i}\n{ts(s)} --> {ts(s + d)}\n{t}\n" for i, (s, d, t, _) in enumerate(stappen, 1)), encoding="utf-8")
     # WebVTT voor de video-speler in de app
     (UIT / f"{naam}.vtt").write_text("WEBVTT\n\n" + "\n".join(
-        f"{ts(s).replace(',', '.')} --> {ts(s + d).replace(',', '.')}\n{t}\n" for s, d, t, _ in stappen))
+        f"{ts(s).replace(',', '.')} --> {ts(s + d).replace(',', '.')}\n{t}\n" for s, d, t, _ in stappen), encoding="utf-8")
     # Audio: elke zin op zijn starttijd
     args, filters = [], []
     for i, (s, _, _, wav) in enumerate(stappen):
@@ -514,7 +537,7 @@ def main():
         return schrijf_scripts()
     gekozen = [a for a in sys.argv[1:] if not a.startswith("-")] or list(ROLLEN)
     logo = base64.b64encode((ROOT / "static" / "img" / "logo.png").read_bytes()).decode()
-    with tempfile.TemporaryDirectory() as tmp:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
         proc = build.start_server(tmp)
         try:
             with sync_playwright() as pw:
@@ -539,6 +562,7 @@ def main():
                 browser.close()
         finally:
             proc.terminate()
+            proc.wait()  # Windows: anders blijft de sqlite-database in gebruik
 
 
 if __name__ == "__main__":
