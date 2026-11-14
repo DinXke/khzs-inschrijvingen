@@ -14,7 +14,7 @@
 <form method="post" class="kaart" action="<?= esc_url(app_url('meldingen/')) ?>"><?= nonce_veld() ?>
   <h2 style="margin-top:0">Waarvoor?</h2>
   <?php foreach ($velden as $k):
-    $label = VOORKEUREN[$k][0];
+    $label = voorkeuren()[$k][0];
     if ($k === 'push_deadline' && $staf) { $label = 'Herinnering: 1 dag voor de deadline (zwemmers én trainers)'; } ?>
     <?= veld_vinkje($k, $label, voorkeur(get_current_user_id(), $k)) ?>
   <?php endforeach; ?>

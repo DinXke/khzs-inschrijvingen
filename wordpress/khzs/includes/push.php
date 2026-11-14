@@ -171,30 +171,3 @@ function users_met(string $voorkeur, ?array $rollen = null, ?int $deelname_aan =
     }
     return $uit;
 }
-
-/** Dagelijks (WP-Cron): pushherinnering 1 dag voor de deadline van zwemmers en trainers. */
-function verstuur_herinneringen(): array
-{
-    $morgen = vandaag()->modify('+1 day')->format('Y-m-d');
-    $log = [];
-    foreach (db()->get_results(db()->prepare("SELECT * FROM " . t('wedstrijden') . " WHERE status=%s", W_OPEN)) as $w) {
-        $soorten = [
-            ['zwemmer', deadline_zwemmer($w), [ZWEMMER], 'Morgen (%s) is de laatste dag om in te schrijven.', app_url("wedstrijd/{$w->id}/")],
-            ['trainer', deadline_trainer($w), STAF, 'Morgen (%s) moeten de inschrijvingen nagekeken zijn.', app_url("wedstrijd/{$w->id}/nakijken/")],
-        ];
-        foreach ($soorten as [$soort, $datum, $rollen, $tekst, $url]) {
-            if ($datum->format('Y-m-d') !== $morgen) {
-                continue;
-            }
-            $ok = db()->query(db()->prepare("INSERT IGNORE INTO " . t('herinneringen') . " (wedstrijd_id, soort, datum) VALUES (%d, %s, %s)",
-                $w->id, $soort, $morgen));
-            if (!$ok) {
-                continue;
-            }
-            $users = users_met('push_deadline', $rollen, $soort === 'zwemmer' ? (int) $w->id : null);
-            $n = stuur($users, "Deadline {$w->naam}", sprintf($tekst, $datum->format('d/m')), $url, false);
-            $log[] = "{$w->naam} ($soort): $n toestel(len)";
-        }
-    }
-    return $log;
-}

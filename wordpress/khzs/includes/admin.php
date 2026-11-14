@@ -1,5 +1,5 @@
 <?php
-/** Beheer in wp-admin: instellingen (Instellingen → KHZS inschrijvingen) en de app-rol op het profiel van een gebruiker. */
+/** Beheer in wp-admin: instellingen (Instellingen → KHZS), modules, en de app-rol op het profiel van een gebruiker. */
 
 namespace KHZS;
 
@@ -8,23 +8,26 @@ defined('ABSPATH') || exit;
 const OPTIES = [
     'khzs_club_naam' => ['Clubnaam', 'Hasseltse Zwemvereniging Spartacus', 'Komt in de Lenex-export en op het overzicht.'],
     'khzs_club_code' => ['Clubcode', 'KHZS', 'Code van de club in de Lenex-export.'],
-    'khzs_app_naam' => ['Naam van de app', 'HZS inschrijvingen', 'Zoals de app heet op het beginscherm van de gsm.'],
+    'khzs_app_titel' => ['Titel in de app', 'Clubapp', 'Naast het logo bovenaan de app.'],
+    'khzs_app_naam' => ['Naam van de app', 'HZS clubapp', 'Zoals de app heet op het beginscherm van de gsm.'],
     'khzs_app_kort' => ['Korte naam', 'HZS', 'Onder het icoon op de gsm en in de titel van het tabblad.'],
-    'khzs_slug' => ['Adres van de app', 'inschrijvingen', 'De app staat op jouwsite.be/<dit adres>/'],
+    'khzs_slug' => ['Adres van de app', 'club', 'De app staat op jouwsite.be/<dit adres>/'],
 ];
 
 add_action('admin_menu', function () {
-    add_options_page('KHZS inschrijvingen', 'KHZS inschrijvingen', 'manage_options', 'khzs-inschrijvingen', __NAMESPACE__ . '\\admin_pagina');
+    add_options_page('KHZS', 'KHZS', 'manage_options', 'khzs', __NAMESPACE__ . '\\admin_pagina');
 });
 
 add_action('admin_init', function () {
     foreach (OPTIES as $k => $o) {
         register_setting('khzs', $k, ['type' => 'string', 'default' => $o[1], 'sanitize_callback' => $k === 'khzs_slug'
-            ? fn($v) => sanitize_title($v) ?: 'inschrijvingen' : 'sanitize_text_field']);
+            ? fn($v) => sanitize_title($v) ?: 'club' : 'sanitize_text_field']);
     }
     foreach (['khzs_registratie' => 1, 'khzs_pwa_melding' => 1, 'khzs_pwa_enkel_gsm' => 1, 'khzs_pwa_enkel_home' => 0] as $k => $std) {
         register_setting('khzs', $k, ['type' => 'integer', 'default' => $std, 'sanitize_callback' => fn($v) => $v ? 1 : 0]);
     }
+    register_setting('khzs', 'khzs_modules', ['type' => 'array', 'default' => array_keys(modules()),
+        'sanitize_callback' => fn($v) => array_values(array_intersect(array_keys(modules()), (array) $v))]);
     register_setting('khzs', 'khzs_pwa_tekst', ['type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field']);
 });
 
@@ -34,8 +37,8 @@ add_action('update_option_khzs_slug', function () {
     flush_rewrite_rules();
 });
 
-add_filter('plugin_action_links_khzs-inschrijvingen/khzs-inschrijvingen.php', function ($links) {
-    array_unshift($links, '<a href="' . esc_url(admin_url('options-general.php?page=khzs-inschrijvingen')) . '">Instellingen</a>',
+add_filter('plugin_action_links_khzs/khzs.php', function ($links) {
+    array_unshift($links, '<a href="' . esc_url(admin_url('options-general.php?page=khzs')) . '">Instellingen</a>',
         '<a href="' . esc_url(app_url('')) . '">Open de app</a>');
     return $links;
 });
@@ -51,7 +54,7 @@ function admin_pagina(): void
     }
     ?>
     <div class="wrap">
-      <h1>KHZS inschrijvingen</h1>
+      <h1>KHZS</h1>
       <p><a class="button button-primary" href="<?= esc_url(app_url('')) ?>" target="_blank">Open de app ↗</a>
         <span style="margin-left:1em">Adres: <code><?= esc_html(app_url('')) ?></code></span></p>
       <?php if (!get_option('permalink_structure')): ?>
@@ -65,6 +68,12 @@ function admin_pagina(): void
             <td><input name="<?= esc_attr($k) ?>" id="<?= esc_attr($k) ?>" class="regular-text" value="<?= esc_attr(get_option($k, $standaard)) ?>">
             <p class="description"><?= esc_html($help) ?></p></td></tr>
           <?php endforeach; ?>
+          <tr><th scope="row">Modules</th>
+            <td><input type="hidden" name="khzs_modules[]" value="">
+            <?php foreach (modules() as $id => [$naam, $uitleg]): ?>
+              <label style="display:block;margin-bottom:.4em"><input type="checkbox" name="khzs_modules[]" value="<?= esc_attr($id) ?>" <?php checked(module_actief($id)); ?>> <b><?= esc_html($naam) ?></b> — <?= esc_html($uitleg) ?></label>
+            <?php endforeach; ?>
+            <p class="description">Een uitgeschakelde module verdwijnt uit de app; haar gegevens blijven bewaard.</p></td></tr>
           <tr><th scope="row">Registreren</th>
             <td><label><input type="checkbox" name="khzs_registratie" value="1" <?php checked(get_option('khzs_registratie', 1)); ?>> Ouders en zwemmers mogen zelf een account aanmaken in de app</label>
             <p class="description">Nieuwe accounts krijgen de standaardrol van WordPress (<code><?= esc_html(get_option('default_role')) ?></code>) en de app-rol Zwemmer.</p></td></tr>
@@ -100,13 +109,18 @@ function profiel_veld(\WP_User $u): void
     }
     $wpbeheer = user_can($u, 'manage_options');
     ?>
-    <h2>KHZS inschrijvingen</h2>
+    <h2>KHZS clubapp</h2>
+    <input type="hidden" name="khzs_rol_veld" value="1">
     <table class="form-table" role="presentation"><tr><th><label for="khzs_rol">Rol in de app</label></th><td>
       <?php if ($wpbeheer): ?>Beheerder (WordPress-beheerders zijn altijd beheerder)<?php else: ?>
       <select name="khzs_rol" id="khzs_rol"><?php foreach (ROLLEN as $r => $l): ?>
         <option value="<?= esc_attr($r) ?>" <?php selected(rol($u), $r); ?>><?= esc_html($l) ?></option><?php endforeach; ?></select>
       <?php endif; ?>
-    </td></tr></table>
+    </td></tr>
+    <?php if (current_user_can('manage_options')): ?>
+    <tr><th>Penningmeester</th><td><label><input type="checkbox" name="khzs_penningmeester" value="1" <?php checked(get_user_meta($u->ID, 'khzs_penningmeester', true), '1'); ?>> Ziet tarieven en verloning van de trainers</label></td></tr>
+    <?php endif; ?>
+    </table>
     <?php
 }
 
@@ -115,6 +129,9 @@ add_action('edit_user_profile', __NAMESPACE__ . '\\profiel_veld');
 
 function profiel_bewaar(int $uid): void
 {
+    if (current_user_can('manage_options') && isset($_POST['khzs_rol_veld'])) {
+        update_user_meta($uid, 'khzs_penningmeester', empty($_POST['khzs_penningmeester']) ? '0' : '1');
+    }
     if (!current_user_can('promote_users') || !isset($_POST['khzs_rol'])) {
         return;
     }

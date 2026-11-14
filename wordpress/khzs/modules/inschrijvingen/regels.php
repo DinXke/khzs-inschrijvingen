@@ -1,5 +1,5 @@
 <?php
-/** Bedrijfsregels: rollen, leeftijd, geschiktheid, limieten, deadlines en tijden. Tijden zijn gehele honderdsten. */
+/** Module inschrijvingen — bedrijfsregels: leeftijd, geschiktheid, limieten, deadlines en tijden. Tijden zijn gehele honderdsten. */
 
 namespace KHZS;
 
@@ -10,10 +10,6 @@ const GESLACHT_NUMMER = ['M' => 'Man', 'F' => 'Vrouw', 'X' => 'Gemengd'];
 const BAAN = ['SCM' => '25 m', 'LCM' => '50 m'];
 const SLAG = ['FREE' => 'Vrije slag', 'BACK' => 'Rugslag', 'BREAST' => 'Schoolslag', 'FLY' => 'Vlinderslag', 'MEDLEY' => 'Wisselslag'];
 
-const ZWEMMER = 'zwemmer', TRAINER = 'trainer', SECRETARIS = 'secretaris', BEHEERDER = 'beheerder';
-const ROLLEN = [ZWEMMER => 'Zwemmer', TRAINER => 'Trainer', SECRETARIS => 'Sportsecretaris', BEHEERDER => 'Beheerder'];
-const SECRETARIAAT = [SECRETARIS, BEHEERDER];
-const STAF = [TRAINER, SECRETARIS, BEHEERDER];
 
 const W_CONCEPT = 'concept', W_OPEN = 'open', W_GESLOTEN = 'gesloten', W_DOORGESTUURD = 'doorgestuurd';
 const W_STATUS = [W_CONCEPT => 'Concept', W_OPEN => 'Open', W_GESLOTEN => 'Gesloten', W_DOORGESTUURD => 'Doorgestuurd'];
@@ -25,63 +21,13 @@ const INTERESSE = 'interesse', DOET_MEE = 'doet_mee', DOET_NIET_MEE = 'doet_niet
 const KEUZES = [INTERESSE => 'Interesse', DOET_MEE => 'Ik doe mee', DOET_NIET_MEE => 'Ik doe niet mee'];
 const ACTIEF = [INTERESSE, DOET_MEE];
 
-/** Pushvoorkeuren per account (user meta), met hun standaardwaarde. */
-const VOORKEUREN = [
-    'push_nieuwe_wedstrijd' => ['Nieuwe wedstrijd open voor inschrijving', true],
-    'push_deadline' => ['Herinnering: 1 dag voor de deadline', true],
-    'push_wijziging' => ['Trainer/secretariaat wijzigt mijn inschrijving', true],
-    'push_nieuwe_inschrijving' => ['(staf) Nieuwe inschrijving om na te kijken', false],
-];
+add_filter('khzs_voorkeuren', fn($v) => $v + [
+    'push_nieuwe_wedstrijd' => ['Nieuwe wedstrijd open voor inschrijving', true, false],
+    'push_deadline' => ['Herinnering: 1 dag voor de deadline', true, false],
+    'push_wijziging' => ['Trainer/secretariaat wijzigt mijn inschrijving', true, false],
+    'push_nieuwe_inschrijving' => ['(staf) Nieuwe inschrijving om na te kijken', false, true],
+]);
 
-// ---------- rollen ----------
-
-/** Rol in de app. WordPress-beheerders zijn altijd beheerder; anderen volgens user meta khzs_rol. */
-function rol($user = null): ?string
-{
-    $user = $user === null ? wp_get_current_user() : (is_numeric($user) ? get_userdata((int) $user) : $user);
-    if (!$user || !$user->exists()) {
-        return null;
-    }
-    if (user_can($user, 'manage_options')) {
-        return BEHEERDER;
-    }
-    $r = get_user_meta($user->ID, 'khzs_rol', true);
-    return isset(ROLLEN[$r]) ? $r : ZWEMMER;
-}
-
-function is_staf($user = null): bool
-{
-    return in_array(rol($user), STAF, true);
-}
-
-function is_secretariaat($user = null): bool
-{
-    return in_array(rol($user), SECRETARIAAT, true);
-}
-
-function voorkeur(int $user_id, string $sleutel): bool
-{
-    $v = get_user_meta($user_id, 'khzs_' . $sleutel, true);
-    return $v === '' ? VOORKEUREN[$sleutel][1] : (bool) (int) $v;
-}
-
-// ---------- datums ----------
-
-function vandaag(): \DateTimeImmutable
-{
-    // Filter khzs_vandaag: enkel voor tests (een andere datum simuleren).
-    $d = apply_filters('khzs_vandaag', null);
-    return $d ? new \DateTimeImmutable($d, wp_timezone()) : new \DateTimeImmutable('today', wp_timezone());
-}
-
-function dag(?string $s): ?\DateTimeImmutable
-{
-    if (!$s || str_starts_with($s, '0000')) {
-        return null;
-    }
-    $d = \DateTimeImmutable::createFromFormat('!Y-m-d', substr($s, 0, 10), wp_timezone());
-    return $d ?: null;
-}
 
 function deadline_trainer(object $w): \DateTimeImmutable
 {
@@ -91,34 +37,6 @@ function deadline_trainer(object $w): \DateTimeImmutable
 function deadline_zwemmer(object $w): \DateTimeImmutable
 {
     return deadline_trainer($w)->modify('-' . (int) $w->dagen_trainer . ' days');
-}
-
-const DAGEN_KORT = ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za'];
-const DAGEN = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
-const MAANDEN_KORT = ['', 'Jan', 'Feb', 'Mrt', 'Apr', 'Mei', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
-const MAANDEN = ['', 'januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
-
-/** Datum in het Nederlands met Django-achtige codes: D l j M F Y y m d H i. */
-function datum($d, string $fmt): string
-{
-    if (is_string($d)) {
-        $d = strlen($d) > 10 ? date_create_immutable($d, wp_timezone()) : dag($d);
-    }
-    if (!$d) {
-        return '';
-    }
-    $uit = '';
-    foreach (str_split($fmt) as $c) {
-        $uit .= match ($c) {
-            'D' => DAGEN_KORT[(int) $d->format('w')],
-            'l' => DAGEN[(int) $d->format('w')],
-            'M' => MAANDEN_KORT[(int) $d->format('n')],
-            'F' => MAANDEN[(int) $d->format('n')],
-            'j', 'Y', 'y', 'm', 'd', 'H', 'i', 'n' => $d->format($c),
-            default => $c,
-        };
-    }
-    return $uit;
 }
 
 // ---------- tijden ----------
@@ -159,10 +77,6 @@ function toon_tijd($hon): string
     return $m ? sprintf('%d:%02d.%02d', $m, $s, $h) : sprintf('%d.%02d', $s, $h);
 }
 
-function euro($cent): string
-{
-    return '€ ' . number_format(((int) $cent) / 100, 2, ',', '');
-}
 
 // ---------- nummers ----------
 

@@ -33,7 +33,7 @@ function backup_zoek(string $naam): string
 function backup_maak(string $achtervoegsel = ''): string
 {
     $data = ['versie' => VERSIE, 'gemaakt' => nu_sql(), 'tabellen' => [], 'meta' => []];
-    foreach (TABELLEN as $tab) {
+    foreach (alle_tabellen() as $tab) {
         $data['tabellen'][$tab] = db()->get_results("SELECT * FROM " . t($tab), ARRAY_A);
     }
     foreach (db()->get_results("SELECT m.user_id, u.user_login, m.meta_key, m.meta_value FROM " . db()->usermeta . " m
@@ -95,7 +95,7 @@ function backup_herstel(string $bron): array
     }
     $n = 0;
     db()->query('START TRANSACTION');
-    foreach (TABELLEN as $tab) {
+    foreach (alle_tabellen() as $tab) {
         db()->query("DELETE FROM " . t($tab));
         foreach ($data['tabellen'][$tab] ?? [] as $rij) {
             foreach (['account_id', 'user_id', 'door_id', 'gefinaliseerd_door'] as $k) {

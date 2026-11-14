@@ -16,7 +16,7 @@ from xml.etree import ElementTree as ET
 import requests
 
 BASIS = os.environ.get("KHZS_URL", "http://localhost:8080").rstrip("/")
-APP = BASIS + "/inschrijvingen/"
+APP = BASIS + "/club/"
 HIER = Path(__file__).resolve().parent
 VK = (HIER.parent.parent / "inschrijvingen" / "tests" / "fixtures" / "vk_kb_jeugd.lxf").read_bytes()
 
@@ -68,8 +68,8 @@ def een(q):
     return next(iter(rijen[0].values())) if rijen else None
 
 
-def gebruiker(login, rol=None, first_name="", wprol="subscriber"):
-    return hulp("user", login=login, rol=rol, first_name=first_name, wprol=wprol)["id"]
+def gebruiker(login, rol=None, first_name="", wprol="subscriber", penningmeester=False):
+    return hulp("user", login=login, rol=rol, first_name=first_name, wprol=wprol, penningmeester=penningmeester)["id"]
 
 
 def zwemmer(account, voornaam="Lien", naam="P", gd="2013-03-02", geslacht="F", licentie=""):
@@ -666,6 +666,144 @@ class RolTest(StroomTest):
         hulp("deluser", id=o)
         self.assertEqual(int(een("SELECT COUNT(*) FROM {p}zwemmers")), 0)
         self.assertEqual(int(een("SELECT COUNT(*) FROM {p}inschrijvingen")), 0)
+
+
+class TrainersTest(Basis):
+    """Module trainers: rooster, vaste trainers, afmelden/overnemen, afgelast, uren en verloning."""
+
+    def setUp(self):
+        super().setUp()
+        self.sec = gebruiker("sec@khzs.be", "secretaris", first_name="Sara")
+        self.tom = gebruiker("tom@khzs.be", "trainer", first_name="Tom")
+        self.lies = gebruiker("lies@khzs.be", "trainer", first_name="Lies")
+        self.pm = gebruiker("pm@khzs.be", None, first_name="Piet", penningmeester=True)
+        gebruiker("ouder@khzs.be")
+        self.s = Klant().login("sec@khzs.be")
+        self.s.vandaag = "2026-09-01"
+        r = self.s.post("trainers/beheer/", {"wat": "moment", "naam": "A-groep", "weekdag": 1, "start": "18:00", "einde": "19:30",
+                                            "locatie": "Groot bad", "van": "2026-09-01"})
+        self.assertEqual(r.status_code, 302, r.text[:1500])
+        self.m = int(een("SELECT id FROM {p}tr_momenten"))
+        self.t = Klant().login("tom@khzs.be")
+        self.t.vandaag = "2026-09-01"
+        self.l = Klant().login("lies@khzs.be")
+        self.l.vandaag = "2026-09-01"
+        self.l.json("meldingen/abonneer/", {"endpoint": "https://push.example/lies", "keys": {"p256dh": "x", "auth": "y"}})
+        self.t.json("meldingen/abonneer/", {"endpoint": "https://push.example/tom", "keys": {"p256dh": "x", "auth": "y"}})
+        self.t.post("trainers/vast/", {"moment": self.m, "aan": 1})
+
+    def actie(self, k, actie, datum, **extra):
+        return k.post("trainers/actie/", {"moment": self.m, "datum": datum, "actie": actie, **extra})
+
+    def test_rooster_afmelden_overnemen_en_verloning(self):
+        self.assertEqual(een("SELECT van FROM {p}tr_vast"), "2026-09-01")
+        r = self.t.get("trainers/")
+        self.assertContains(r, "A-groep")
+        self.assertContains(r, "Ik geef training")
+        # Tom kan niet op 14/9 → Lies krijgt een melding en neemt over.
+        self.actie(self.t, "afwezig", "2026-09-14", reden="ziek")
+        self.assertEqual(een("SELECT soort FROM {p}tr_wijzigingen"), "afwezig")
+        push = hulp("push")
+        self.assertEqual([p["endpoint"] for p in push], ["https://push.example/lies"])
+        self.assertIn("Vervanger gezocht", push[0]["bericht"]["titel"])
+        self.assertContains(self.l.get("trainers/"), "Vervanger gezocht")
+        self.actie(self.l, "overnemen", "2026-09-14", vervangt=self.tom)
+        self.assertEqual(int(een("SELECT vervangt_id FROM {p}tr_wijzigingen WHERE soort='vervanger'")), self.tom)
+        self.assertIn("neemt", hulp("push")[-1]["bericht"]["tekst"])
+        self.assertEqual(hulp("push")[-1]["endpoint"], "https://push.example/tom")
+        # Tom kan niet meer 'toch' komen: Lies heeft het al overgenomen.
+        self.actie(self.t, "aanwezig", "2026-09-14")
+        self.assertEqual(int(een("SELECT COUNT(*) FROM {p}tr_wijzigingen WHERE soort='afwezig'")), 1)
+        # Afgelast op 21/9.
+        self.s.post("trainers/beheer/", {"wat": "afgelast", "moment": 0, "van": "2026-09-21", "tot": "2026-09-21", "reden": "Zwembad dicht"})
+        r = self.t.get("trainers/planning/", week="2026-09-21")
+        self.assertContains(r, "Zwembad dicht")
+        # Tarieven door de penningmeester.
+        pm = Klant().login("pm@khzs.be")
+        pm.vandaag = "2026-09-30"
+        pm.post("trainers/tarieven/", {"user": self.tom, "soort": "uur", "bedrag": "15,00", "geldig_vanaf": "2026-09-01"})
+        pm.post("trainers/tarieven/", {"user": self.lies, "soort": "beurt", "bedrag": "20", "geldig_vanaf": "2026-09-01"})
+        r = pm.get("trainers/uren/", maand="2026-09")
+        self.assertContains(r, "€ 45,00")   # Tom: 7/9 + 28/9 = 2 × 1,5 u × 15
+        self.assertContains(r, "€ 20,00")   # Lies: 14/9 per training
+        self.assertContains(r, "€ 65,00")   # totaal
+        # Nieuw tarief vanaf 20/9: oude trainingen houden het oude tarief.
+        pm.post("trainers/tarieven/", {"user": self.tom, "soort": "uur", "bedrag": "18", "geldig_vanaf": "2026-09-20"})
+        self.assertContains(pm.get("trainers/uren/", maand="2026-09"), "€ 49,50")
+        # Uitbetaald markeren, daarna een correctie → waarschuwing.
+        pm.post("trainers/uren/", {"user": self.tom, "actie": "uitbetaald"}, query={"maand": "2026-09"})
+        self.assertEqual(int(een("SELECT bedrag_cent FROM {p}tr_uitbetaald")), 4950)
+        self.s.vandaag = "2026-09-30"
+        self.actie(self.s, "afwezig", "2026-09-28", user=self.tom)
+        self.assertContains(pm.get("trainers/uren/", maand="2026-09"), "gewijzigd na uitbetaling")
+        # Excel-export.
+        r = pm.get("trainers/uren/export/", maand="2026-09")
+        self.assertEqual(r.status_code, 200)
+        with zipfile.ZipFile(io.BytesIO(r.content)) as zf:
+            self.assertIn("Tom", zf.read("xl/worksheets/sheet1.xml").decode())
+            ET.fromstring(zf.read("xl/worksheets/sheet2.xml"))
+        # Tom ziet enkel zijn eigen uren.
+        self.t.vandaag = "2026-09-30"
+        r = self.t.get("trainers/uren/", maand="2026-09")
+        self.assertContains(r, "Mijn uren")
+        self.assertNotContains(r, "Lies")
+
+    def test_voorbij_en_toegang(self):
+        self.t.vandaag = "2026-09-30"
+        self.actie(self.t, "afwezig", "2026-09-28")
+        self.assertFalse(sql("SELECT id FROM {p}tr_wijzigingen"))  # voorbij: enkel secretariaat
+        # Ongeldige datum (geen maandag) → 404.
+        self.assertEqual(self.t.get(f"trainers/training/{self.m}/2026-09-29/").status_code, 404)
+        self.assertEqual(self.t.get(f"trainers/training/{self.m}/2026-09-28/").status_code, 200)
+        o = Klant().login("ouder@khzs.be")
+        self.assertEqual(o.get("trainers/").status_code, 403)
+        self.assertEqual(o.get("trainers/uren/").status_code, 403)
+        self.assertNotContains(o.get("meldingen/"), "Trainingen")
+        self.assertEqual(self.t.get("trainers/tarieven/").status_code, 403)
+        self.assertEqual(self.t.get("trainers/uren/export/").status_code, 403)
+        self.assertEqual(self.t.get("trainers/beheer/").status_code, 403)
+        pm = Klant().login("pm@khzs.be")
+        self.assertEqual(pm.get("trainers/").status_code, 403)
+        self.assertContains(pm.get("trainers/uren/"), "Verloning trainers")
+        self.assertContains(pm.get("meldingen/"), "Verloning")
+        # Een trainer kan geen anderen afmelden.
+        self.t.vandaag = "2026-09-01"
+        r = self.actie(self.t, "afwezig", "2026-09-14", user=self.lies)
+        self.assertEqual(r.status_code, 403)
+        # Penningmeester aanduiden kan enkel een beheerder.
+        self.assertEqual(self.s.post("gebruikers/", {"user": self.lies, "penningmeester": "1"}).status_code, 403)
+
+    def test_stoppen_extra_en_module_uit(self):
+        self.actie(self.l, "helpen", "2026-09-07")
+        self.assertEqual(een("SELECT soort FROM {p}tr_wijzigingen"), "extra")
+        self.actie(self.l, "schrappen", "2026-09-07")
+        self.assertFalse(sql("SELECT id FROM {p}tr_wijzigingen"))
+        self.actie(self.t, "afwezig", "2026-09-21")
+        self.t.vandaag = "2026-09-10"
+        self.t.post("trainers/vast/", {"moment": self.m, "aan": 0})
+        self.assertEqual(een("SELECT tot FROM {p}tr_vast"), "2026-09-09")
+        self.assertFalse(sql("SELECT id FROM {p}tr_wijzigingen"))  # afmelding na de stopdatum opgeruimd
+        # Training met uren verwijderen → stopt i.p.v. wissen.
+        self.s.vandaag = "2026-09-10"
+        self.s.post(f"trainers/moment/{self.m}/", {"wat": "verwijderen"})
+        self.assertTrue(sql("SELECT id FROM {p}tr_momenten"))
+        self.assertEqual(een("SELECT tot FROM {p}tr_momenten"), "2026-09-09")
+        # Module uitschakelen: routes verdwijnen, gegevens blijven.
+        exe("SELECT 1")
+        hulp("exec", sql="UPDATE wp_options SET option_value='a:1:{i:0;s:14:\"inschrijvingen\";}' WHERE option_name='khzs_modules'")
+        hulp("exec", sql="INSERT IGNORE INTO wp_options (option_name, option_value, autoload) VALUES ('khzs_modules', 'a:1:{i:0;s:14:\"inschrijvingen\";}', 'auto')")
+        try:
+            requests.post(f"{BASIS}/?khzs_test=cache")
+            self.assertEqual(self.t.get("trainers/").status_code, 404)
+            self.assertTrue(sql("SELECT id FROM {p}tr_momenten"))
+        finally:
+            hulp("exec", sql="DELETE FROM wp_options WHERE option_name='khzs_modules'")
+            requests.post(f"{BASIS}/?khzs_test=cache")
+
+    def test_oud_adres(self):
+        r = requests.get(BASIS + "/inschrijvingen/wedstrijden/", allow_redirects=False)
+        self.assertEqual(r.status_code, 301)
+        self.assertTrue(r.headers["Location"].endswith("/club/wedstrijden/"))
 
 
 if __name__ == "__main__":

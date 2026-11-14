@@ -1,5 +1,5 @@
 <?php
-/** Minimale XLSX-schrijver (geen externe bibliotheek) en het Excel-overzicht van de goedgekeurde inschrijvingen. */
+/** Minimale XLSX-schrijver (geen externe bibliotheek). */
 
 namespace KHZS;
 
@@ -87,30 +87,4 @@ function maak_xlsx(array $bladen): string
     $bytes = file_get_contents($tmp);
     @unlink($tmp);
     return $bytes;
-}
-
-function excel_overzicht(object $w, array $inschrijvingen): string
-{
-    usort($inschrijvingen, fn($a, $b) => [(int) $a->nummer->sessie->nummer, (int) $a->nummer->volgorde, $a->zwemmer->naam]
-        <=> [(int) $b->nummer->sessie->nummer, (int) $b->nummer->volgorde, $b->zwemmer->naam]);
-    $rijen = [['Sessie', 'Nr', 'Nummer', 'Naam', 'Voornaam', 'Geboortedatum', 'Licentie', 'Inschrijftijd', 'Baan', 'Kost (€)']];
-    $per_zwemmer = [];
-    foreach ($inschrijvingen as $i) {
-        $z = $i->zwemmer;
-        $n = $i->nummer;
-        $kost = ((int) $n->kost_cent) / 100;
-        $rijen[] = [(int) $n->sessie->nummer, (int) $n->nummer, omschrijving($n), $z->naam, $z->voornaam,
-            new \DateTimeImmutable($z->geboortedatum, new \DateTimeZone('UTC')), $z->licentie,
-            toon_tijd($i->inschrijftijd), $i->inschrijfbaan, $kost];
-        $per_zwemmer[$z->id] ??= [$z, 0, 0.0];
-        $per_zwemmer[$z->id][1]++;
-        $per_zwemmer[$z->id][2] += $kost;
-    }
-    uasort($per_zwemmer, fn($a, $b) => [$a[0]->naam, $a[0]->voornaam] <=> [$b[0]->naam, $b[0]->voornaam]);
-    $rijen2 = [['Naam', 'Voornaam', 'Aantal nummers', 'Totaal (€)']];
-    foreach ($per_zwemmer as [$z, $aantal, $kost]) {
-        $rijen2[] = [$z->naam, $z->voornaam, $aantal, $kost];
-    }
-    $rijen2[] = ['Totaal', '', array_sum(array_column($per_zwemmer, 1)), array_sum(array_column($per_zwemmer, 2))];
-    return maak_xlsx([['naam' => 'Inschrijvingen', 'rijen' => $rijen], ['naam' => 'Per zwemmer', 'rijen' => $rijen2]]);
 }

@@ -25,7 +25,7 @@ add_action('init', function () {
     $d = json_decode(file_get_contents('php://input'), true) ?: [];
     switch ($_GET['khzs_test']) {
         case 'reset':
-            foreach (\KHZS\TABELLEN as $t) {
+            foreach (\KHZS\alle_tabellen() as $t) {
                 $wpdb->query('TRUNCATE ' . \KHZS\t($t));
             }
             require_once ABSPATH . 'wp-admin/includes/user.php';
@@ -33,6 +33,7 @@ add_action('init', function () {
                 wp_delete_user($u->ID);
             }
             delete_option('khzs_test_push');
+            $wpdb->query("DELETE FROM {$wpdb->usermeta} WHERE meta_key='khzs_penningmeester'");
             foreach (\KHZS\backup_lijst() as $f) {
                 unlink($f);
             }
@@ -42,6 +43,9 @@ add_action('init', function () {
                 'first_name' => $d['first_name'] ?? '', 'role' => $d['wprol'] ?? 'subscriber']);
             if (!empty($d['rol'])) {
                 update_user_meta($id, 'khzs_rol', $d['rol']);
+            }
+            if (!empty($d['penningmeester'])) {
+                update_user_meta($id, 'khzs_penningmeester', '1');
             }
             wp_send_json(['id' => $id]);
         case 'sql':
@@ -66,6 +70,9 @@ add_action('init', function () {
             wp_send_json(['ok' => wp_delete_user((int) $d['id'])]);
         case 'versleutel':
             wp_send_json(['v' => base64_encode(\KHZS\versleutel($d['tekst'], $d['p256dh'], $d['auth']))]);
+        case 'cache':
+            wp_cache_flush();
+            wp_send_json(['ok' => true]);
         case 'eval':
             // Kleine unit-tests van pure functies.
             $f = '\\KHZS\\' . $d['f'];

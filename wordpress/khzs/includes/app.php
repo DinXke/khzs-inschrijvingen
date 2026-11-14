@@ -10,13 +10,29 @@ defined('ABSPATH') || exit;
 
 function slug(): string
 {
-    return trim(get_option('khzs_slug', 'inschrijvingen'), '/') ?: 'inschrijvingen';
+    return trim(get_option('khzs_slug', 'club'), '/') ?: 'club';
 }
 
 function registreer_routes(): void
 {
     add_rewrite_rule('^' . preg_quote(slug(), '#') . '(?:/(.*))?/?$', 'index.php?khzs_pad=/$matches[1]', 'top');
+    // Oud adres van de inschrijvingsapp blijft werken (doorverwijzing).
+    if (slug() !== 'inschrijvingen') {
+        add_rewrite_rule('^inschrijvingen(?:/(.*))?/?$', 'index.php?khzs_oud=/$matches[1]', 'top');
+    }
 }
+
+add_filter('query_vars', fn($v) => array_merge($v, ['khzs_oud']));
+add_action('template_redirect', function () {
+    $oud = get_query_var('khzs_oud');
+    if ($oud !== '' && $oud !== null) {
+        $query = isset($_SERVER['QUERY_STRING']) && $_SERVER['QUERY_STRING'] !== '' ? '?' . wp_unslash($_SERVER['QUERY_STRING']) : '';
+        $pad = trim((string) $oud, '/');
+        $pad = $pad === '' || str_contains(basename($pad), '.') ? $pad : "$pad/";
+        wp_safe_redirect(app_url($pad) . $query, 301);
+        exit;
+    }
+}, 0);
 
 /** URL binnen de app, bv. app_url('wedstrijd/5/'). Werkt ook zonder mooie permalinks. */
 function app_url(string $pad = '', array $query = []): string
@@ -126,7 +142,7 @@ function naar(string $url): never
 }
 
 /** Toont een pagina binnen de opmaak van de app. */
-function toon(string $sjabloon, array $ctx = [], string $titel = 'Inschrijvingen', string $mainklasse = '', int $status = 200): never
+function toon(string $sjabloon, array $ctx = [], string $titel = 'Club', string $mainklasse = '', int $status = 200): never
 {
     status_header($status);
     nocache_headers();
@@ -136,9 +152,19 @@ function toon(string $sjabloon, array $ctx = [], string $titel = 'Inschrijvingen
     $ctx += ['rol' => $rol, 'is_staf' => in_array($rol, STAF, true), 'is_secretaris' => in_array($rol, SECRETARIAAT, true),
         'is_beheerder' => $rol === BEHEERDER, 'pagina' => $GLOBALS['khzs_route'] ?? '', 'meldingen_flash' => flash_lezen()];
     extract($ctx, EXTR_SKIP);
-    $inhoud_sjabloon = KHZS_PAD . "views/$sjabloon.php";
+    $inhoud_sjabloon = sjabloon($sjabloon);
     include KHZS_PAD . 'views/_layout.php';
     exit;
+}
+
+/** 'module/naam' → modules/module/views/naam.php, anders views/naam.php. */
+function sjabloon(string $naam): string
+{
+    if (str_contains($naam, '/')) {
+        [$module, $rest] = explode('/', $naam, 2);
+        return KHZS_PAD . "modules/$module/views/$rest.php";
+    }
+    return KHZS_PAD . "views/$naam.php";
 }
 
 function geen_toegang(string $tekst = 'Je hebt geen toegang tot deze pagina.'): never
@@ -189,50 +215,39 @@ function download(string $bytes, string $type, string $naam, bool $inline = fals
 
 // ---------- routes ----------
 
-/** [regex, naam, functie]. De naam bepaalt welk menu-item actief is. */
+/** [regex, naam, functie]. De naam bepaalt welk menu-item actief is. Modules voegen routes toe via khzs_routes. */
 function routes(): array
 {
-    return [
+    return apply_filters('khzs_routes', [
         ['', 'start', 'v_start'],
         ['aanmelden', 'login', 'v_aanmelden'],
         ['afmelden', 'logout', 'v_afmelden'],
-        ['registreren', 'registreren', 'v_registreren'],
-        ['wedstrijden', 'wedstrijden', 'v_wedstrijden'],
-        ['wedstrijd/nieuw', 'upload', 'v_upload'],
-        ['wedstrijd/(\d+)', 'wedstrijd', 'v_wedstrijd'],
-        ['wedstrijd/(\d+)/inschrijven', 'inschrijven', 'v_inschrijven'],
-        ['wedstrijd/(\d+)/nakijken', 'nakijken', 'v_nakijken'],
-        ['wedstrijd/(\d+)/overzicht', 'overzicht', 'v_overzicht'],
-        ['wedstrijd/(\d+)/finaliseren', 'finaliseren', 'v_finaliseren'],
-        ['wedstrijd/(\d+)/bijlage', 'bijlage_toevoegen', 'v_bijlage_toevoegen'],
-        ['bijlage/(\d+)', 'bijlage', 'v_bijlage'],
-        ['bijlage/(\d+)/verwijderen', 'bijlage_verwijderen', 'v_bijlage_verwijderen'],
-        ['wedstrijd/(\d+)/deelname', 'deelname', 'v_deelname'],
-        ['wedstrijd/(\d+)/deelname/beoordelen', 'deelname_beoordelen', 'v_deelname_beoordelen'],
-        ['wedstrijd/(\d+)/beoordelen', 'beoordelen', 'v_beoordelen'],
-        ['wedstrijd/(\d+)/instellingen', 'instellingen', 'v_instellingen'],
-        ['wedstrijd/(\d+)/opnieuw', 'upload', 'v_upload'],
-        ['wedstrijd/(\d+)/verwijderen', 'verwijderen', 'v_verwijderen'],
-        ['wedstrijd/(\d+)/export\.lxf', 'export_lxf', 'v_export_lxf'],
-        ['wedstrijd/(\d+)/export\.xlsx', 'export_xlsx', 'v_export_xlsx'],
-        ['zwemmers', 'zwemmers', 'v_zwemmers'],
-        ['zwemmers/uitslagen', 'uitslagen', 'v_uitslagen'],
-        ['zwemmers/nieuw', 'zwemmer_nieuw', 'v_zwemmer_nieuw'],
-        ['zwemmers/(\d+)', 'zwemmer', 'v_zwemmer'],
-        ['tijd/(\d+)/verwijderen', 'tijd_verwijderen', 'v_tijd_verwijderen'],
         ['gebruikers', 'gebruikers', 'v_gebruikers'],
         ['meldingen', 'meldingen', 'v_meldingen'],
         ['meldingen/abonneer', 'push_abonneer', 'v_push_abonneer'],
         ['meldingen/afmelden', 'push_afmelden', 'v_push_afmelden'],
         ['meldingen/test', 'push_test', 'v_push_test'],
-        ['uitleg', 'uitleg', 'v_uitleg'],
         ['backup', 'backups', 'v_backups'],
         ['backup/([^/]+)', 'backup_download', 'v_backup_download'],
-        ['manifest\.webmanifest', 'manifest', 'v_manifest'],
-        ['sw\.js', 'sw', 'v_sw'],
+        ['manifest\\.webmanifest', 'manifest', 'v_manifest'],
+        ['sw\\.js', 'sw', 'v_sw'],
         ['offline', 'offline', 'v_offline'],
         ['installeer', 'installeer', 'v_installeer'],
-    ];
+    ]);
+}
+
+/**
+ * Menu: [label, pad, actief-bij (routenamen), icoon (svg-pad), zichtbaar (callable)]. Modules voegen items toe via
+ * khzs_menu (met een volgorde-sleutel).
+ */
+function menu(): array
+{
+    $items = apply_filters('khzs_menu', [
+        50 => ['Gebruikers', 'gebruikers/', ['gebruikers'], '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20c0-3 3-5 7-5s7 2 7 5M16 14c3 0 6 1.5 6 4.5"/>', fn() => is_secretariaat()],
+        80 => ['Meldingen', 'meldingen/', ['meldingen'], '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/>', fn() => true],
+    ]);
+    ksort($items);
+    return array_values(array_filter($items, fn($i) => ($i[4])()));
 }
 
 function verwerk_verzoek(): void

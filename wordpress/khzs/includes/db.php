@@ -1,0 +1,124 @@
+<?php
+/** Databasetabellen van de kern (eigen tabellen naast die van WordPress), privé-map voor bestanden, hulpfuncties. */
+
+namespace KHZS;
+
+defined('ABSPATH') || exit;
+
+/** Alle tabellen van de kern en de actieve modules (voor backup). Modules voegen de hunne toe via khzs_tabellen. */
+function alle_tabellen(): array
+{
+    return apply_filters('khzs_tabellen', ['zwemmers', 'push']);
+}
+
+/** Volledige tabelnaam, bv. t('zwemmers') → wp_khzs_zwemmers. */
+function t(string $naam): string
+{
+    global $wpdb;
+    return $wpdb->prefix . 'khzs_' . $naam;
+}
+
+function db(): \wpdb
+{
+    global $wpdb;
+    return $wpdb;
+}
+
+function installeer_db(): void
+{
+    $c = db()->get_charset_collate();
+    $sql = [];
+    $sql[] = "CREATE TABLE " . t('zwemmers') . " (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  account_id bigint(20) unsigned NOT NULL,
+  voornaam varchar(60) NOT NULL,
+  naam varchar(80) NOT NULL,
+  geboortedatum date NOT NULL,
+  geslacht char(1) NOT NULL,
+  licentie varchar(30) NOT NULL DEFAULT '',
+  swimrankings_id varchar(20) NOT NULL DEFAULT '',
+  PRIMARY KEY  (id),
+  KEY account_id (account_id)
+) $c;";
+    $sql[] = "CREATE TABLE " . t('push') . " (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  user_id bigint(20) unsigned NOT NULL,
+  endpoint varchar(1000) NOT NULL,
+  endpoint_hash char(64) NOT NULL,
+  p256dh varchar(200) NOT NULL,
+  auth varchar(100) NOT NULL,
+  toestel varchar(200) NOT NULL DEFAULT '',
+  aangemaakt datetime NOT NULL,
+  PRIMARY KEY  (id),
+  UNIQUE KEY endpoint_hash (endpoint_hash),
+  KEY user_id (user_id)
+) $c;";
+    // Tabellen van de modules (ook van uitgeschakelde, zodat hun gegevens bewaard blijven).
+    foreach (modules() as $id => $m) {
+        $f = __NAMESPACE__ . '\\schema_' . $id;
+        if (function_exists($f)) {
+            $sql = array_merge($sql, $f($c));
+        }
+    }
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    dbDelta($sql);
+    update_option('khzs_db_versie', DB_VERSIE);
+}
+
+/**
+ * Map voor Lenex-bestanden, bijlagen en backups. Staat in uploads/ onder een willekeurige naam,
+ * met .htaccess en index.php; bestanden worden enkel via de app (met controle op aanmelding) geserveerd.
+ */
+function prive_map(string $sub = ''): string
+{
+    $naam = get_option('khzs_prive_map');
+    if (!$naam) {
+        $naam = 'khzs-prive-' . wp_generate_password(16, false);
+        update_option('khzs_prive_map', $naam, false);
+    }
+    $basis = trailingslashit(wp_upload_dir(null, false)['basedir']) . $naam;
+    if (!is_dir($basis)) {
+        wp_mkdir_p($basis);
+        file_put_contents("$basis/.htaccess", "Require all denied\nDeny from all\n");
+        file_put_contents("$basis/index.php", "<?php // stil\n");
+    }
+    $pad = $sub ? "$basis/$sub" : $basis;
+    if (!is_dir($pad)) {
+        wp_mkdir_p($pad);
+    }
+    return $pad;
+}
+
+function nu_sql(): string
+{
+    return current_time('mysql');
+}
+
+// ---------- verwijderen met alles wat eraan hangt (er zijn geen foreign keys) ----------
+
+function in_lijst(array $ids): string
+{
+    return implode(',', array_map('intval', $ids)) ?: '0';
+}
+
+function verwijder_zwemmer(int $id): void
+{
+    do_action('khzs_zwemmer_verwijderd', $id); // modules ruimen hun gegevens van deze zwemmer op
+    db()->delete(t('zwemmers'), ['id' => $id]);
+}
+
+/** WordPress-gebruiker verwijderd: zijn zwemmers en toestellen gaan mee. */
+function verwijder_gebruiker_data(int $user_id): void
+{
+    foreach (db()->get_col(db()->prepare("SELECT id FROM " . t('zwemmers') . " WHERE account_id=%d", $user_id)) as $zid) {
+        verwijder_zwemmer((int) $zid);
+    }
+    db()->delete(t('push'), ['user_id' => $user_id]);
+    do_action('khzs_gebruiker_verwijderd', $user_id);
+}
+
+/** Tijdelijk bestand (wp_tempnam zit enkel in wp-admin). */
+function tijdelijk(): string
+{
+    return tempnam(get_temp_dir(), 'khzs');
+}

@@ -13,14 +13,6 @@ const SLAGEN = ['FREE', 'BACK', 'BREAST', 'FLY', 'MEDLEY'];
 // Rondes waarvoor je niet rechtstreeks inschrijft: finales, halve finales, swim-offs.
 const VERVOLGRONDES = ['FIN', 'SEM', 'QUA', 'SOP', 'SOS', 'SOQ', 'SOF'];
 
-function club(): array
-{
-    return [
-        'naam' => get_option('khzs_club_naam', 'Hasseltse Zwemvereniging Spartacus'),
-        'code' => get_option('khzs_club_code', 'KHZS'),
-        'nation' => 'BEL',
-    ];
-}
 
 /** Geeft de LENEX-root terug; aanvaardt zowel zip (.lxf) als kale XML (.lef). */
 function lees_xml(string $data): \SimpleXMLElement

@@ -5,10 +5,6 @@ namespace KHZS;
 
 defined('ABSPATH') || exit;
 
-function rij(string $tabel, int $id): ?object
-{
-    return db()->get_row(db()->prepare("SELECT * FROM " . t($tabel) . " WHERE id=%d", $id)) ?: null;
-}
 
 function wedstrijd(int $id): ?object
 {
@@ -215,9 +211,4 @@ function swimrankings_url(object $z): string
 {
     return ctype_digit((string) $z->swimrankings_id)
         ? 'https://www.swimrankings.net/index.php?page=athleteDetail&athleteId=' . $z->swimrankings_id : '';
-}
-
-function volle_naam(\WP_User $u): string
-{
-    return trim($u->first_name . ' ' . $u->last_name);
 }

@@ -1,37 +1,68 @@
-# KHZS inschrijvingen: WordPress-plugin
+# KHZS: WordPress-plugin (clubapp met modules)
 
-De inschrijvingsapp als WordPress-plugin. Ze werkt hetzelfde als de Django-versie: zelfde schermen, rollen, Lenex-import en -export, Excel, finaliseren, pushmeldingen, PWA en backup. Accounts zijn de **gewone WordPress-gebruikers**.
+Eén plugin **KHZS** met een gedeelde kern en modules:
+
+| Module | Wat |
+|---|---|
+| **Inschrijvingen** | De inschrijvingsapp, die hetzelfde werkt als de Django-versie: Lenex-import en -export, inschrijven, nakijken, finaliseren, Excel, uitslagen |
+| **Trainers** | Trainingsrooster, wie geeft welke training, afmelden en vervangen, gepresteerde uren, tarieven en verloning |
+
+De **kern** bevat wat alle modules delen:
+- accounts (de gewone WordPress-gebruikers) en rollen
+- het menu en de opmaak
+- pushmeldingen, de PWA en de installatiemelding
+- backup en instellingen
+
+De app staat op `https://jouwsite.be/club/`. Het oude adres `/inschrijvingen/…` verwijst automatisch door.
 
 ## Installeren
 
-1. `./bouw.sh` maakt `khzs-inschrijvingen.zip`. Met `--met-uitleg` komen de filmpjes en PDF's uit `../docs` mee, maar dan is het bestand ± 40 MB.
+1. `./bouw.sh` maakt `khzs.zip`. Met `--met-uitleg` komen de filmpjes en PDF's uit `../docs` mee, maar dan is het bestand ± 40 MB.
 2. Upload de zip in WordPress via **Plugins → Nieuwe plugin → Plugin uploaden** en activeer de plugin.
-3. Zet de **permalinks** op iets anders dan "Eenvoudig". De app staat dan op `https://jouwsite.be/inschrijvingen/`.
-4. Controleer de instellingen bij **Instellingen → KHZS inschrijvingen**: clubnaam, clubcode, adres van de app en of zelf registreren mag.
+3. Zet de **permalinks** op iets anders dan "Eenvoudig".
+4. Stel de plugin in via **Instellingen → KHZS**:
+   - welke modules aanstaan
+   - clubnaam en clubcode
+   - het adres van de app
+   - of zelf registreren mag
+   - de installatiemelding
 
-Vereisten: WordPress 6.2+, PHP 8.0+ met de extensies `zip`, `simplexml`, `dom` en `openssl`. Er zijn geen andere plugins of Composer-pakketten nodig.
-
-## App installeren (PWA)
-
-De app is een PWA: op gsm en tablet zet je ze op het beginscherm, en dan werkt ze als een gewone app, met pushmeldingen.
-
-- **Melding op de website**: bezoekers op gsm zien onderaan elke pagina van de website een melding *"Installeer de HZS-app"*. In de app zelf verschijnt dezelfde melding.
-  - In de app opent *Installeren* meteen het installatievenster van de browser (Android, Chrome, Edge).
-  - Op de rest van de website gaat de knop naar `/inschrijvingen/installeer/`. Browsers laten installeren namelijk enkel toe vanaf een pagina binnen de app.
-- **Installatiepagina** `/inschrijvingen/installeer/`: op Android installeer je daar met één tik. Op iPhone en iPad legt de pagina stap voor stap uit hoe je de app via *Delen → Zet op beginscherm* toevoegt. Deze link kun je ook delen, bv. in een nieuwsbrief of via een QR-code.
-- Wie op *Niet nu* tikt, ziet de melding 30 dagen niet. Wie de app al geïnstalleerd heeft, ziet de melding niet meer.
-- Instellen bij **Instellingen → KHZS inschrijvingen → App installeren**: de melding aan of uit, enkel op gsm, enkel op de startpagina, en een eigen tekst.
+Vereisten: WordPress 6.2+, PHP 8.0+ met de extensies `zip`, `simplexml`, `dom` en `openssl`. Er zijn geen andere plugins nodig.
 
 ## Rollen
 
-| App-rol | Wie | Instellen |
-|---|---|---|
-| Zwemmer | iedereen met een account (ouder met kinderen) | standaard |
-| Trainer | nakijken, goed-/afkeuren, finaliseren, tijden | in de app via *Gebruikers*, of op het WordPress-profiel |
-| Sportsecretaris | Lenex uploaden, instellingen, export, rollen | idem |
-| Beheerder | alles, plus backup | WordPress-beheerders zijn dit altijd |
+| App-rol | Kan |
+|---|---|
+| Zwemmer | zijn of haar zwemmers inschrijven (iedereen met een account) |
+| Trainer | inschrijvingen nakijken; in *Trainingen* aanduiden welke trainingen hij of zij geeft, afmelden, overnemen, eigen uren bekijken |
+| Sportsecretaris | wedstrijden, export, rollen, trainingsrooster beheren, de planning van anderen corrigeren |
+| Beheerder | alles, plus backup (WordPress-beheerders zijn dit altijd) |
 
-De app-rol staat los van de WordPress-rol. Een redacteur van de website kan dus tegelijk ouder (zwemmer) in de app zijn.
+**Penningmeester** staat los van de app-rol, want het kan ook een ouder zijn. Een beheerder duidt die aan bij *Gebruikers* in de app of op het WordPress-profiel. De penningmeester ziet **Verloning**: de tarieven en het overzicht per maand.
+
+## Module Trainers
+
+- **Rooster** (*Trainingen → Trainingen beheren*, door het sportsecretariaat): vaste trainingen per week met naam, dag, uur en plaats, en een start- en einddatum. Afgelaste periodes (vakantie, zwembad dicht) voor één training of voor alle trainingen.
+- **Vaste trainers**: elke trainer duidt in *Trainingen* zelf aan welke trainingen hij of zij normaal geeft. Het secretariaat kan dat ook doen, met een begin- en einddatum.
+- **Afmelden en vervangen**:
+  - Een trainer die niet kan, tikt *Kan niet* en geeft eventueel een reden. Collega's krijgen een pushmelding en zien de training bij *Vervanger gezocht*.
+  - Wie *Ik neem over* tikt, wordt vervanger. De afgemelde trainer krijgt daarvan een melding.
+  - Wie wil, kan ook *meehelpen* als extra trainer.
+- **Uren**: elke training tot en met vandaag waarop iemand aanwezig was, telt mee, behalve afgelaste. Trainers zien hun eigen uren en vergoeding.
+- **Verloning** (penningmeester):
+  - Een tarief per trainer, per uur of per training, met een datum *geldig vanaf*. Een nieuw tarief verandert niets aan vroegere trainingen.
+  - Een overzicht per maand met trainingen, uren en bedrag per trainer, met detail per training.
+  - Per trainer en maand *✓ Uitbetaald* markeren. Wijzigt er daarna nog iets (bv. een correctie), dan toont het overzicht *gewijzigd na uitbetaling*.
+  - Export naar Excel: een blad per trainer en een blad met detail.
+
+De loonberekening zelf (bv. wettelijke plafonds van vrijwilligersvergoedingen of het statuut verenigingswerk) gebeurt niet in de plugin. De export is bedoeld voor de boekhouding of het sociaal secretariaat.
+
+## App installeren (PWA)
+
+Bezoekers op gsm zien op de website en in de app een melding *"Installeer de HZS-app"*.
+- In de app zelf opent *Installeren* het installatievenster van de browser.
+- Op de rest van de website gaat de knop naar `/club/installeer/`. Daar installeer je met één tik op Android; op iPhone legt de pagina stap voor stap uit hoe het moet.
+- Wie op *Niet nu* tikt, ziet de melding 30 dagen niet.
 
 ## Overstappen vanuit de Django-versie
 
@@ -40,42 +71,41 @@ python manage.py export_wordpress --uit hzs-backup-export.zip
 ```
 
 Daarna in de app (als WordPress-beheerder): **Backup → Backup terugzetten**, kies de zip en typ `HERSTEL`.
-
-- Alle zwemmers, tijden, wedstrijden, inschrijvingen, meldingen, deelnames, bijlagen, Lenex-bestanden, rollen en voorkeuren komen mee.
-- Ontbrekende accounts worden aangemaakt (gebruikersnaam = e-mail). Een account dat al bestaat met dezelfde gebruikersnaam of hetzelfde e-mailadres wordt gekoppeld.
-- **Bestaande wachtwoorden blijven werken.** Bij de eerste keer aanmelden wordt het Django-wachtwoord omgezet naar een WordPress-wachtwoord.
-- Pushabonnementen komen mee, maar toestellen moeten meldingen opnieuw aanzetten. De nieuwe site heeft een andere VAPID-sleutel en een andere service worker.
+- Alle gegevens, bestanden, rollen en voorkeuren komen mee.
+- Ontbrekende accounts worden aangemaakt, en **bestaande wachtwoorden blijven werken**.
+- Toestellen moeten pushmeldingen opnieuw aanzetten.
 
 ## Verschillen met de Django-versie
 
-- **Accounts en wachtwoord vergeten** lopen via WordPress (`wp-login.php?action=lostpassword`).
-- **Geplande taken** (herinneringen om 08:00, backup om 02:30) gebruiken WP-Cron. Op een rustige site stel je best een echte cron in die `wp-cron.php` oproept.
-- **Backup** bevat de gegevens van de app, niet de WordPress-accounts zelf. Die zitten in de backup van je site.
-- **"Beheer"** (het Django-admin) is vervangen door de WordPress-beheeromgeving.
-- Automatische updates via git (`deploy/`) zijn niet van toepassing: je werkt de plugin bij door een nieuwe zip te uploaden.
+- Accounts en "wachtwoord vergeten" lopen via WordPress.
+- Geplande taken (herinneringen 08:00, backup 02:30) gebruiken WP-Cron. Op een rustige site stel je best een echte cron in die `wp-cron.php` oproept.
+- De backup bevat de gegevens van de app, niet de WordPress-accounts zelf.
+- Je werkt de plugin bij door een nieuwe zip te uploaden; de automatische updates via git in `deploy/` gelden niet.
 
 ## Opbouw
 
 ```
-khzs-inschrijvingen/
-  khzs-inschrijvingen.php   opstart, activatie, cron
-  includes/db.php           eigen tabellen (wp_khzs_*), privémap voor bestanden
-  includes/regels.php       leeftijd, limieten, deadlines, tijden (= regels.py)
-  includes/data.php         opvragen van gegevens
-  includes/lenex.php        Lenex lezen/importeren/exporteren (= lenex.py)
-  includes/xlsx.php         Excel-export zonder bibliotheek
-  includes/push.php         Web Push (VAPID + aes128gcm) met OpenSSL
-  includes/backup.php       backup/terugzetten, import uit Django, oude wachtwoorden
-  includes/app.php          routes, weergave, meldingen, toegang
-  includes/acties.php       alle pagina's (= views.py)
-  includes/admin.php        wp-admin: instellingen, rol op het profiel
-  views/                    sjablonen (= templates/)
-  assets/                   app.css en iconen (ongewijzigd uit static/)
+khzs/
+  khzs.php                    opstart, laadt kern en actieve modules, cron
+  includes/                   kern
+    kern.php                  rollen, penningmeester, modules, datums, bedragen
+    db.php                    gedeelde tabellen (zwemmers, push), privémap, hulpfuncties
+    app.php                   routes, menu, weergave, meldingen, toegang
+    kern-acties.php           aanmelden, gebruikers, meldingen, backup, PWA
+    push.php  backup.php  xlsx.php  velden.php  admin.php  pwa.php
+  views/                      sjablonen van de kern (_layout, aanmelden, gebruikers…)
+  modules/<id>/
+    db.php                    tabellen (altijd geladen, zodat gegevens bewaard blijven)
+    module.php                routes, menu, taken (enkel als de module aanstaat)
+    …                         eigen code en views/
+  assets/                     app.css en iconen
 ```
+
+Een nieuwe module voeg je toe met een map `modules/<id>/` (`db.php` met `schema_<id>()`, en `module.php` die via de filters `khzs_routes`, `khzs_menu`, `khzs_tabellen`, `khzs_voorkeuren` en `khzs_taken` inhaakt) en een regel in `modules()` in `includes/kern.php`.
 
 ## Testen
 
-`tests/test_e2e.py` bevat dezelfde scenario's als `inschrijvingen/tests/test_alles.py` en doet echte HTTP-verzoeken naar een testsite. Op die testsite moet `tests/khzs-test-helper.php` als mu-plugin staan. **Zet die helper nooit op een echte site.**
+`tests/test_e2e.py` doet echte HTTP-verzoeken naar een testsite. Op die testsite moet `tests/khzs-test-helper.php` als mu-plugin staan. **Zet die helper nooit op een echte site.**
 
 ```bash
 KHZS_URL=http://localhost:8080 python3 tests/test_e2e.py
