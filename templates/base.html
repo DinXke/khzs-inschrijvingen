@@ -28,6 +28,7 @@
     {% if is_rolbeheerder %}<a href="{% url 'gebruikers' %}" class="{% if p == 'gebruikers' %}actief{% endif %}">Gebruikers{% if open_rolaanvragen %} <span class="badge wacht" title="Rolaanvragen">{{ open_rolaanvragen }}</span>{% endif %}</a>{% endif %}
     {% if is_beheerder %}<a href="{% url 'backups' %}" class="{% if p == 'backups' %}actief{% endif %}">Backup</a><a href="/beheer/">Beheer</a>{% endif %}
     <a href="{% url 'uitleg' %}" class="{% if p == 'uitleg' %}actief{% endif %}">Uitleg</a>
+    {% if webshop %}<a href="{{ webshop }}" target="_blank" rel="noopener">Webshop ↗</a>{% endif %}
     <a href="{% url 'meldingen' %}" class="{% if p == 'meldingen' %}actief{% endif %}" title="Meldingen">🔔</a>
     <form method="post" action="{% url 'logout' %}" style="display:inline">{% csrf_token %}<button class="mini secundair">Afmelden</button></form>
   </nav>

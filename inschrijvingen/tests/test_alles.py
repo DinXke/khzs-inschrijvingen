@@ -713,3 +713,20 @@ class ZelfZwemmerTest(TestCase):
         u = User.objects.get(username="an@test.be")
         self.assertTrue(Zwemmer.objects.filter(account=u, voornaam="An").exists())
         self.assertEqual(rollen_van(u), {Profiel.ZWEMMER})
+
+
+class WebshopTest(TestCase):
+    """Knop naar de webshop van de club (settings.CLUB['webshop']): in het menu en bij Mijn zwemmers; leeg = geen knop."""
+
+    def setUp(self):
+        self.client.force_login(User.objects.create_user("ouder@x.be", "ouder@x.be", "geheim123!"))
+
+    def test_knop_naar_webshop(self):
+        r = self.client.get("/zwemmers/")
+        self.assertContains(r, 'href="https://www.robsport.nl/nl/796-hzs-hasselt" target="_blank"', count=2)
+        self.assertContains(r, "Naar de webshop")
+
+    def test_geen_webshop(self):
+        from django.conf import settings
+        with self.settings(CLUB={**settings.CLUB, "webshop": ""}):
+            self.assertNotContains(self.client.get("/zwemmers/"), "Webshop")

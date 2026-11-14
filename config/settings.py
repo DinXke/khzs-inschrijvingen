@@ -113,6 +113,8 @@ CLUB = {
     "naam": os.environ.get("CLUB_NAAM", "Hasseltse Zwemvereniging Spartacus"),
     "code": os.environ.get("CLUB_CODE", "KHZS"),
     "nation": "BEL",
+    # Webshop van de club (knop in de app); leeg = geen knop.
+    "webshop": os.environ.get("CLUB_WEBSHOP", "https://www.robsport.nl/nl/796-hzs-hasselt"),
 }
 
 # AVG: gegevens voor de privacyverklaring (/privacy/). Zet ze in /etc/khzs.env; laat de tekst nakijken door de club.

@@ -241,6 +241,7 @@ function club(): array
         'naam' => get_option('khzs_club_naam', 'Hasseltse Zwemvereniging Spartacus'),
         'code' => get_option('khzs_club_code', 'KHZS'),
         'nation' => 'BEL',
+        'webshop' => (string) get_option('khzs_webshop', 'https://www.robsport.nl/nl/796-hzs-hasselt'),
     ];
 }
 
