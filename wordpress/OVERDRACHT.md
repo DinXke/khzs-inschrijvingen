@@ -175,7 +175,7 @@ Vraag van de eigenaar: elke zwemmer kiest in welke ploeg hij of zij zwemt, met m
   - Een nieuw account start **zonder rol** (Django: lege `Profiel.rol`; WordPress: lege `khzs_rollen`). Het allereerste account van een Django-installatie blijft sportsecretaris.
   - Ook later geeft een zwemmer toevoegen of koppelen automatisch de rol zwemmer (jezelf) of ouder.
 - **Voor de latere communicatiemodule** bestaat al: `ploegen.zwemmers_van`, `accounts_van` (accounts van de zwemmers, ook gekoppelde ouders, en de trainers van de ploeg), `lezers_van` (dat plus iedereen die alle ploegen ziet), `zichtbare_ploegen(user)`. In WordPress: `ploeg_zwemmers`, `ploeg_accounts`, `ploeg_lezers`, `zichtbare_ploegen`.
-- **Django**: modellen `Ploeg` (met `trainers`) en `PloegLid` (zwemmer, ploeg, status, reden, gelezen); migratie `0013_ploegen`. Logica in `inschrijvingen/ploegen.py`. Tests: `test_ploegen.py` (10); de registratietests zijn omgezet naar het stappenplan. Samen 107, alle geslaagd.
+- **Django**: modellen `Ploeg` (met `trainers`) en `PloegLid` (zwemmer, ploeg, status, reden, gelezen); migratie `0013_ploegen`. Logica in `inschrijvingen/ploegen.py`. Tests: `test_ploegen.py` (9); de registratietests zijn omgezet naar het stappenplan. Samen 107, alle geslaagd.
 - **WordPress**: tabellen `khzs_ploegen`, `khzs_ploeg_trainers`, `khzs_ploegleden` (`DB_VERSIE` 5), `includes/ploegen.php`, `views/ploegen.php` en `views/ploeg.php`, stappenplan in de module Inschrijvingen (`v_welkom`). Menu-item *Ploegen* (sleutel 45; 40 is *Verloning*). Tests: `PloegenTest` (8) en de omgezette registratietests; samen 92, alle geslaagd (Docker, zoals bij de rollen).
 - `export_wordpress` neemt de ploegen, trainers en leden mee.
 
