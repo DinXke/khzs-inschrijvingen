@@ -4,7 +4,7 @@ $vandaag = vandaag()->format('Y-m-d'); ?>
 <div class="rij tussen"><h1>Overzicht trainers</h1>
   <div class="rij"><a class="knop secundair" href="<?= esc_url(app_url('trainers/planning/')) ?>">📅 Planning</a>
   <?php if (is_penningmeester()): ?><a class="knop secundair" href="<?= esc_url(app_url('trainers/uren/', ['maand' => $maand])) ?>">Verloning</a><?php endif; ?>
-  <?php if ($is_secretaris): ?><a class="knop secundair" href="<?= esc_url(app_url('trainers/beheer/')) ?>">Trainingen beheren</a><?php endif; ?></div></div>
+  <?php if (tr_mag_beheren()): ?><a class="knop secundair" href="<?= esc_url(app_url('trainers/beheer/')) ?>">Trainingen beheren</a><?php endif; ?></div></div>
 <div class="kaart tr-week">
   <a class="knop mini secundair" href="<?= esc_url(app_url('trainers/overzicht/', ['maand' => $vorige] + ($detail ? ['trainer' => $detail['uid']] : []))) ?>">← Vorige</a>
   <strong style="text-transform:capitalize"><?= e(tr_maandnaam($maand)) ?></strong>

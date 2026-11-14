@@ -2,7 +2,7 @@
 <div class="rij tussen"><h1>Mijn trainingen</h1>
   <div class="rij"><a class="knop secundair" href="<?= esc_url(app_url('trainers/planning/')) ?>">📅 Planning</a>
   <?php if (tr_mag_beheren()): ?><a class="knop secundair" href="<?= esc_url(app_url('trainers/overzicht/')) ?>">Overzicht trainers</a><?php endif; ?>
-  <?php if ($is_secretaris): ?><a class="knop secundair" href="<?= esc_url(app_url('trainers/beheer/')) ?>">Trainingen beheren</a><?php endif; ?></div></div>
+  <?php if (tr_mag_beheren()): ?><a class="knop secundair" href="<?= esc_url(app_url('trainers/beheer/')) ?>">Trainingen beheren</a><?php endif; ?></div></div>
 
 <?php if ($ongelezen): ?>
 <h2>✏️ Aangepast door het bestuur</h2>
@@ -11,6 +11,8 @@
   <p style="margin-bottom:0"><a class="knop mini secundair" href="<?= esc_url(app_url('trainers/wijzigingen/')) ?>">Gezien · alle wijzigingen</a></p>
 </div>
 <?php endif; ?>
+
+<?php if ($buiten_seizoen): ?><div class="kaart klein">🏖️ Buiten het seizoen: er zijn nu geen trainingen.</div><?php endif; ?>
 
 <?php if ($te_bevestigen): ?>
 <h2>🙋 Was je aanwezig?</h2>

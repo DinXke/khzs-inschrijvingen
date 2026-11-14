@@ -72,7 +72,15 @@ Een zwemmer kan bij meerdere accounts horen, bv. bij gescheiden ouders.
 
 ## Module Trainers
 
-- **Rooster** (*Trainingen → Trainingen beheren*, door het sportsecretariaat): vaste trainingen per week met naam, dag, uur en plaats, en een start- en einddatum. Afgelaste periodes (vakantie, zwembad dicht) voor één training of voor alle trainingen.
+- **Rooster** (*Trainingen → Trainingen beheren*, door het bestuur en het sportsecretariaat): vaste trainingen per week met naam, dag, uur en plaats, een start- en einddatum, en optioneel de **ploegen** waarvoor de training is (een training zonder ploeg is voor iedereen).
+- **Seizoen**: op dezelfde pagina een begin en einde per seizoen (bv. 1/9/2026 – 30/6/2027).
+  - Buiten een seizoen zijn er geen trainingen: ze staan niet in de planning of bij *Mijn trainingen*, tellen niet voor de uren en de trainers krijgen geen vraag *Was je aanwezig?*. De planning toont *Buiten het seizoen*.
+  - Zonder seizoen lopen de trainingen het hele jaar door. Dagen vóór het begin van het eerste seizoen blijven zoals ze waren, zodat vroegere (en uitbetaalde) uren niet veranderen.
+  - Is het laatste seizoen voorbij, dan waarschuwt de beheerpagina om het volgende toe te voegen. Seizoenen mogen niet overlappen.
+- **Verlof en afgelast** (vakantie, verlof, zwembad dicht of een andere reden, met een periode en een optionele reden): voor alle trainingen, voor **een ploeg** (al haar trainingen) of voor één training.
+  - Een training voor meerdere ploegen gaat door zolang één van die ploegen traint; ze valt pas weg als al haar ploegen verlof hebben.
+  - Afgelaste trainingen blijven zichtbaar in de planning (met de reden), tellen nooit mee voor de uren en krijgen geen vraag *Was je aanwezig?*.
+  - De trainers van de komende trainingen die daardoor wegvallen, krijgen één pushmelding *Training afgelast*; wordt het verlof verwijderd, dan krijgen ze *Training gaat toch door*. Uit te zetten bij *Meldingen*.
 - **Eigen schema**: elke trainer duidt in *Trainingen* zelf aan welke trainingen hij of zij normaal geeft, met een datum *vanaf* (starten) of *niet meer vanaf* (stoppen).
   - Een datum in het verleden kan tot het begin van vorige maand, maar niet in een maand die voor die trainer al uitbetaald is. Die voorbije trainingen moet de trainer daarna nog bevestigen.
   - Het bestuur en het secretariaat kunnen het schema van elke trainer aanpassen, zonder grens in de tijd.

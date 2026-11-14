@@ -115,7 +115,7 @@ function v_tr_mijn(): void
     $maand = tr_maand(vandaag()->format('Y-m'), $uid)[$uid] ?? null;
     toon('trainers/mijn', ['uid' => $uid, 'mijn' => $mijn, 'open' => $open, 'momenten' => $momenten, 'vast' => $vast, 'maand' => $maand,
         'te_bevestigen' => $te_bevestigen, 'afgelopen' => array_reverse($afgelopen), 'ongelezen' => tr_logboek($uid, true, 20),
-        'terug_tot' => $terug_tot], 'Mijn trainingen');
+        'terug_tot' => $terug_tot, 'buiten_seizoen' => !tr_in_seizoen($vandaag)], 'Mijn trainingen');
 }
 
 /** Wat het bestuur of het secretariaat aan mijn planning veranderde. Bij het openen wordt alles gelezen. */
@@ -192,7 +192,9 @@ function v_tr_planning(): void
     foreach (tr_trainingen($van, $tot) as $b) {
         $per_dag[$b->datum][] = $b;
     }
-    toon('trainers/planning', ['maandag' => $maandag, 'per_dag' => $per_dag, 'uid' => get_current_user_id()], 'Planning trainers');
+    $seizoenen = tr_seizoenen();
+    $buiten = array_filter(array_map(fn($i) => $maandag->modify("+$i days")->format('Y-m-d'), range(0, 6)), fn($d) => !tr_in_seizoen($d, $seizoenen));
+    toon('trainers/planning', ['maandag' => $maandag, 'per_dag' => $per_dag, 'uid' => get_current_user_id(), 'buiten' => count($buiten)], 'Planning trainers');
 }
 
 function v_tr_training($id, $datum): void
@@ -523,32 +525,102 @@ function tr_lees_moment(): array
     return [$v, $f];
 }
 
+/** De aangevinkte ploegen van het formulier (enkel bestaande). */
+function tr_lees_ploegen(): array
+{
+    $ids = array_map('intval', (array) ($_POST['ploegen'] ?? []));
+    $bestaand = array_map('intval', db()->get_col("SELECT id FROM " . t('ploegen')));
+    return array_values(array_intersect($ids, $bestaand));
+}
+
+/** Leest een afgelasting of verlof. 'voor' is 'alle', 'p<ploeg-id>' of 'm<moment-id>' (of het oude veld 'moment'). */
+function tr_lees_afgelast(): array
+{
+    $voor = post('voor') !== '' ? post('voor') : ((int) post('moment') ? 'm' . (int) post('moment') : 'alle');
+    $a = ['moment_id' => 0, 'ploeg_id' => 0, 'soort' => isset(TR_AFGELAST_SOORT[post('soort')]) ? post('soort') : 'ander',
+        'van' => post('van'), 'tot' => post('tot') ?: post('van'), 'reden' => mb_substr(post('reden'), 0, 200),
+        'door_id' => get_current_user_id(), 'aangemaakt' => nu_sql()];
+    if (preg_match('/^p(\d+)$/', $voor, $r) && ploeg((int) $r[1])) {
+        $a['ploeg_id'] = (int) $r[1];
+    } elseif (preg_match('/^m(\d+)$/', $voor, $r) && tr_moment((int) $r[1])) {
+        $a['moment_id'] = (int) $r[1];
+    } elseif ($voor !== 'alle') {
+        return [$a, 'Kies voor welke ploeg of training.'];
+    }
+    if (!dag($a['van']) || !dag($a['tot']) || $a['tot'] < $a['van']) {
+        return [$a, 'Geef een geldige periode op.'];
+    }
+    return [$a, null];
+}
+
+/** Flash na het toevoegen of verwijderen van een afgelasting: hoeveel trainingen er wegvallen of toch doorgaan. */
+function tr_flash_afgelast(string $begin, array $aantal): void
+{
+    [$af, $terug] = $aantal;
+    $delen = [];
+    if ($af) {
+        $delen[] = ($af === 1 ? '1 komende training valt' : "$af komende trainingen vallen") . ' weg';
+    }
+    if ($terug) {
+        $delen[] = ($terug === 1 ? '1 komende training gaat' : "$terug komende trainingen gaan") . ' toch door';
+    }
+    flash($begin . ($delen ? ' ' . ucfirst(implode(', ', $delen)) . '; de trainers krijgen een melding.' : ''));
+}
+
+/** Trainingen, seizoenen en verlof beheren: bestuur en sportsecretariaat. */
 function v_tr_beheer(): void
 {
-    vereist_rol(SECRETARIAAT);
-    $v = ['naam' => '', 'weekdag' => 1, 'start' => '', 'einde' => '', 'locatie' => '', 'van' => vandaag()->format('Y-m-d'), 'tot' => ''];
-    $f = $af = [];
+    tr_vereist_beheer();
+    $v = ['naam' => '', 'weekdag' => 1, 'start' => '', 'einde' => '', 'locatie' => '', 'van' => vandaag()->format('Y-m-d'), 'tot' => '', 'ploegen' => []];
+    $f = [];
+    $hier = app_url('trainers/beheer/');
     if (is_post()) {
-        if (post('wat') === 'moment') {
+        $wat = post('wat');
+        if ($wat === 'moment') {
             [$v, $f] = tr_lees_moment();
+            $ploegen = tr_lees_ploegen();
             if (!$f) {
                 db()->insert(t('tr_momenten'), $v + ['aangemaakt' => nu_sql()]);
+                $id = (int) db()->insert_id;
+                tr_bewaar_moment_ploegen($id, $ploegen);
                 flash("Training ‘{$v['naam']}’ toegevoegd. Duid nu de vaste trainers aan.");
-                naar(app_url('trainers/moment/' . db()->insert_id . '/'));
+                naar(app_url("trainers/moment/$id/"));
             }
-        } elseif (post('wat') === 'afgelast') {
-            $a = ['moment_id' => (int) post('moment'), 'van' => post('van'), 'tot' => post('tot') ?: post('van'), 'reden' => mb_substr(post('reden'), 0, 200)];
-            if (!dag($a['van']) || !dag($a['tot']) || $a['tot'] < $a['van']) {
-                flash('Geef een geldige periode op.', 'error');
+            $v['ploegen'] = $ploegen;
+        } elseif ($wat === 'afgelast') {
+            [$a, $fout] = tr_lees_afgelast();
+            if ($fout) {
+                flash($fout, 'error');
             } else {
-                db()->insert(t('tr_afgelast'), $a);
-                flash('Afgelast: ' . ($a['moment_id'] ? tr_moment($a['moment_id'])->naam : 'alle trainingen') . ' van ' . datum($a['van'], 'j/m/Y') . ' tot ' . datum($a['tot'], 'j/m/Y') . '.');
+                $voor = tr_afgelast_voor((object) $a);
+                $aantal = tr_wijzig_afgelast(fn() => db()->insert(t('tr_afgelast'), $a), $a['van'], $a['tot'],
+                    ucfirst(tr_afgelast_tekst((object) $a)) . ($a['moment_id'] ? '' : " ($voor)"));
+                tr_flash_afgelast(ucfirst(TR_AFGELAST_SOORT[$a['soort']]) . ": $voor van " . datum($a['van'], 'j/m/Y') . ' tot ' . datum($a['tot'], 'j/m/Y') . '.', $aantal);
             }
-            naar(app_url('trainers/beheer/'));
-        } elseif (post('wat') === 'afgelast_weg') {
-            db()->delete(t('tr_afgelast'), ['id' => (int) post('id')]);
-            flash('Afgelasting verwijderd.');
-            naar(app_url('trainers/beheer/'));
+            naar($hier);
+        } elseif ($wat === 'afgelast_weg') {
+            $a = rij('tr_afgelast', (int) post('id'));
+            if ($a) {
+                $aantal = tr_wijzig_afgelast(fn() => db()->delete(t('tr_afgelast'), ['id' => $a->id]), $a->van, $a->tot, '');
+                tr_flash_afgelast('Verwijderd: ' . tr_afgelast_voor($a) . ' (' . tr_afgelast_tekst($a) . ').', $aantal);
+            }
+            naar($hier);
+        } elseif ($wat === 'seizoen') {
+            $s = ['naam' => mb_substr(post('naam'), 0, 60), 'van' => post('van'), 'tot' => post('tot')];
+            if (!dag($s['van']) || !dag($s['tot']) || $s['tot'] <= $s['van']) {
+                flash('Geef een geldig begin en einde van het seizoen op.', 'error');
+            } elseif (db()->get_var(db()->prepare("SELECT id FROM " . t('tr_seizoenen') . " WHERE van<=%s AND tot>=%s", $s['tot'], $s['van']))) {
+                flash('Dit seizoen overlapt met een ander seizoen.', 'error');
+            } else {
+                $s['naam'] = $s['naam'] !== '' ? $s['naam'] : 'Seizoen ' . substr($s['van'], 0, 4) . '–' . substr($s['tot'], 0, 4);
+                db()->insert(t('tr_seizoenen'), $s);
+                flash("{$s['naam']}: van " . datum($s['van'], 'j/m/Y') . ' tot ' . datum($s['tot'], 'j/m/Y') . '. Buiten een seizoen zijn er geen trainingen.');
+            }
+            naar($hier);
+        } elseif ($wat === 'seizoen_weg') {
+            db()->delete(t('tr_seizoenen'), ['id' => (int) post('id')]);
+            flash('Seizoen verwijderd.');
+            naar($hier);
         }
     }
     $momenten = tr_momenten();
@@ -557,17 +629,25 @@ function v_tr_beheer(): void
     foreach (db()->get_results(db()->prepare("SELECT * FROM " . t('tr_vast') . " WHERE tot IS NULL OR tot>=%s", $vandaag)) as $r) {
         $vast[(int) $r->moment_id][] = (int) $r->user_id;
     }
-    $afgelast = db()->get_results("SELECT * FROM " . t('tr_afgelast') . " ORDER BY van DESC");
-    toon('trainers/beheer', ['momenten' => $momenten, 'vast' => $vast, 'v' => $v, 'f' => $f, 'afgelast' => $afgelast], 'Trainingen beheren');
+    // Voorbije afgelastingen (ouder dan een maand) enkel op vraag.
+    $alles = get('alles') === '1';
+    $afgelast = db()->get_results("SELECT * FROM " . t('tr_afgelast') . ($alles ? '' : db()->prepare(" WHERE tot>=%s", vandaag()->modify('-1 month')->format('Y-m-d')))
+        . " ORDER BY van DESC, id DESC");
+    $seizoenen = tr_seizoenen();
+    $laatste = $seizoenen ? end($seizoenen) : null;
+    toon('trainers/beheer', ['momenten' => $momenten, 'vast' => $vast, 'v' => $v, 'f' => $f, 'afgelast' => $afgelast, 'alles' => $alles,
+        'seizoenen' => $seizoenen, 'nu_seizoen' => tr_in_seizoen($vandaag), 'laatste' => $laatste, 'ploegen' => tr_alle_ploegen(),
+        'moment_ploegen' => tr_moment_ploegen()], 'Trainingen beheren');
 }
 
 function v_tr_moment($id): void
 {
-    vereist_rol(SECRETARIAAT);
+    tr_vereist_beheer();
     $m = tr_moment((int) $id) ?: niet_gevonden();
     $v = (array) $m;
     $v['start'] = substr($m->start, 0, 5);
     $v['einde'] = substr($m->einde, 0, 5);
+    $v['ploegen'] = tr_moment_ploegen()[(int) $m->id] ?? [];
     $f = [];
     if (is_post()) {
         if (post('wat') === 'verwijderen') {
@@ -581,20 +661,25 @@ function v_tr_moment($id): void
                 flash("‘{$m->naam}’ is gestopt vanaf vandaag. Voorbije trainingen blijven meetellen voor de verloning.");
             } else {
                 db()->delete(t('tr_vast'), ['moment_id' => $m->id]);
+                db()->delete(t('tr_moment_ploegen'), ['moment_id' => $m->id]);
+                db()->delete(t('tr_afgelast'), ['moment_id' => $m->id]);
                 db()->delete(t('tr_momenten'), ['id' => $m->id]);
                 flash("‘{$m->naam}’ verwijderd.");
             }
             naar(app_url('trainers/beheer/'));
         }
         [$v, $f] = tr_lees_moment();
+        $ploegen = tr_lees_ploegen();
         if (!$f) {
             db()->update(t('tr_momenten'), $v, ['id' => $m->id]);
+            tr_bewaar_moment_ploegen((int) $m->id, $ploegen);
             flash('Bewaard.');
             naar(app_url("trainers/moment/{$m->id}/"));
         }
     }
     $vast = db()->get_results(db()->prepare("SELECT * FROM " . t('tr_vast') . " WHERE moment_id=%d ORDER BY (tot IS NULL) DESC, van DESC", $m->id));
-    toon('trainers/moment', ['m' => $m, 'v' => $v, 'f' => $f, 'vast' => $vast, 'trainers' => tr_trainers()], $m->naam);
+    $v['ploegen'] = $ploegen ?? $v['ploegen'];
+    toon('trainers/moment', ['m' => $m, 'v' => $v, 'f' => $f, 'vast' => $vast, 'trainers' => tr_trainers(), 'ploegen' => tr_alle_ploegen()], $m->naam);
 }
 
 // ---------- uren & verloning ----------
