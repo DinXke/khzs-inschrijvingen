@@ -40,6 +40,8 @@ Vereisten: WordPress 6.2+, PHP 8.0+ met de extensies `zip`, `simplexml`, `dom` e
 
 **Penningmeester** staat los van de app-rol, want het kan ook een ouder zijn. Een beheerder duidt die aan bij *Gebruikers* in de app of op het WordPress-profiel. De penningmeester ziet **Verloning**: de tarieven en het overzicht per maand.
 
+**Bestuur** in de module Trainers: de penningmeester, de beheerder en (zodra de rollen er zijn) de bestuurder (functie `tr_is_bestuur()` in `modules/trainers/regels.php`). Het bestuur en het sportsecretariaat zien en wijzigen de schema's, aanwezigheden en uren van alle trainers.
+
 ## Zelf zwemmer
 
 Ook volwassenen die zelf zwemmen (bv. masters) kunnen zichzelf toevoegen:
@@ -59,12 +61,27 @@ Een zwemmer kan bij meerdere accounts horen, bv. bij gescheiden ouders.
 ## Module Trainers
 
 - **Rooster** (*Trainingen → Trainingen beheren*, door het sportsecretariaat): vaste trainingen per week met naam, dag, uur en plaats, en een start- en einddatum. Afgelaste periodes (vakantie, zwembad dicht) voor één training of voor alle trainingen.
-- **Vaste trainers**: elke trainer duidt in *Trainingen* zelf aan welke trainingen hij of zij normaal geeft. Het secretariaat kan dat ook doen, met een begin- en einddatum.
-- **Afmelden en vervangen**:
+- **Eigen schema**: elke trainer duidt in *Trainingen* zelf aan welke trainingen hij of zij normaal geeft, met een datum *vanaf* (starten) of *niet meer vanaf* (stoppen).
+  - Een datum in het verleden kan tot het begin van vorige maand, maar niet in een maand die voor die trainer al uitbetaald is. Die voorbije trainingen moet de trainer daarna nog bevestigen.
+  - Het bestuur en het secretariaat kunnen het schema van elke trainer aanpassen, zonder grens in de tijd.
+- **Afmelden en vervangen** (één specifieke training):
   - Een trainer die niet kan, tikt *Kan niet* en geeft eventueel een reden. Collega's krijgen een pushmelding en zien de training bij *Vervanger gezocht*.
   - Wie *Ik neem over* tikt, wordt vervanger. De afgemelde trainer krijgt daarvan een melding.
   - Wie wil, kan ook *meehelpen* als extra trainer.
-- **Uren**: elke training tot en met vandaag waarop iemand aanwezig was, telt mee, behalve afgelaste. Trainers zien hun eigen uren en vergoeding.
+- **Was je aanwezig?**: na elke training krijgt elke ingeplande trainer een pushmelding met de knoppen *✓ Ja* en *✗ Nee*.
+  - Eén tik op een knop volstaat; de app hoeft niet open. Tik je op de melding zelf (of ondersteunt het toestel geen knoppen, zoals iPhone), dan opent een eenvoudig scherm met twee grote knoppen. Dat werkt ook zonder aangemeld te zijn: de melding bevat een persoonlijke sleutel die enkel voor die trainer en die training geldt, 60 dagen lang.
+  - Geen antwoord? Dan blijft de training op *niet bevestigd* en volgt er één herinnering, de volgende ochtend vanaf 8 uur (minstens 12 uur na de vraag, nooit 's nachts).
+  - In *Trainingen* staat bovenaan *Was je aanwezig?* met de open trainingen (en *Ik was overal aanwezig*), en onderaan de afgelopen 4 weken, waar de trainer een antwoord nog kan wijzigen.
+  - Achteraf erbij komen kan ook: op een voorbije training betekent *Ik was er ook*, *Ik heb overgenomen* of *Ik was er toch* meteen *aanwezig*.
+  - Een trainer wijzigt zijn of haar eigen voorbije trainingen zolang die maand voor hem of haar niet als uitbetaald gemarkeerd is. Daarna kan enkel het bestuur nog corrigeren.
+  - De vraag komt van een geplande taak die elk kwartier draait (WP-Cron). Een trainer kan ze uitzetten bij *Meldingen*.
+- **Uren**: enkel trainingen tot en met vandaag die als **aanwezig** bevestigd zijn, tellen mee; afgelaste nooit. *Niet aanwezig* telt niet. *Niet bevestigd* telt (nog) niet mee, maar staat apart in alle overzichten en in de Excel, tot de trainer of het bestuur ze bevestigt. Trainers zien hun eigen uren en vergoeding.
+  - Bij een installatie die al trainingen had vóór deze versie, tellen de trainingen vóór de dag van de update mee zonder bevestiging (optie `khzs_tr_bevestigen_vanaf`).
+- **Overzicht trainers** (bestuur en secretariaat, *Trainingen → Overzicht trainers*): per maand per trainer het schema, het aantal trainingen aanwezig, niet aanwezig en niet bevestigd, en de uren. Per trainer:
+  - alle trainingen van de maand met wie bevestigde en wanneer, met *Aanwezig* / *Niet aanwezig* per training en *Alle niet bevestigde als aanwezig bevestigen*
+  - het schema (vaste trainingen toevoegen of stoppen vanaf een datum)
+  - de wijzigingen die het bestuur en het secretariaat al deden
+- **Melding bij elke aanpassing door het bestuur**: verandert iemand anders iets aan de planning of aanwezigheid van een trainer, dan krijgt die trainer een pushmelding *Je planning is aangepast*. In de app staat bovenaan *Aangepast door het bestuur* met wat er veranderde, door wie en wanneer, en *Wijzigingen aan mijn planning* toont alles.
 - **Verloning** (penningmeester):
   - Een tarief per trainer, per uur of per training, met een datum *geldig vanaf*. Een nieuw tarief verandert niets aan vroegere trainingen.
   - Een overzicht per maand met trainingen, uren en bedrag per trainer, met detail per training.
@@ -94,7 +111,7 @@ Daarna in de app (als WordPress-beheerder): **Backup → Backup terugzetten**, k
 ## Verschillen met de Django-versie
 
 - Accounts en "wachtwoord vergeten" lopen via WordPress.
-- Geplande taken (herinneringen 08:00, backup 02:30) gebruiken WP-Cron. Op een rustige site stel je best een echte cron in die `wp-cron.php` oproept.
+- Geplande taken (herinneringen 08:00, backup 02:30, de vraag *Was je aanwezig?* elk kwartier) gebruiken WP-Cron. Op een rustige site stel je best een echte cron in die `wp-cron.php` oproept.
 - De backup bevat de gegevens van de app, niet de WordPress-accounts zelf.
 - Je werkt de plugin bij door een nieuwe zip te uploaden; de automatische updates via git in `deploy/` gelden niet.
 

@@ -260,7 +260,8 @@ function verwerk_verzoek(): void
     foreach (routes() as [$regex, $naam, $functie]) {
         if (preg_match('#^' . $regex . '$#', $pad, $m)) {
             $GLOBALS['khzs_route'] = $naam;
-            if (is_post() && !in_array($naam, ['push_abonneer', 'push_afmelden', 'push_test'], true)) {
+            // Routes zonder nonce: JSON (nonce in de header) en routes van modules met een eigen beveiliging (filter khzs_zonder_nonce).
+            if (is_post() && !in_array($naam, apply_filters('khzs_zonder_nonce', ['push_abonneer', 'push_afmelden', 'push_test']), true)) {
                 $nonce = $_POST['_khzs'] ?? '';
                 // Aanmelden/registreren mag ook zonder geldige nonce van een (verlopen) anonieme sessie.
                 if (!wp_verify_nonce($nonce, 'khzs') && !in_array($naam, ['login', 'registreren'], true)) {
