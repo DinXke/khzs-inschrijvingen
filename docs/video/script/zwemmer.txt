@@ -1,4 +1,4 @@
-Hallo! Welkom bij de inschrijvingen van de Hasseltse Zwemvereniging Spartacus. In dit filmpje leggen we stap voor stap uit hoe je je inschrijft voor een zwemwedstrijd. Het filmpje is bedoeld voor zwemmers, en voor ouders die hun kinderen inschrijven.
+Hallo! Welkom bij KHZS Leden, de app van de Hasseltse Zwemvereniging Spartacus. In dit filmpje leggen we stap voor stap uit hoe je je inschrijft voor een zwemwedstrijd. Het filmpje is bedoeld voor zwemmers, en voor ouders die hun kinderen inschrijven.
 
 Stap 1. De app openen.
 
@@ -12,7 +12,11 @@ Heb je nog geen account? Tik dan op maak een profiel aan. We werken met één ac
 
 Daaronder vul je de gegevens van de zwemmer in: voornaam, naam, geboortedatum en of het een jongen of meisje is. De geboortedatum is belangrijk, want die bepaalt in welke categorie je zwemt, en dus op welke nummers je mag inschrijven.
 
-Zwemmen er meerdere kinderen in het gezin? Tik dan op nog een zwemmer, en vul ook hun gegevens in. Zwem je als ouder zelf ook? Voeg jezelf dan gewoon toe als zwemmer. Het licentienummer is niet verplicht.
+Zwemmen er meerdere kinderen in het gezin? Tik dan op nog een zwemmer, en vul ook hun gegevens in. Het licentienummer is niet verplicht.
+
+Zwem je zelf, bijvoorbeeld bij de masters? Vink dan ik zwem zelf aan. Je eigen naam komt dan meteen in het eerste zwemmerblok. Je vult enkel nog je geboortedatum en geslacht in.
+
+Heeft de andere ouder je kind al in de app gezet, bijvoorbeeld bij gescheiden ouders? Vul dan de koppelcode in die je van hem of haar kreeg. Zo hoef je je kind niet opnieuw in te voeren.
 
 Heb je al een account? Dan meld je je gewoon aan met je e-mailadres en je wachtwoord. Wachtwoord vergeten? Via de link onder de knop kan je een nieuw wachtwoord aanvragen.
 
@@ -51,6 +55,8 @@ Stap 6. Profiel en meldingen.
 Onder profiel vind je al je zwemmers, en per zwemmer de beste tijden. Die tijden vul je niet zelf in: de club werkt ze bij na elke wedstrijd, op basis van de officiële uitslagen. Klopt er iets niet? Laat het je trainer weten.
 
 Je kan bij je gegevens ook je Swimrankings nummer invullen. Dan krijg je een knop die meteen je pagina op Swimrankings opent.
+
+Wonen de ouders apart? Dan kan je de zwemmer delen met de andere ouder. Tik bij de zwemmer op koppelcode maken, en geef de code door. De andere ouder vult ze in bij zwemmer koppelen. Jullie zien dan allebei dezelfde inschrijvingen, en krijgen allebei de meldingen.
 
 Zet tot slot de meldingen aan. Tik op meldingen, en dan op meldingen aanzetten. Je kiest zelf waarvoor je een bericht wil krijgen: een nieuwe wedstrijd, de herinnering een dag voor je deadline, of een wijziging door je trainer.
 

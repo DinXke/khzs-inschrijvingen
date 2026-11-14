@@ -87,6 +87,10 @@ Zwemmers vullen hun tijden niet zelf in. Je werkt ze bij op twee manieren:
 
 ![pc uitslagen](../screenshots/trainer-uitslagen.png)
 
+## Zwemmer koppelen aan een tweede account
+
+Volgen twee ouders dezelfde zwemmer (bv. gescheiden ouders)? Normaal maakt een ouder een **koppelcode** en vult de andere ouder die in. Lukt dat niet, open dan de zwemmer en vul bij **Account koppelen (staf)** het e-mailadres van het account van de andere ouder in. Met **Loskoppelen** haal je een account weer weg.
+
 ## Uitleg en filmpjes
 
 Onder **Uitleg** staan de instructiefilmpjes met gesproken uitleg en ondertitels, samen met de handleidingen als PDF.

@@ -126,7 +126,7 @@ Vragen van de eigenaar: *"er is ook een groot verschil tussen een trainer van de
 - **Migratie** naar WordPress getest met de Django-demodata: alle gegevens komen over, ook gekoppelde accounts, en oude wachtwoorden werken.
 - **Push**: de versleuteling en de VAPID-handtekening zijn gecontroleerd met de Python-bibliotheek `cryptography`. Nog niet getest op een echt toestel.
 - **Nog niet geïnstalleerd** op www.khzs.be. Claude had vanuit de cloudomgeving geen toegang tot die site. Maak de zip met `wordpress/bouw.sh` en upload hem via WordPress → Plugins.
-- **Niet bijgewerkt**: de PDF-handleidingen, screenshots en filmpjes in `docs/` tonen nog de oude naam en het oude icoon, en vermelden het koppelen en *Ik zwem zelf* niet. Opnieuw maken kan met `docs/build.py` en `docs/video.py`.
+- **Documentatie bijgewerkt** (branch `docs/khzs-leden-bijwerken`): de PDF-handleidingen, screenshots en filmpjes in `docs/` tonen de naam KHZS Leden en het nieuwe icoon, en leggen het koppelen van zwemmers (koppelcode) en *Ik zwem zelf* / *+ Mezelf* uit. `docs/build.py` en `docs/video.py` werken nu ook op Windows (`.venv/Scripts/python`). Op de gsm heet het menu *Profiel*, op de pc *Mijn zwemmers*.
 - **Open bij de eigenaar**:
   - De GitHub-repo hernoemen van `khzs-inschrijvingen` naar `khzs-leden` (Settings → General). GitHub stuurt het oude adres door.
   - Daarna op de server: `git -C /opt/khzs/app remote set-url origin https://github.com/DinXke/khzs-leden`.
@@ -164,7 +164,6 @@ Start Claude Code in de map van de repo. Claude leest dan automatisch `CLAUDE.md
 - Groepen (A-groep, B-groep…) als gedeelde gegevens in de kern. Inschrijvingen kan dan een wedstrijd beperken tot een groep, en Trainers kan een groep aan een training koppelen.
 - RSVP of aanwezigheden voor zwemmers (afmelden voor een training, activiteiten).
 - Testen op echte toestellen: installeren op Android en iPhone, en pushmeldingen.
-- De PDF-handleidingen, screenshots en filmpjes bijwerken met de nieuwe naam, het icoon, het koppelen van zwemmers en *Ik zwem zelf*.
 - Eventueel "gelezen" per ouder bijhouden in plaats van per melding.
 - Installatie op www.khzs.be: zip uploaden, permalinks controleren, zelf registreren eerst uitzetten, en daarna de migratie vanuit Django.
 

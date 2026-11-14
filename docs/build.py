@@ -1,6 +1,6 @@
 """Bouwt de documentatie opnieuw: verse screenshots van de app + PDF's per rol.
 
-Gebruik (vanuit de projectmap):  .venv/bin/python docs/build.py
+Gebruik (vanuit de projectmap):  .venv/bin/python docs/build.py   (Windows: .venv/Scripts/python docs/build.py)
 Vereist: playwright + chromium (.venv/bin/python -m playwright install chromium) en markdown.
 Draait de app tijdelijk met een lege demo-database; je eigen db.sqlite3 blijft onaangeroerd.
 """
@@ -34,8 +34,11 @@ SCREENSHOTS = [
     ("zwemmer-wedstrijden", "zwemmer1", "/wedstrijden/", GSM, "light", None),
     ("zwemmer-wedstrijd", "zwemmer1", "/wedstrijd/1/?zwemmer=1", GSM, "light", None),
     ("zwemmer-registreren-gezin", None, "/registreren/", GSM, "light", "tweede-zwemmer"),
+    ("zwemmer-registreren-zelf", None, "/registreren/", GSM, "light", "zelf"),
+    ("zwemmer-mijn-zwemmers", "zwemmer1", "/zwemmers/", GSM, "light", None),
     ("zwemmer-programma", "zwemmer1", "/wedstrijd/1/?zwemmer=1", GSM, "light", "programma"),
     ("zwemmer-profiel", "zwemmer1", "/zwemmers/1/", GSM, "light", None),
+    ("zwemmer-delen", "zwemmer1", "/zwemmers/1/", GSM, "light", "koppelcode"),
     ("zwemmer-meldingen", "zwemmer1", "/meldingen/", GSM, "light", None),
     ("zwemmer-donker", "zwemmer1", "/wedstrijd/1/?zwemmer=1", GSM, "dark", None),
     ("trainer-nakijken", "trainer1", "/wedstrijd/4/nakijken/", PC, "light", None),
@@ -108,6 +111,17 @@ def maak_screenshots(browser):
             page.fill("#id_naam", "Peeters")
             page.click("#nog-zwemmer")
             page.evaluate("document.querySelector('#zwemmers').scrollIntoView({block: 'start'}); window.scrollBy(0, -70)")
+        if actie == "zelf":
+            page.fill("#id_voornaam", "Ann")
+            page.fill("#id_naam", "Peeters")
+            page.check("#zelf")
+            page.evaluate("document.querySelector('#zelf').scrollIntoView({block: 'start'}); window.scrollBy(0, -130)")
+        if actie == "koppelcode":
+            page.click("form[action$='/delen/'] button")
+            page.wait_for_load_state("networkidle")
+            page.evaluate("document.querySelectorAll('main > .melding').forEach(e => e.remove())")
+            page.evaluate("[...document.querySelectorAll('h2')].find(h => h.textContent.includes('Ouders'))"
+                          "?.scrollIntoView({block: 'start'}); window.scrollBy(0, -90)")
         if actie == "finaal":
             page.evaluate("document.querySelector('.finaal').scrollIntoView({block: 'start'}); window.scrollBy(0, -80)")
         if actie == "programma":
@@ -201,13 +215,13 @@ blockquote p { margin: 0; }
 
 
 def render(slug, titel, logo_uri):
-    bron = (DOCS / "bronnen" / f"{slug}.md").read_text()
+    bron = (DOCS / "bronnen" / f"{slug}.md").read_text(encoding="utf-8")
     html = markdown.markdown(bron, extensions=["tables", "md_in_html", "attr_list"])
     html = html.replace('src="../screenshots/', f'src="{SHOTS.as_uri()}/')
     klasse = "onepager" if slug.startswith("onepager") else ""
     return f"""<!doctype html><html lang="nl"><head><meta charset="utf-8"><style>{CSS}</style></head>
 <body class="{klasse}"><header class="kop"><span class="badge-logo"><img src="{logo_uri}"></span><span class="titel">{titel}</span>
-<span class="meta">HZS inschrijvingen<br>versie {date.today():%d/%m/%Y}</span></header>{html}</body></html>"""
+<span class="meta">KHZS Leden<br>versie {date.today():%d/%m/%Y}</span></header>{html}</body></html>"""
 
 
 def maak_pdfs(browser):
@@ -221,7 +235,7 @@ def maak_pdfs(browser):
         html = render(slug, titel, logo)
         delen.append((titel, html))
         tmp = DOCS / f".{slug}.html"
-        tmp.write_text(html)
+        tmp.write_text(html, encoding="utf-8")
         page.goto(tmp.as_uri())
         page.wait_for_load_state("networkidle")
         page.pdf(path=PDF / f"{slug}.pdf", format="A4", print_background=True, display_header_footer=True,
@@ -236,11 +250,11 @@ def maak_pdfs(browser):
         lichaam = re.search(r"<body[^>]*>(.*)</body>", html, re.S).group(1)
         lichamen.append(f'<section style="break-before: page">{lichaam}</section>')
     voorblad = f"""<section class="voorblad"><span class="badge-logo"><img src="{logo}"></span>
-<h2>HZS inschrijvingen</h2><p style="font-size:14pt">Hasseltse Zwemvereniging Spartacus<br>Volledige documentatie</p>
+<h2>KHZS Leden</h2><p style="font-size:14pt">Hasseltse Zwemvereniging Spartacus<br>Volledige documentatie</p>
 <p>versie {date.today():%d/%m/%Y} · inschrijvingen.khzs.be</p><ol>{inhoud}</ol></section>"""
     bundel = f'<!doctype html><html lang="nl"><head><meta charset="utf-8"><style>{CSS}</style></head><body>{voorblad}{"".join(lichamen)}</body></html>'
     tmp = DOCS / ".bundel.html"
-    tmp.write_text(bundel)
+    tmp.write_text(bundel, encoding="utf-8")
     page.goto(tmp.as_uri())
     page.wait_for_load_state("networkidle")
     page.pdf(path=PDF / "HZS-inschrijvingen-documentatie.pdf", format="A4", print_background=True,
@@ -251,7 +265,7 @@ def maak_pdfs(browser):
 
 
 def main():
-    with tempfile.TemporaryDirectory() as tmp:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
         proc = start_server(tmp)
         try:
             with sync_playwright() as pw:
@@ -263,6 +277,7 @@ def main():
                 browser.close()
         finally:
             proc.terminate()
+            proc.wait()  # Windows: anders blijft de sqlite-database in gebruik
 
 
 if __name__ == "__main__":
