@@ -46,7 +46,10 @@ def hoofdrol(user):
 
 
 def _wis_cache(user):
-    user.__dict__.pop("_khzs_rollen", None)
+    try:
+        del user._khzs_rollen  # via delattr, zodat het ook werkt voor request.user (SimpleLazyObject)
+    except AttributeError:
+        pass
     if hasattr(user, "_prefetched_objects_cache"):
         user._prefetched_objects_cache.pop("app_rollen", None)
 

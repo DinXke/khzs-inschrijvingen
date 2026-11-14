@@ -9,6 +9,10 @@
     <?= veld_tekst('naam', 'Jouw naam', $form['naam'], $fouten['naam'] ?? null, ['maxlength' => 80, 'required' => true]) ?>
     <?= veld_tekst('password1', 'Wachtwoord', '', $fouten['password1'] ?? null, ['type' => 'password', 'required' => true, 'autocomplete' => 'new-password'], 'Minstens 8 tekens, niet enkel cijfers.') ?>
     <?= veld_tekst('password2', 'Wachtwoord bevestigen', '', $fouten['password2'] ?? null, ['type' => 'password', 'required' => true, 'autocomplete' => 'new-password'], 'Geef hetzelfde wachtwoord nogmaals in, ter controle.') ?>
+    <div class="veld"><label>Ik ben (meerdere mogelijk)</label><div>
+      <?php $_gekozen = (array) ($_POST['rollen'] ?? []); foreach ([ZWEMMER => 'Zwemmer', OUDER => 'Ouder van een zwemmer', TRAINER => 'Trainer', SECRETARIS => 'Sportsecretaris', BESTUURDER => 'Bestuurder'] as $_r => $_l): ?>
+      <div><label><input type="checkbox" name="rollen[]" value="<?= esc_attr($_r) ?>" <?= in_array($_r, $_gekozen, true) ? 'checked' : '' ?>> <?= e($_l) ?></label></div><?php endforeach; ?></div>
+      <div class="help">Zwemmer en ouder krijg je meteen. Trainer, sportsecretaris en bestuurder worden eerst goedgekeurd door het bestuur. Later aanvragen kan bij Mijn zwemmers → Mijn rollen.</div></div>
   </div>
   <h2>2. Zwemmer(s)</h2>
   <label class="kaart" style="display:flex;gap:.6rem;align-items:center;cursor:pointer;margin-bottom:12px"><input type="checkbox" id="zelf" name="zelf" <?= post('zelf') ? 'checked' : '' ?> style="width:auto"> <span><b>Ik zwem zelf</b> <span class="klein">(bv. masters) — je eigen gegevens komen in het eerste zwemmerblok</span></span></label>

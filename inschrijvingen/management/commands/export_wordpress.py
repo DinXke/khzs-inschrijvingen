@@ -82,6 +82,10 @@ class Command(BaseCommand):
                                  gewijzigd_na_ingave=int(x.gewijzigd_na_ingave), gewijzigd=dt(x.gewijzigd)) for x in Deelname.objects.all()]
         tab["bijlagen"] = [dict(id=b.pk, wedstrijd_id=b.wedstrijd_id, bestand=b.bestand.name, naam=b.naam, door_id=b.door_id,
                                 toegevoegd=dt(b.toegevoegd)) for b in Bijlage.objects.all()]
+        tab["rolaanvragen"] = [dict(id=a.pk, user_id=a.user_id, rol=a.rol, motivatie=a.motivatie, status=a.status,
+                                    toegekende_rol=a.toegekende_rol, reden=a.reden, behandeld_door=a.behandeld_door_id,
+                                    behandeld_op=dt(a.behandeld_op), gelezen=int(a.gelezen), aangemaakt=dt(a.aangemaakt))
+                               for a in Rolaanvraag.objects.all()]
 
         gebruikers, meta = [], []
         for u in User.objects.select_related("profiel"):

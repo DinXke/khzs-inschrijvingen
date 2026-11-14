@@ -6,6 +6,7 @@ Ledenapp (PWA) van de Hasseltse Zwemvereniging Spartacus: inschrijvingen voor zw
 - **Trainers**: extra dagen instellen, inschrijvingen nakijken, goed-/afkeuren en aanpassen.
 - **Zwemmers**: profiel + beste tijden, interesse/ik doe mee/ik doe niet mee, inschrijven op nummers waarvoor ze in aanmerking komen.
 - Pushmeldingen (instelbaar): nieuwe wedstrijd, inschrijvingen open, 1 dag voor de deadline, wijziging door de club.
+- Meerdere rollen per account (zwemmer, ouder, trainer, bestuurder, sportsecretaris, beheerder). Leden vragen een rol aan bij registratie of via *Mijn rollen*; bestuurders, sportsecretarissen en beheerders keuren goed, keuren af of geven een andere rol (`inschrijvingen/rollen.py`).
 - Zwemmer delen met meerdere accounts (bv. gescheiden ouders) via een koppelcode: beide ouders zien dezelfde inschrijvingen en krijgen dezelfde meldingen.
 - Beste tijden via import van uitslagen-Lenexen; deelname weigeren met melding; info per wedstrijd; backup & terugzetten.
 

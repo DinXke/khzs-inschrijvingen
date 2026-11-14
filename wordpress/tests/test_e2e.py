@@ -910,5 +910,119 @@ class TrainersTest(Basis):
             self.assertTrue(r.headers["Location"].endswith("/leden/wedstrijden/"))
 
 
+
+class RollenTest(Basis):
+    """Meerdere rollen per account: aanvragen, goedkeuren, afkeuren, een andere rol geven (zoals test_rollen.py in Django)."""
+
+    def setUp(self):
+        super().setUp()
+        self.bestuur = gebruiker("bestuur@khzs.be", first_name="Bert")
+        exe(f"INSERT INTO wp_usermeta (user_id, meta_key, meta_value) VALUES ({self.bestuur}, 'khzs_rollen', 'bestuurder')")
+        self.lid = gebruiker("lid@khzs.be", "ouder", first_name="Lien")  # enkel khzs_rol: account van vóór de rollen
+        self.b = Klant().login("bestuur@khzs.be")
+        self.l = Klant().login("lid@khzs.be")
+        self.l.json("meldingen/abonneer/", {"endpoint": f"https://push.example/{self.lid}", "keys": {"p256dh": "x", "auth": "y"}})
+
+    def rollen(self, uid):
+        return set(filter(None, hulp("meta", id=uid, key="khzs_rollen")["v"].split(",")))
+
+    def aanvraag(self, rol="trainer"):
+        self.l.post("rollen/", {"rol": rol, "motivatie": "B-groep"})
+        return int(een(f"SELECT id FROM {{p}}rolaanvragen WHERE user_id={self.lid} AND rol='{rol}'"))
+
+    def status(self, a):
+        return een(f"SELECT status FROM {{p}}rolaanvragen WHERE id={a}")
+
+    def test_aanvragen_en_goedkeuren(self):
+        a = self.aanvraag()
+        self.assertEqual(self.status(a), "open")
+        self.assertEqual(self.l.get("zwemmers/uitslagen/").status_code, 403)
+        self.l.post("rollen/", {"rol": "trainer"})  # tweede keer: geweigerd
+        self.assertEqual(int(een("SELECT COUNT(*) FROM {p}rolaanvragen")), 1)
+        r = self.b.get("gebruikers/")
+        self.assertContains(r, "Rolaanvragen (1)")
+        self.assertContains(r, "B-groep")
+        self.b.post(f"gebruikers/aanvraag/{a}/", {"actie": "goedkeuren"})
+        self.assertEqual(self.status(a), "goedgekeurd")
+        self.assertEqual(self.rollen(self.lid), {"ouder", "trainer"})
+        self.assertEqual(hulp("meta", id=self.lid, key="khzs_rol")["v"], "trainer")
+        push = hulp("push")[-1]["bericht"]
+        self.assertIn("goedgekeurd", push["tekst"])
+        self.assertTrue(push["url"].endswith("/leden/rollen/"))
+        self.assertContains(self.l.get("meldingen/"), "Je aanvraag voor de rol trainer is goedgekeurd.")
+        self.l.get("rollen/")
+        self.assertNotContains(self.l.get("meldingen/"), "is goedgekeurd")
+        self.assertEqual(self.l.get("zwemmers/uitslagen/").status_code, 200)
+
+    def test_afkeuren_vraagt_reden(self):
+        a = self.aanvraag("secretaris")
+        self.b.post(f"gebruikers/aanvraag/{a}/", {"actie": "afkeuren", "reden": ""})
+        self.assertEqual(self.status(a), "open")
+        self.b.post(f"gebruikers/aanvraag/{a}/", {"actie": "afkeuren", "reden": "Vraag het eerst aan het bestuur."})
+        self.assertEqual(self.status(a), "afgekeurd")
+        self.assertEqual(self.rollen(self.lid), set())  # niets gewijzigd: nog steeds enkel khzs_rol
+        self.assertIn("afgekeurd. Vraag het eerst aan het bestuur.", hulp("push")[-1]["bericht"]["tekst"])
+        self.b.post(f"gebruikers/aanvraag/{a}/", {"actie": "goedkeuren"})
+        self.assertEqual(self.status(a), "afgekeurd")
+        self.assertContains(self.l.get("rollen/"), "Vraag het eerst aan het bestuur.")
+
+    def test_andere_rol_toekennen(self):
+        a = self.aanvraag("secretaris")
+        self.b.post(f"gebruikers/aanvraag/{a}/", {"actie": "andere", "rol": "trainer", "reden": "Eerst als trainer."})
+        self.assertEqual(self.status(a), "andere_rol")
+        self.assertEqual(een(f"SELECT toegekende_rol FROM {{p}}rolaanvragen WHERE id={a}"), "trainer")
+        self.assertEqual(self.rollen(self.lid), {"ouder", "trainer"})
+        self.assertIn("kreeg de rol trainer", hulp("push")[-1]["bericht"]["tekst"])
+
+    def test_zwemmer_zonder_goedkeuring_en_intrekken(self):
+        self.l.post("rollen/", {"rol": "zwemmer"})
+        self.assertEqual(self.rollen(self.lid), {"ouder", "zwemmer"})
+        self.l.post("rollen/", {"rol": "beheerder"})
+        self.assertEqual(int(een("SELECT COUNT(*) FROM {p}rolaanvragen")), 0)
+        a = self.aanvraag()
+        self.l.post("rollen/", {"actie": "intrekken", "aanvraag": a})
+        self.assertEqual(self.status(a), "ingetrokken")
+
+    def test_registratie_met_rollen(self):
+        r = Klant().post("registreren/", {
+            "email": "nieuw@test.be", "password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!", "voornaam": "Ann", "naam": "P",
+            "rollen[]": ["ouder", "trainer"], "zw-TOTAL_FORMS": 1, "zw-0-voornaam": "Lien", "zw-0-naam": "P",
+            "zw-0-geboortedatum": "2013-03-02", "zw-0-geslacht": "F"})
+        self.assertEqual(r.status_code, 302, r.text[:2000])
+        uid = int(een("SELECT ID FROM wp_users WHERE user_login='nieuw@test.be'"))
+        self.assertEqual(self.rollen(uid), {"ouder"})
+        self.assertEqual(een(f"SELECT status FROM {{p}}rolaanvragen WHERE user_id={uid} AND rol='trainer'"), "open")
+
+    def test_rechtstreeks_en_rechten_bestuurder(self):
+        a = self.aanvraag()
+        self.b.post("gebruikers/", {"user": self.lid, "actie": "toevoegen", "rol": "trainer"})
+        self.assertEqual(self.status(a), "goedgekeurd")
+        self.b.post("gebruikers/", {"user": self.lid, "actie": "afnemen", "rol": "ouder"})
+        self.assertEqual(self.rollen(self.lid), {"trainer"})
+        self.b.post("gebruikers/", {"user": self.lid, "actie": "afnemen", "rol": "trainer"})  # laatste rol blijft
+        self.assertEqual(self.rollen(self.lid), {"trainer"})
+        self.b.post("gebruikers/", {"user": self.lid, "actie": "toevoegen", "rol": "beheerder"})
+        self.assertNotIn("beheerder", self.rollen(self.lid))
+        # bestuurder: leden en rollen, geen wedstrijden, uitslagen of backup
+        self.assertEqual(self.b.get("wedstrijd/nieuw/").status_code, 403)
+        self.assertEqual(self.b.get("zwemmers/uitslagen/").status_code, 403)
+        self.assertEqual(self.b.get("backup/").status_code, 403)
+        self.assertEqual(Klant().login("lid@khzs.be").get("gebruikers/").status_code, 403)
+        # WordPress-beheerder blijft altijd beheerder
+        adm = Klant().login("admin", "admin123")
+        aid = int(een("SELECT ID FROM wp_users WHERE user_login='admin'"))
+        adm.post("gebruikers/", {"user": aid, "actie": "afnemen", "rol": "beheerder"})
+        self.assertEqual(adm.get("backup/").status_code, 200)
+
+    def test_nieuwe_aanvraag_meldt_rolbeheerders(self):
+        self.b.json("meldingen/abonneer/", {"endpoint": f"https://push.example/{self.bestuur}", "keys": {"p256dh": "x", "auth": "y"}})
+        self.aanvraag()
+        push = hulp("push")
+        self.assertEqual([p["endpoint"] for p in push], [f"https://push.example/{self.bestuur}"])
+        self.assertIn("Lien vraagt de rol trainer", push[0]["bericht"]["tekst"])
+        self.assertContains(self.b.get("meldingen/"), "Nieuwe rolaanvraag om te behandelen")
+        self.assertNotContains(self.l.get("meldingen/"), "Nieuwe rolaanvraag om te behandelen")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

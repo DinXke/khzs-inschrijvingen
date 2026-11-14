@@ -121,3 +121,32 @@ wordpress/bouw.sh                               # khzs-leden.zip voor WordPress
 - **Sjablonen**: `toon('module/naam', …)` laadt `modules/<module>/views/naam.php`. Sjablonen die met `include` herbruikt worden in een lus, gebruiken variabelen met een `_`-prefix om botsingen te vermijden.
 - **Datum in tests**: de header `X-Vandaag` simuleert een andere datum (enkel via de testhulp). In de code loopt alles via `vandaag()`.
 - **Bewaren**: tijden staan als gehele honderdsten en bedragen in cent.
+
+## Rollen: meerdere per account, met aanvragen (branch `feature/rollen`)
+
+Vraag van de eigenaar: elk lid moet één of meerdere rollen kunnen hebben (bestuurder, trainer, zwemmer, ouder, sportsecretaris…). Leden vragen rollen aan; bestuurders en beheerders keuren goed, keuren af of geven een andere rol. Gebouwd in Django én WordPress, met dezelfde werking.
+
+- **Rollen**: beheerder, sportsecretaris, trainer, bestuurder, ouder, zwemmer (van hoog naar laag). De rechten van alle rollen van een account tellen samen. De hoogste rol is de *hoofdrol*, enkel voor weergave (bv. "Trainer Tom" in een melding).
+- **Beslissingen van de eigenaar** (14/11/2026):
+  - *Bestuurder* beheert leden en rollen: het scherm *Gebruikers*, aanvragen behandelen, rollen toekennen en afnemen. Geen wedstrijden, inschrijvingen, uitslagen of backup, tenzij de persoon ook een andere rol heeft.
+  - *Sportsecretaris* behoudt het scherm *Gebruikers* (zoals vroeger) en kan ook aanvragen behandelen.
+  - *Zwemmer* en *ouder* krijg je meteen, zonder goedkeuring. *Ouder* heeft dezelfde rechten als zwemmer. Trainer, sportsecretaris en bestuurder vragen goedkeuring. Beheerder kan je niet aanvragen; enkel een beheerder stelt beheerders aan.
+- **Werking**:
+  - Aanvragen bij registratie (*Ik ben…*) of later via *Mijn rollen* (`/rollen/`, link bij *Mijn zwemmers* en *Meldingen*). Een open aanvraag kan het lid intrekken.
+  - Bovenaan *Gebruikers* staan de open aanvragen: *Goedkeuren*, *Afkeuren* (reden verplicht) of *Deze rol geven* (een andere rol in de plaats). In de tabel staan de rollen als labels: ✕ neemt een rol af, *+ rol* voegt er een toe. Een account houdt minstens één rol.
+  - Wie een rol rechtstreeks toekent waarvoor een aanvraag openstaat, keurt die aanvraag meteen goed.
+  - Melding voor het lid: een balk bovenaan elke pagina tot het *Mijn rollen* opent, plus een pushmelding. Bestuurders en sportsecretarissen krijgen een push bij een nieuwe aanvraag (voorkeur *(bestuur) Nieuwe rolaanvraag*).
+  - Meldingen voor zwemmers (nieuwe wedstrijd, deadline) gaan naar zwemmers én ouders (`GEZIN`).
+- **Django**:
+  - Modellen `Rol` (account + rol, meerdere per account) en `Rolaanvraag`. `Profiel.rol` blijft bestaan als hoofdrol.
+  - Migratie `0012_rollen`: elk account krijgt de rol uit `Profiel.rol`; superusers krijgen ook beheerder; accounts zonder profiel worden zwemmer. Zo verliest niemand rechten. Getest in `MigratieTest`, ook terug naar 0011.
+  - Logica in `inschrijvingen/rollen.py`. Rechten controleren met `heeft_rol(user, *rollen)`; `regels.rol()` geeft de hoofdrol.
+  - Een backup van vóór de rollen terugzetten werkt: accounts zonder rollen krijgen hun hoofdrol (`vul_ontbrekende()`).
+  - `export_wordpress` zet de rollen in `khzs_rollen` en neemt de rolaanvragen mee.
+  - Tests: 14 nieuwe in `inschrijvingen/tests/test_rollen.py`; samen 98, alle geslaagd.
+- **WordPress**:
+  - Rollen in de user meta `khzs_rollen` (komma-gescheiden); `khzs_rol` houdt de hoofdrol bij. Een account met enkel `khzs_rol` houdt die rol, dus er is geen datamigratie nodig. WordPress-beheerders zijn altijd ook beheerder.
+  - Tabel `khzs_rolaanvragen` (`DB_VERSIE` 4), logica en pagina's in `includes/rollen.php`. Op het WordPress-profiel zijn de rollen nu vinkjes.
+  - Tests: 7 nieuwe in `RollenTest` (`test_e2e.py`); samen 84, alle geslaagd. Gedraaid in een Docker-container (Debian trixie, PHP 8.4, MariaDB), omdat PHP en MariaDB niet op de Windows-pc staan. Op Windows moet `testsite.sh` eerst LF-regeleindes krijgen.
+- **Niet gedaan**: de handleidingen en screenshots in `docs/` tonen de rollen nog niet. De penningmeester blijft een aparte vlag, geen rol.
+- **Status**: pull request naar `main`, nog niet samengevoegd. Samenvoegen zet de migratie automatisch op de productieserver.
