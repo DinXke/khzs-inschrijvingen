@@ -227,7 +227,7 @@ Vraag van de eigenaar: *"we hebben de kalender/evenementen op de website al, kun
   - Bijlagen: enkel als je ze per bijlage als **publiek** (🌐) aanduidt (optie `khzs_kalender_bijlagen`, een lijst van id's). Zo'n bijlage kan iedereen zonder aanmelden downloaden via `/leden/bijlage/<id>/`, zolang de wedstrijd een publieke status heeft.
 - **Instellingen**: opties `khzs_kalender_aan`, `_statussen`, `_categorie`, `_publiceren`, `_info`, `_bijlagen`, `_fout` (laatste fout) en `_laatst`. Ze staan in de app op `/leden/kalender/` (sportsecretariaat en beheerders). In wp-admin staan de stand en de knop.
 - **Fouten** breken de app nooit: `kalender_sync()` vangt alles op, schrijft naar het PHP-foutlog en toont de laatste fout bij *Websitekalender*.
-- **Django synchroniseert niet**: dit geldt enkel voor de plugin. Zie het open punt hieronder.
+- **Django synchroniseert niet** (beslist door de eigenaar, 14/11/2026): enkel de plugin vult de websitekalender. Twee schrijvers op dezelfde kalender zouden botsen zodra de plugin live gaat, en een applicatiewachtwoord is een extra geheim op de server. Gevolg: de kalender op www.khzs.be vult zich pas als de plugin Django vervangt.
 
 **Stand**
 - `KalenderTest` in `tests/test_e2e.py` (8 scenario's) met The Events Calendar 6.18.4: aanmaken, wijzigen, nieuwe Lenex, statuswijziging, annuleren, prullenbak, voorbij, handmatige wijziging, de knop, publieke bijlagen en de demo. Van de 94 tests slagen er 93; één test werd al vóór deze wijziging overgeslagen.
@@ -235,9 +235,6 @@ Vraag van de eigenaar: *"we hebben de kalender/evenementen op de website al, kun
 - Nog **niet** op www.khzs.be geprobeerd.
 
 **Open bij de eigenaar**
-- **Django**: moet de productieversie ook synchroniseren tot de plugin in gebruik is? Dat kan via de REST-API van The Events Calendar met een applicatiewachtwoord.
-  - Advies: **nee**. Twee schrijvers op dezelfde kalender botsen zodra de plugin live gaat, en een applicatiewachtwoord is een extra geheim op de server.
-  - Wil de club de kalender nu al vullen, dan is een tijdelijke eenrichtingssynchronisatie vanuit Django mogelijk, met dezelfde regels en dezelfde meta-sleutels. Zo neemt de plugin de evenementen later naadloos over.
 - Bij de installatie: eerst met *Nieuwe evenementen: als concept* proberen, de categorie nakijken, en daarna *Nu alles synchroniseren*.
 
 ## Werken aan de plugin
