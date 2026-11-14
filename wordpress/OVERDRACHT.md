@@ -32,8 +32,7 @@ Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist 
 
 ## Stand van zaken
 
-- Alles staat op de branch **`ccr-5219135a-lksd0b`**, **niet op `main`**.
-  - De Django-container installeert automatisch elke commit op `main`. De map `wordpress/` en het commando `export_wordpress` raken de Django-app niet, maar merge pas na een review.
+- Alles staat op **`main`** (PR #1). De map `wordpress/` en `export_wordpress` raken de draaiende Django-app niet. Werk verder op een branch: elke commit op `main` komt binnen 10 minuten op de server.
 - **Tests**: `wordpress/tests/test_e2e.py`, 63 scenario's: alle Django-scenario's plus de trainersmodule. Ze slaagden allemaal.
 - **Migratie** getest met de Django-demodata: alle gegevens komen over en oude wachtwoorden werken.
 - **Push**: de versleuteling en de VAPID-handtekening zijn gecontroleerd met de Python-bibliotheek `cryptography`. Nog niet getest op een echt toestel.
