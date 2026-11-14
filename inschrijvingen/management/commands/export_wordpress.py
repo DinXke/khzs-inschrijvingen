@@ -47,7 +47,8 @@ class Command(BaseCommand):
         tab = {}
         tab["zwemmers"] = [dict(id=z.pk, account_id=z.account_id, voornaam=z.voornaam, naam=z.naam, geboortedatum=d(z.geboortedatum),
                                 geslacht=z.geslacht, licentie=z.licentie, swimrankings_id=z.swimrankings_id, koppelcode=z.koppelcode,
-                                koppelcode_tot=dt(z.koppelcode_tot)) for z in Zwemmer.objects.all()]
+                                koppelcode_tot=dt(z.koppelcode_tot), toestemming_op=dt(z.toestemming_op),
+                                toestemming_door=z.toestemming_door_id) for z in Zwemmer.objects.all()]
         tab["zwemmer_accounts"] = [dict(zwemmer_id=r.zwemmer_id, user_id=r.user_id, aangemaakt=dt(datetime.now()))
                                    for r in Zwemmer.extra_accounts.through.objects.all()]
         tab["tijden"] = [dict(id=x.pk, zwemmer_id=x.zwemmer_id, afstand=x.afstand, slag=x.slag, baan=x.baan, tijd=hon(x.tijd),
@@ -106,6 +107,9 @@ class Command(BaseCommand):
                 for k in ("push_nieuwe_wedstrijd", "push_deadline", "push_wijziging", "push_nieuwe_inschrijving",
                           "push_rolaanvraag", "push_ploegaanvraag", "push_beslissing"):
                     meta.append(dict(user_id=u.pk, user_login=u.username, meta_key=f"khzs_{k}", meta_value="1" if getattr(p, k) else "0"))
+                if p.privacy_akkoord:  # AVG: aanvaarde privacyverklaring
+                    meta.append(dict(user_id=u.pk, user_login=u.username, meta_key="khzs_privacy_akkoord", meta_value=dt(p.privacy_akkoord)))
+                    meta.append(dict(user_id=u.pk, user_login=u.username, meta_key="khzs_privacy_versie", meta_value=p.privacy_versie))
 
         data = {"versie": "django", "gemaakt": datetime.now().isoformat(), "tabellen": tab, "meta": meta, "gebruikers": gebruikers}
         with zipfile.ZipFile(uit, "w", zipfile.ZIP_DEFLATED) as z:

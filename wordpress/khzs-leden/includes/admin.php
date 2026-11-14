@@ -14,6 +14,15 @@ const OPTIES = [
     'khzs_slug' => ['Adres van de app', 'leden', 'De app staat op jouwsite.be/<dit adres>/'],
 ];
 
+/** Gegevens van de club in de privacyverklaring (AVG): sleutel => [label, voorbeeld, uitleg]. */
+const PRIVACY_OPTIES = [
+    'khzs_privacy_verantwoordelijke' => ['Verwerkingsverantwoordelijke', 'Hasseltse Zwemvereniging Spartacus vzw', 'De juridische naam van de club. Leeg = de clubnaam.'],
+    'khzs_privacy_adres' => ['Adres van de club', 'Straat 1, 3500 Hasselt', 'Maatschappelijke zetel.'],
+    'khzs_privacy_ondernemingsnummer' => ['Ondernemingsnummer', '0123.456.789', 'Optioneel.'],
+    'khzs_privacy_email' => ['Contact voor privacyvragen', 'privacy@khzs.be', 'E-mailadres voor vragen en verzoeken over persoonsgegevens.'],
+    'khzs_privacy_versie' => ['Versie van de privacyverklaring', PRIVACY_VERSIE, 'Verander dit (bv. naar de datum van vandaag) na een inhoudelijke wijziging: leden krijgen dan een melding om de nieuwe versie te lezen.'],
+];
+
 add_action('admin_menu', function () {
     add_options_page('KHZS Leden', 'KHZS Leden', 'manage_options', 'khzs', __NAMESPACE__ . '\\admin_pagina');
 });
@@ -29,6 +38,10 @@ add_action('admin_init', function () {
     register_setting('khzs', 'khzs_modules', ['type' => 'array', 'default' => array_keys(modules()),
         'sanitize_callback' => fn($v) => array_values(array_intersect(array_keys(modules()), (array) $v))]);
     register_setting('khzs', 'khzs_pwa_tekst', ['type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field']);
+    foreach (PRIVACY_OPTIES as $k => $o) {
+        register_setting('khzs', $k, ['type' => 'string', 'default' => '', 'sanitize_callback' => $k === 'khzs_privacy_email' ? 'sanitize_email' : 'sanitize_text_field']);
+    }
+    register_setting('khzs', 'khzs_privacy_extra', ['type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_textarea_field']);
 });
 
 // Nieuw adres → rewrite-regels opnieuw opbouwen.
@@ -85,6 +98,16 @@ function admin_pagina(): void
             <label><input type="checkbox" name="khzs_pwa_enkel_home" value="1" <?php checked(get_option('khzs_pwa_enkel_home', 0)); ?>> Op de website enkel op de startpagina (in de app altijd)</label>
             <p><input name="khzs_pwa_tekst" class="large-text" value="<?= esc_attr(get_option('khzs_pwa_tekst', '')) ?>" placeholder="Schrijf je kinderen in voor wedstrijden en krijg meldingen, rechtstreeks vanaf je beginscherm."></p>
             <p class="description">Wie op ‘Niet nu’ tikt, ziet de melding 30 dagen niet meer. Vaste link om te delen (bv. in een nieuwsbrief): <code><?= esc_html(app_url('installeer/')) ?></code></p></td></tr>
+          <tr><th scope="row" colspan="2"><h2 style="margin:0">Privacyverklaring (AVG)</h2>
+            <p class="description" style="font-weight:normal">De app toont een privacyverklaring op <a href="<?= esc_url(app_url('privacy/')) ?>" target="_blank"><code><?= esc_html(app_url('privacy/')) ?></code></a>. Het is een sjabloon: laat de tekst nakijken door iemand met juridische kennis. Vul hieronder de gegevens van de club in.</p></th></tr>
+          <?php foreach (PRIVACY_OPTIES as $k => [$label, $voorbeeld, $help]): ?>
+          <tr><th scope="row"><label for="<?= esc_attr($k) ?>"><?= esc_html($label) ?></label></th>
+            <td><input name="<?= esc_attr($k) ?>" id="<?= esc_attr($k) ?>" class="regular-text" value="<?= esc_attr(get_option($k, '')) ?>" placeholder="<?= esc_attr($voorbeeld) ?>">
+            <p class="description"><?= esc_html($help) ?></p></td></tr>
+          <?php endforeach; ?>
+          <tr><th scope="row"><label for="khzs_privacy_extra">Aanvullende tekst</label></th>
+            <td><textarea name="khzs_privacy_extra" id="khzs_privacy_extra" class="large-text" rows="4"><?= esc_textarea(get_option('khzs_privacy_extra', '')) ?></textarea>
+            <p class="description">Komt onderaan de privacyverklaring, bv. de verzekeraar of de federatie, of een aanspreekpunt in de club.</p></td></tr>
         </table>
         <?php submit_button(); ?>
       </form>
@@ -96,6 +119,7 @@ function admin_pagina(): void
       <ul>
         <li>Deadline-herinneringen: <?= esc_html(($t = wp_next_scheduled('khzs_herinneringen')) ? wp_date('j/m/Y H:i', $t) : 'niet gepland') ?></li>
         <li>Nachtelijke backup: <?= esc_html(($t = wp_next_scheduled('khzs_backup')) ? wp_date('j/m/Y H:i', $t) : 'niet gepland') ?></li>
+        <li>Opkuis volgens de bewaartermijnen (AVG): <?= esc_html(($t = wp_next_scheduled('khzs_opkuis')) ? wp_date('j/m/Y H:i', $t) : 'niet gepland') ?></li>
       </ul>
       <p class="description">Deze taken gebruiken WP-Cron. Op een site met weinig bezoekers stel je best een echte cron in die <code>wp-cron.php</code> elke 5–15 minuten oproept.</p>
       <?php do_action('khzs_admin_onder'); ?>

@@ -114,3 +114,14 @@ CLUB = {
     "code": os.environ.get("CLUB_CODE", "KHZS"),
     "nation": "BEL",
 }
+
+# AVG: gegevens voor de privacyverklaring (/privacy/). Zet ze in /etc/khzs.env; laat de tekst nakijken door de club.
+# Verhoog PRIVACY_VERSIE bij elke inhoudelijke wijziging: leden krijgen dan een melding om de nieuwe versie te lezen.
+PRIVACY = {
+    "verantwoordelijke": os.environ.get("PRIVACY_VERANTWOORDELIJKE", "") or CLUB["naam"],
+    "adres": os.environ.get("PRIVACY_ADRES", ""),
+    "ondernemingsnummer": os.environ.get("PRIVACY_ONDERNEMINGSNUMMER", ""),
+    "email": os.environ.get("PRIVACY_EMAIL", ""),
+    "versie": os.environ.get("PRIVACY_VERSIE", "2026-11-14"),
+    "extra": os.environ.get("PRIVACY_EXTRA", ""),
+}

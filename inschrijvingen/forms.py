@@ -1,7 +1,10 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
+from django.urls import reverse
+from django.utils.html import format_html
 
+from .avg import minderjarig
 from .models import BesteTijd, Ploeg, Profiel, Wedstrijd, Zwemmer
 from .regels import parse_invoer_tijd, toon_tijd
 
@@ -19,10 +22,17 @@ class RegistratieForm(UserCreationForm):
     email = forms.EmailField(label="E-mail")
     voornaam = forms.CharField(label="Jouw voornaam", max_length=60)
     naam = forms.CharField(label="Jouw naam", max_length=80)
+    privacy = forms.BooleanField(error_messages={"required": "Je moet de privacyverklaring aanvaarden om een account te maken."})
 
     class Meta:
         model = User
         fields = ["email"]
+
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        self.fields["privacy"] = self.fields.pop("privacy")  # als laatste, onder de wachtwoorden
+        self.fields["privacy"].label = format_html(
+            'Ik heb de <a href="{}" target="_blank">privacyverklaring</a> gelezen en ga akkoord.', reverse("privacy"))
 
     def clean_email(self):
         email = self.cleaned_data["email"].lower().strip()
@@ -49,14 +59,27 @@ class ZwemmerForm(forms.ModelForm):
         labels = {"licentie": "Licentienummer (optioneel)", "swimrankings_id": "Swimrankings-ID (optioneel)"}
 
 
+TOESTEMMING_LABEL = ("Ik ben ouder of voogd van deze zwemmer (of heb hun toestemming) en ga akkoord dat de club de gegevens "
+                     "van deze minderjarige zwemmer verwerkt zoals beschreven in de privacyverklaring.")
+TOESTEMMING_FOUT = "Voor een zwemmer jonger dan 18 jaar is de toestemming van een ouder of voogd nodig."
+
+
 class ZwemmerMetPloegForm(ZwemmerForm):
-    """Nieuwe zwemmer, met meteen de ploeg (wordt een aanvraag die de staf goedkeurt)."""
+    """Nieuwe zwemmer, met meteen de ploeg (wordt een aanvraag die de staf goedkeurt). Een minderjarige zwemmer
+    vraagt de toestemming van een ouder of voogd (AVG)."""
 
     ploeg = forms.ModelChoiceField(Ploeg.objects.filter(actief=True), required=False, empty_label="Weet ik nog niet",
                                    help_text="De trainer of het bestuur keurt de ploeg goed.")
+    toestemming = forms.BooleanField(label=TOESTEMMING_LABEL, required=False, help_text="Enkel nodig voor zwemmers jonger dan 18 jaar.")
 
     class Meta(ZwemmerForm.Meta):
-        fields = ["voornaam", "naam", "geboortedatum", "geslacht", "ploeg", "licentie", "swimrankings_id"]
+        fields = ["voornaam", "naam", "geboortedatum", "geslacht", "ploeg", "licentie", "swimrankings_id", "toestemming"]
+
+    def clean(self):
+        d = super().clean()
+        if minderjarig(d.get("geboortedatum")) and not d.get("toestemming"):
+            self.add_error("toestemming", TOESTEMMING_FOUT)
+        return d
 
 
 class PloegForm(forms.ModelForm):

@@ -31,6 +31,7 @@ require_once KHZS_PAD . 'includes/velden.php';
 require_once KHZS_PAD . 'includes/kern-acties.php';
 require_once KHZS_PAD . 'includes/rollen.php';
 require_once KHZS_PAD . 'includes/ploegen.php';
+require_once KHZS_PAD . 'includes/avg.php';
 require_once KHZS_PAD . 'includes/admin.php';
 require_once KHZS_PAD . 'includes/pwa.php';
 // Demo op /leden-demo/ (eigen tabellen en accounts); moet vóór de modules geladen worden.

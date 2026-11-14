@@ -1,4 +1,5 @@
-{% extends "base.html" %}{% load static zwem %}{% block titel %}Uitleg{% endblock %}
+{% extends "base.html" %}{% load static zwem %}{% block titel %}Uitleg<p class="leeg klein"><a href="{% url 'privacy' %}">Privacy en cookies</a> · <a href="{% url 'mijn_gegevens' %}">Mijn gegevens</a></p>
+{% endblock %}
 {% block inhoud %}
 <h1>Uitleg</h1>
 <p class="klein">Korte instructiefilmpjes met uitleg, en de handleidingen als PDF. Zet het geluid aan, of gebruik de ondertitels.</p>

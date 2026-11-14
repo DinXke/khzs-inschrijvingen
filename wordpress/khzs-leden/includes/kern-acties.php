@@ -97,6 +97,7 @@ function v_gebruikers(): void
         }, []));
         usort($users, fn($a, $b) => [$a->last_name, $a->first_name] <=> [$b->last_name, $b->first_name]);
     }
+    $users = array_values(array_filter($users, fn($u) => !is_afgesloten($u->ID))); // AVG: enkel bewaard voor de boekhouding
     $keuzes = $beheerder ? ROLLEN : array_diff_key(ROLLEN, [BEHEERDER => 1]);
     $aanvragen = db()->get_results(db()->prepare("SELECT * FROM " . t('rolaanvragen') . " WHERE status=%s ORDER BY id", RA_OPEN));
     toon('gebruikers', ['users' => $users, 'q' => $q, 'keuzes' => $keuzes, 'aanvragen' => $aanvragen], 'Gebruikers');

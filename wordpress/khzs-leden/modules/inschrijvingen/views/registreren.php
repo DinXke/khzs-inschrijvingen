@@ -7,6 +7,8 @@
   <?= veld_tekst('naam', 'Jouw naam', $form['naam'], $fouten['naam'] ?? null, ['maxlength' => 80, 'required' => true]) ?>
   <?= veld_tekst('password1', 'Wachtwoord', '', $fouten['password1'] ?? null, ['type' => 'password', 'required' => true, 'autocomplete' => 'new-password'], 'Minstens 8 tekens, niet enkel cijfers.') ?>
   <?= veld_tekst('password2', 'Wachtwoord bevestigen', '', $fouten['password2'] ?? null, ['type' => 'password', 'required' => true, 'autocomplete' => 'new-password'], 'Geef hetzelfde wachtwoord nogmaals in, ter controle.') ?>
+  <div class="veld"><label><input type="checkbox" name="privacy" value="1" required<?= isset($_POST['privacy']) ? ' checked' : '' ?>> Ik heb de <a href="<?= esc_url(app_url('privacy/')) ?>" target="_blank">privacyverklaring</a> gelezen en ga akkoord.</label>
+    <?php if (isset($fouten['privacy'])): ?><ul class="errorlist"><li><?= e($fouten['privacy']) ?></li></ul><?php endif; ?></div>
   <p><button class="vol">Profiel aanmaken</button></p>
 </form>
-<p class="leeg">Al een account? <a href="<?= esc_url(app_url('aanmelden/')) ?>">Aanmelden</a></p>
+<p class="leeg">Al een account? <a href="<?= esc_url(app_url('aanmelden/')) ?>">Aanmelden</a> · <a href="<?= esc_url(app_url('privacy/')) ?>">Privacy en cookies</a></p>

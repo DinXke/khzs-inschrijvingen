@@ -9,7 +9,7 @@ from django.test import TestCase, TransactionTestCase
 from inschrijvingen.models import Profiel, Rol, Rolaanvraag
 from inschrijvingen.rollen import heeft_rol, hoofdrol, rollen_van, vul_ontbrekende, zet_rollen
 
-REGISTRATIE = {"password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!", "voornaam": "Ann", "naam": "Peeters"}
+REGISTRATIE = {"password1": "Zwemmen-2026!", "password2": "Zwemmen-2026!", "voornaam": "Ann", "naam": "Peeters", "privacy": "on"}
 
 
 def rollen(user):
@@ -118,7 +118,7 @@ class RollenTest(TestCase):
         u = User.objects.get(username="nieuw@test.be")
         self.assertEqual(rollen(u), set())  # start zonder rol
         self.client.post("/welkom/?stap=kinderen", {"actie": "kind", "voornaam": "Lien", "naam": "Peeters",
-                                                    "geboortedatum": "2013-03-02", "geslacht": "F"})
+                                                    "geboortedatum": "2013-03-02", "geslacht": "F", "toestemming": "on"})
         self.assertEqual(rollen(u), {Profiel.OUDER})
         r = self.client.post("/welkom/?stap=staf", {"rollen": [Profiel.TRAINER, Profiel.BEHEERDER], "motivatie": "B-groep"})
         self.assertEqual(r["Location"], "/welkom/?stap=klaar")

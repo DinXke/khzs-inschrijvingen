@@ -1,6 +1,9 @@
 <?php namespace KHZS; defined('ABSPATH') || exit;
 $url = app_url("zwemmers/{$z->id}/"); ?>
 <h1><?= e("{$z->voornaam} {$z->naam}") ?></h1>
+<?php if ($toestemming_nodig): ?><form method="post" class="kaart" action="<?= esc_url($url) ?>"><?= nonce_veld() ?><input type="hidden" name="actie" value="toestemming">
+  <p style="margin-top:0"><b>Toestemming van een ouder of voogd</b>: <?= e($z->voornaam) ?> is jonger dan 18 jaar. Bevestig dat je ouder of voogd bent (of hun toestemming hebt) en akkoord gaat dat de club deze gegevens verwerkt zoals beschreven in de <a href="<?= esc_url(app_url('privacy/')) ?>">privacyverklaring</a>.</p>
+  <button class="mini">Ik geef toestemming</button></form><?php endif; ?>
 <div class="grid twee">
   <div>
     <h2>Beste tijden</h2>

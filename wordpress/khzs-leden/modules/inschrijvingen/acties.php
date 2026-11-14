@@ -83,6 +83,9 @@ function v_registreren(): void
                 $fouten[$k] = 'Dit veld is verplicht.';
             }
         }
+        if (empty($_POST['privacy'])) {
+            $fouten['privacy'] = 'Je moet de privacyverklaring aanvaarden om een account te maken.';
+        }
         $w1 = post_ruw('password1') ?? '';
         $w2 = post_ruw('password2') ?? '';
         if (mb_strlen($w1) < 8) {
@@ -100,6 +103,7 @@ function v_registreren(): void
                 $fouten['email'] = $uid->get_error_message();
             } else {
                 zet_rollen($uid, []); // nog geen rol: die volgt uit de antwoorden in het stappenplan
+                privacy_akkoord($uid);
                 wp_set_current_user($uid);
                 wp_set_auth_cookie($uid, true, is_ssl());
                 naar(app_url('welkom/'));
@@ -115,8 +119,9 @@ const WELKOM_STAPPEN = ['zelf', 'kinderen', 'staf', 'klaar'];
 function nieuwe_zwemmer(array $v, int $uid, bool $zelf): int
 {
     $ploeg = (int) ($v['ploeg'] ?? 0);
-    unset($v['ploeg']);
-    db()->insert(t('zwemmers'), $v + ['account_id' => $uid]);
+    $toestemming = !empty($v['toestemming']);
+    unset($v['ploeg'], $v['toestemming']);
+    db()->insert(t('zwemmers'), $v + ['account_id' => $uid] + ($toestemming ? ['toestemming_op' => nu_sql(), 'toestemming_door' => $uid] : []));
     $id = (int) db()->insert_id;
     zorg_gezinsrol($uid, $zelf);
     if ($ploeg && ($p = ploeg($ploeg))) {
@@ -145,6 +150,7 @@ function v_welkom(): void
         if ($stap === 'zelf' || post('actie') === 'kind') {
             [$v, $f] = lees_zwemmer('');
             $v['ploeg'] = post('ploeg');
+            controleer_toestemming($v, $f);
             if (!$f) {
                 $id = nieuwe_zwemmer($v, $u->ID, $stap === 'zelf');
                 flash($stap === 'zelf' ? 'Je bent toegevoegd als zwemmer.' : "{$v['voornaam']} is toegevoegd. Nog een kind? Vul het formulier opnieuw in.");
@@ -292,6 +298,7 @@ function v_zwemmer_nieuw(): void
     if (is_post()) {
         [$v, $f] = lees_zwemmer('');
         $v['ploeg'] = post('ploeg');
+        controleer_toestemming($v, $f);
         if (!$f) {
             $id = nieuwe_zwemmer($v, $u->ID, is_zelf($v, $u));
             flash("{$v['voornaam']} {$v['naam']} toegevoegd.");
@@ -314,6 +321,11 @@ function v_zwemmer($id): void
     $tijd = ['slag' => 'FREE', 'afstand' => '', 'baan' => 'SCM', 'tijd' => '', 'datum' => '', 'wedstrijd' => ''];
     $tf = [];
     if (is_post()) {
+        if (post('actie') === 'toestemming' && heeft_account($z, get_current_user_id())) {
+            geef_toestemming((int) $z->id, get_current_user_id());
+            flash('Toestemming bewaard. Bedankt!');
+            naar(app_url("zwemmers/{$z->id}/"));
+        }
         if (isset($_POST['z-voornaam'])) {
             [$v, $f] = lees_zwemmer('z-');
             if (!$f) {
@@ -366,7 +378,8 @@ function v_zwemmer($id): void
     toon('inschrijvingen/zwemmer', ['z' => $z, 'v' => $v, 'f' => $f, 'tijd' => $tijd, 'tf' => $tf, 'tijden' => tijden_van((int) $z->id),
         'lidmaatschappen' => $lidmaatschappen, 'kies_ploegen' => array_values(array_filter(actieve_ploegen(), fn($p) => !in_array($p->id, $al))),
         'meldingen' => meldingen(db()->prepare('m.zwemmer_id=%d', $z->id)), 'inschrijvingen' => $inschrijvingen,
-        'accounts' => array_filter(array_map('get_userdata', zwemmer_accounts($z))), 'koppelcode' => koppel_toon(koppel_geldige_code($z) ?? '')],
+        'accounts' => array_filter(array_map('get_userdata', zwemmer_accounts($z))), 'koppelcode' => koppel_toon(koppel_geldige_code($z) ?? ''),
+        'toestemming_nodig' => minderjarig($z->geboortedatum) && empty($z->toestemming_op) && heeft_account($z, get_current_user_id())],
         "{$z->voornaam} {$z->naam}");
 }
 

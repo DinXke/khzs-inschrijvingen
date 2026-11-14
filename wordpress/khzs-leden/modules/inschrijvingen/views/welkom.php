@@ -8,7 +8,7 @@ $_ploegveld = fn($p) => $ploegen ? veld_select("{$p}ploeg", 'Ploeg', ['' => 'Wee
 <h1>Zwem je zelf?</h1>
 <?php if ($zelf_ontbreekt): ?>
 <p class="klein">Bijvoorbeeld bij de masters. Vul dan je gegevens aan; je naam staat er al.</p>
-<form method="post" class="kaart" action="<?= $_stap('zelf') ?>"><?= nonce_veld() ?><?= zwemmer_velden('', $v, $f) ?><?= $_ploegveld('') ?>
+<form method="post" class="kaart" action="<?= $_stap('zelf') ?>"><?= nonce_veld() ?><?= zwemmer_velden('', $v, $f) ?><?= $_ploegveld('') ?><?= toestemming_veld($f) ?>
   <p><button class="vol">Ja, voeg mij toe als zwemmer</button></p></form>
 <?php else: ?><div class="kaart"><p>Je staat al bij je zwemmers.</p></div><?php endif; ?>
 <p><a class="knop secundair vol" href="<?= $_stap('kinderen') ?>"><?= $zelf_ontbreekt ? 'Nee, ik zwem niet zelf' : 'Volgende' ?></a></p>
@@ -18,7 +18,7 @@ $_ploegveld = fn($p) => $ploegen ? veld_select("{$p}ploeg", 'Ploeg', ['' => 'Wee
 <?php if ($kinderen): ?><div class="kaart"><?php foreach ($kinderen as $z): ?><div class="rij tussen" style="padding:.3rem 0"><strong><?= e("{$z->voornaam} {$z->naam}") ?></strong>
   <span><?php foreach (ploegen_van_zwemmer((int) $z->id) as $_l) { echo $_badge($_l); } ?></span></div><?php endforeach; ?></div><?php endif; ?>
 <details class="kaart" <?= !$kinderen || $f ? 'open' : '' ?>><summary><strong><?= $kinderen ? '+ Nog een kind toevoegen' : 'Ja, een kind toevoegen' ?></strong></summary>
-  <form method="post" action="<?= $_stap('kinderen') ?>"><?= nonce_veld() ?><input type="hidden" name="actie" value="kind"><?= zwemmer_velden('', $v, $f) ?><?= $_ploegveld('') ?>
+  <form method="post" action="<?= $_stap('kinderen') ?>"><?= nonce_veld() ?><input type="hidden" name="actie" value="kind"><?= zwemmer_velden('', $v, $f) ?><?= $_ploegveld('') ?><?= toestemming_veld($f) ?>
     <p><button class="vol">Kind toevoegen</button></p></form></details>
 <details class="kaart" <?= $koppel_fout ? 'open' : '' ?>><summary><strong>Mijn kind staat al bij de andere ouder</strong></summary>
   <p class="klein">Vraag de andere ouder om een koppelcode (bij de zwemmer → ‘Koppelcode maken’) en vul ze hier in.</p>

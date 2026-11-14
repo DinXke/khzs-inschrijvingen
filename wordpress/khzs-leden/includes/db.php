@@ -39,6 +39,8 @@ function installeer_db(): void
   swimrankings_id varchar(20) NOT NULL DEFAULT '',
   koppelcode varchar(8) NOT NULL DEFAULT '',
   koppelcode_tot datetime NULL,
+  toestemming_op datetime NULL,
+  toestemming_door bigint(20) unsigned NULL,
   PRIMARY KEY  (id),
   KEY account_id (account_id),
   KEY koppelcode (koppelcode)
