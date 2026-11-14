@@ -23,13 +23,16 @@ add_filter('khzs_routes', fn($r) => array_merge($r, [
     ['trainers/uren', 'tr_uren', 'v_tr_uren'],
     ['trainers/uren/export', 'tr_export', 'v_tr_export'],
     ['trainers/tarieven', 'tr_tarieven', 'v_tr_tarieven'],
+    ['trainers/zwemmers', 'tr_zwemmers', 'v_tr_zwemmers'],
+    ['trainers/zwemmers/actie', 'tr_zwemmers_actie', 'v_tr_zwemmers_actie'],
+    ['trainers/zwemmers/export', 'tr_zwemmers_export', 'v_tr_zwemmers_export'],
 ]));
 
 // Antwoorden vanuit de pushmelding: de service worker heeft geen nonce; het token in het bericht beveiligt het verzoek.
 add_filter('khzs_zonder_nonce', fn($r) => array_merge($r, ['tr_bevestig']));
 
 add_filter('khzs_menu', fn($m) => $m + [
-    30 => ['Trainingen', 'trainers/', ['tr_mijn', 'tr_planning', 'tr_kalender', 'tr_training', 'tr_beheer', 'tr_moment', 'tr_overzicht', 'tr_wijzigingen'],
+    30 => ['Trainingen', 'trainers/', ['tr_mijn', 'tr_planning', 'tr_kalender', 'tr_training', 'tr_beheer', 'tr_moment', 'tr_overzicht', 'tr_wijzigingen', 'tr_zwemmers'],
         '<path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0 2 1 2 1M2 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><circle cx="16" cy="6" r="2"/>', fn() => tr_is_trainer() || tr_mag_beheren()],
     40 => ['Verloning', 'trainers/uren/', ['tr_uren', 'tr_tarieven'],
         '<rect x="2" y="6" width="20" height="13" rx="2"/><circle cx="12" cy="12.5" r="2.5"/><path d="M6 9.5h.01M18 15.5h.01"/>', fn() => is_penningmeester()],

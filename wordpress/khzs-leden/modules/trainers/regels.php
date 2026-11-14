@@ -26,6 +26,13 @@
  * Trainingen vóór de optie khzs_tr_bevestigen_vanaf (bestaande installaties) tellen mee zonder bevestiging.
  * Gepresteerde uren = trainingen tot en met vandaag, niet afgelast, waarop de trainer ingepland stond en 'ja' bevestigde.
  *
+ * Zwemmers (tr_zwemmers): een trainer duidt aan welke zwemmers op een training waren. Zwemmers en ouders bevestigen
+ *   zelf niets en krijgen geen vraag; ze zien hun aanwezigheden ook niet in de app (enkel in Mijn gegevens, AVG).
+ *   De lijst komt uit de ploegen van de training. Aanduiden mag eender welke trainer van de competitie voor de ploegen
+ *   van de competitie, eender welke trainer van de zwemschool voor die van de zwemschool, en het bestuur, het
+ *   secretariaat en de beheerder voor alles (tr_zw_mag_ploeg). Niet enkel wie op de training ingepland staat.
+ *   Per zwemmer één rij met aanwezig 1 of 0: wie bewaart, bewaart de hele lijst. Geen rijen = niet aangeduid.
+ *
  * Een trainer past zijn of haar eigen voorbije trainingen aan zolang die maand voor hem of haar niet uitbetaald is.
  * Het bestuur kan altijd alles aanpassen; de trainer krijgt dan een melding en ziet de wijziging (tr_log).
  */
@@ -238,6 +245,11 @@ function tr_context(string $van, string $tot): object
     foreach (db()->get_results(db()->prepare("SELECT * FROM " . t('tr_bevestigingen') . " WHERE datum BETWEEN %s AND %s", $van, $tot)) as $r) {
         $c->bev[(int) $r->moment_id][$r->datum][(int) $r->user_id] = $r;
     }
+    $c->zw = [];
+    foreach (db()->get_results(db()->prepare("SELECT moment_id, datum, ploeg_id, SUM(aanwezig) AS aanwezig, COUNT(*) AS totaal FROM " . t('tr_zwemmers')
+        . " WHERE datum BETWEEN %s AND %s GROUP BY moment_id, datum, ploeg_id", $van, $tot)) as $r) {
+        $c->zw[(int) $r->moment_id][$r->datum][(int) $r->ploeg_id] = [(int) $r->aanwezig, (int) $r->totaal];
+    }
     return $c;
 }
 
@@ -248,7 +260,7 @@ function tr_context(string $van, string $tot): object
 function tr_bezetting(object $m, string $datum, object $c): object
 {
     $b = (object) ['moment' => $m, 'datum' => $datum, 'afgelast' => null, 'aanwezig' => [], 'afwezig' => [], 'open' => [],
-        'bevestigd' => $c->bev[(int) $m->id][$datum] ?? []];
+        'bevestigd' => $c->bev[(int) $m->id][$datum] ?? [], 'zwemmers' => $c->zw[(int) $m->id][$datum] ?? [], 'ploegen' => $c->ploegen[(int) $m->id] ?? []];
     $ploegen = $c->ploegen[(int) $m->id] ?? [];
     $verlof = [];
     foreach ($c->afgelast as $a) {
@@ -429,6 +441,177 @@ function tr_logboek(int $uid, bool $enkel_ongelezen = false, int $max = 100): ar
 {
     return db()->get_results(db()->prepare("SELECT * FROM " . t('tr_log') . " WHERE user_id=%d" . ($enkel_ongelezen ? ' AND gelezen=0' : '')
         . " ORDER BY op DESC, id DESC LIMIT %d", $uid, $max));
+}
+
+// ---------- zwemmers op de training ----------
+
+/** Alle ploegen [id => ploeg], één keer per verzoek opgehaald. */
+function tr_ploegen_per_id(): array
+{
+    static $uit = null;
+    return $uit ??= array_column(tr_alle_ploegen(), null, 'id');
+}
+
+/**
+ * Mag dit account de aanwezigheid van de zwemmers van deze ploeg aanduiden en bekijken? Bestuur, secretariaat en
+ * beheerder altijd; een trainer van de competitie voor de ploegen van de competitie, een trainer van de zwemschool
+ * voor die van de zwemschool.
+ */
+function tr_zw_mag_ploeg(object $ploeg, $user = null): bool
+{
+    if (tr_mag_beheren($user)) {
+        return true;
+    }
+    return heeft_rol([($ploeg->soort ?? 'competitie') === 'zwemschool' ? TRAINER_ZWEMSCHOOL : TRAINER], $user);
+}
+
+/** De ploegen waarvan dit account de aanwezigheid mag zien, [id => ploeg]. */
+function tr_zw_ploegen($user = null): array
+{
+    return array_filter(tr_ploegen_per_id(), fn($p) => tr_zw_mag_ploeg($p, $user));
+}
+
+/** De ploegen van deze training waarvan dit account de zwemmers mag aanduiden, [id => ploeg]. */
+function tr_zw_ploegen_van(object $b, $user = null): array
+{
+    $alle = tr_ploegen_per_id();
+    $uit = [];
+    foreach ($b->ploegen as $id) {
+        if (isset($alle[$id]) && tr_zw_mag_ploeg($alle[$id], $user)) {
+            $uit[$id] = $alle[$id];
+        }
+    }
+    return $uit;
+}
+
+/** Kan de aanwezigheid van zwemmers aangeduid worden? Vanaf de dag van de training, niet als ze afgelast is. */
+function tr_zw_kan(object $b): bool
+{
+    return !$b->afgelast && $b->datum <= vandaag()->format('Y-m-d');
+}
+
+/** Telling voor de ploegen in $ploegen: [aanwezig, totaal], of null als nog niets aangeduid is. */
+function tr_zw_telling(object $b, array $ploegen): ?array
+{
+    $t = null;
+    foreach ($ploegen as $id => $_) {
+        if (isset($b->zwemmers[$id])) {
+            $t = [($t[0] ?? 0) + $b->zwemmers[$id][0], ($t[1] ?? 0) + $b->zwemmers[$id][1]];
+        }
+    }
+    return $t;
+}
+
+/**
+ * De lijst om aan te duiden: [ploeg_id => ['ploeg' => ploeg, 'zwemmers' => [zwemmer met ->aanwezig (null, 0 of 1)], 'laatst' => rij|null]].
+ * Per ploeg de huidige zwemmers, plus wie al aangeduid was maar intussen niet meer in de ploeg zit. Een zwemmer in
+ * twee ploegen van dezelfde training staat één keer, onder de eerste ploeg.
+ */
+function tr_zw_lijst(object $b, array $ploegen): array
+{
+    $bestaand = [];
+    foreach (db()->get_results(db()->prepare("SELECT * FROM " . t('tr_zwemmers') . " WHERE moment_id=%d AND datum=%s", $b->moment->id, $b->datum)) as $r) {
+        $bestaand[(int) $r->zwemmer_id] = $r;
+    }
+    $uit = [];
+    $gezien = [];
+    foreach ($ploegen as $id => $p) {
+        $zwemmers = ploeg_zwemmers((int) $id);
+        $ids = array_map('intval', array_column($zwemmers, 'id'));
+        foreach ($bestaand as $zid => $r) {
+            if ((int) $r->ploeg_id === (int) $id && !in_array($zid, $ids, true) && ($z = pl_zwemmer($zid))) {
+                $zwemmers[] = $z;
+            }
+        }
+        $lijst = [];
+        foreach ($zwemmers as $z) {
+            $zid = (int) $z->id;
+            if (isset($gezien[$zid])) {
+                continue;
+            }
+            $gezien[$zid] = true;
+            $z->aanwezig = isset($bestaand[$zid]) ? (int) $bestaand[$zid]->aanwezig : null;
+            $lijst[] = $z;
+        }
+        usort($lijst, fn($x, $y) => strcasecmp("$x->voornaam $x->naam", "$y->voornaam $y->naam"));
+        $laatst = null;
+        foreach ($bestaand as $r) {
+            if ((int) $r->ploeg_id === (int) $id && (!$laatst || $r->op > $laatst->op)) {
+                $laatst = $r;
+            }
+        }
+        $uit[$id] = ['ploeg' => $p, 'zwemmers' => $lijst, 'laatst' => $laatst];
+    }
+    return $uit;
+}
+
+/** Bewaart de hele lijst: wie in $aanwezig staat was er (1), de rest niet (0). Geeft [aanwezig, totaal] terug. */
+function tr_zw_bewaar(object $b, array $lijst, array $aanwezig, int $door): array
+{
+    $aanwezig = array_flip(array_map('intval', $aanwezig));
+    $n = [0, 0];
+    foreach ($lijst as $id => $l) {
+        foreach ($l['zwemmers'] as $z) {
+            $ja = isset($aanwezig[(int) $z->id]) ? 1 : 0;
+            db()->query(db()->prepare("INSERT INTO " . t('tr_zwemmers') . " (moment_id, datum, zwemmer_id, ploeg_id, aanwezig, door_id, op) VALUES (%d, %s, %d, %d, %d, %d, %s)"
+                . " ON DUPLICATE KEY UPDATE ploeg_id=VALUES(ploeg_id), aanwezig=VALUES(aanwezig), door_id=VALUES(door_id), op=VALUES(op)",
+                $b->moment->id, $b->datum, $z->id, $id, $ja, $door, nu_sql()));
+            $n[0] += $ja;
+            $n[1]++;
+        }
+    }
+    return $n;
+}
+
+/** Wist de aanduiding van deze ploegen op deze training (terug naar 'niet aangeduid'). */
+function tr_zw_wis(object $b, array $ploegen): void
+{
+    if ($ploegen) {
+        db()->query(db()->prepare("DELETE FROM " . t('tr_zwemmers') . " WHERE moment_id=%d AND datum=%s AND ploeg_id IN (" . in_lijst(array_keys($ploegen)) . ")",
+            $b->moment->id, $b->datum));
+    }
+}
+
+function tr_procent(int $deel, int $totaal): string
+{
+    return $totaal ? round(100 * $deel / $totaal) . ' %' : '—';
+}
+
+/**
+ * Aanwezigheid van zwemmers in [van, tot] voor de ploegen $ploeg_ids. Enkel aangeduide trainingen tellen mee.
+ * Geeft ['zwemmers' => [zid => [naam, ploegen[], aanwezig, afwezig]], 'ploegen' => [pid => [naam, soort, trainingen, aanwezig, totaal]],
+ * 'detail' => rijen uit tr_zwemmers met voornaam, znaam, mnaam, start en einde].
+ */
+function tr_zw_overzicht(string $van, string $tot, array $ploeg_ids): array
+{
+    $uit = ['zwemmers' => [], 'ploegen' => [], 'detail' => []];
+    if (!$ploeg_ids) {
+        return $uit;
+    }
+    $alle = tr_ploegen_per_id();
+    $rijen = db()->get_results(db()->prepare("SELECT a.*, z.voornaam, z.naam AS znaam, m.naam AS mnaam, m.start, m.einde FROM " . t('tr_zwemmers') . " a JOIN "
+        . t('zwemmers') . " z ON z.id=a.zwemmer_id LEFT JOIN " . t('tr_momenten') . " m ON m.id=a.moment_id WHERE a.datum BETWEEN %s AND %s AND a.ploeg_id IN ("
+        . in_lijst($ploeg_ids) . ") ORDER BY a.datum, m.start, z.voornaam, z.naam", $van, $tot));
+    $trainingen = [];
+    foreach ($rijen as $r) {
+        $zid = (int) $r->zwemmer_id;
+        $pid = (int) $r->ploeg_id;
+        $ja = (int) $r->aanwezig;
+        $uit['zwemmers'][$zid] ??= ['naam' => trim("$r->voornaam $r->znaam"), 'ploegen' => [], 'aanwezig' => 0, 'afwezig' => 0];
+        $uit['zwemmers'][$zid]['ploegen'][$pid] = $alle[$pid]->naam ?? '?';
+        $uit['zwemmers'][$zid][$ja ? 'aanwezig' : 'afwezig']++;
+        $uit['ploegen'][$pid] ??= ['naam' => $alle[$pid]->naam ?? '?', 'soort' => $alle[$pid]->soort ?? '', 'trainingen' => 0, 'aanwezig' => 0, 'totaal' => 0];
+        if (!isset($trainingen["$pid|$r->moment_id|$r->datum"])) {
+            $trainingen["$pid|$r->moment_id|$r->datum"] = true;
+            $uit['ploegen'][$pid]['trainingen']++;
+        }
+        $uit['ploegen'][$pid]['aanwezig'] += $ja;
+        $uit['ploegen'][$pid]['totaal']++;
+        $uit['detail'][] = $r;
+    }
+    uasort($uit['zwemmers'], fn($a, $b) => strcasecmp($a['naam'], $b['naam']));
+    uasort($uit['ploegen'], fn($a, $b) => strcasecmp($a['naam'], $b['naam']));
+    return $uit;
 }
 
 // ---------- vraag na de training (pushmelding met Ja/Nee) ----------

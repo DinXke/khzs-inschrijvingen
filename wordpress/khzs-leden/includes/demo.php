@@ -53,7 +53,7 @@ function demo_enkel(): bool
 /** Versie van de code van de demo: verandert ze (update van de plugin), dan wordt de demo opnieuw opgebouwd. */
 function demo_code_versie(): string
 {
-    return VERSIE . '|' . DB_VERSIE . '|' . md5_file(KHZS_PAD . 'includes/demo-data.php');
+    return VERSIE . '|' . DB_VERSIE . '|' . (defined(__NAMESPACE__ . '\TR_DB_VERSIE') ? TR_DB_VERSIE : '') . '|' . md5_file(KHZS_PAD . 'includes/demo-data.php');
 }
 
 function demo_slug(): string
@@ -302,8 +302,11 @@ function demo_terugzetten(): void
     $was = is_demo();
     demo_start();
     try {
-        if (get_option('khzs_db_versie') !== DB_VERSIE) {
+        // Ook als enkel een module nieuwe tabellen heeft (TR_DB_VERSIE): de optie van de module geldt voor de echte site.
+        $tr = defined(__NAMESPACE__ . '\TR_DB_VERSIE') ? TR_DB_VERSIE : '';
+        if (get_option('khzs_db_versie') !== DB_VERSIE || get_option('khzs_demo_tr_db_versie') !== $tr) {
             installeer_db(); // in de demo: enkel de demotabellen
+            update_option('khzs_demo_tr_db_versie', $tr, false);
         }
         demo_accounttabellen();
         demo_controleer();

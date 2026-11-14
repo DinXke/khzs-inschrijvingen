@@ -1,6 +1,7 @@
 <?php namespace KHZS; defined('ABSPATH') || exit; include __DIR__ . '/_stijl.php'; $vandaag = vandaag()->format('Y-m-d'); ?>
 <div class="rij tussen"><h1>Mijn trainingen</h1>
   <div class="rij"><a class="knop secundair" href="<?= esc_url(app_url('trainers/kalender/')) ?>">🗓️ Kalender</a><a class="knop secundair" href="<?= esc_url(app_url('trainers/planning/')) ?>">📅 Planning</a>
+  <?php if (tr_zw_ploegen()): ?><a class="knop secundair" href="<?= esc_url(app_url('trainers/zwemmers/')) ?>">🏊 Zwemmers</a><?php endif; ?>
   <?php if (tr_mag_beheren()): ?><a class="knop secundair" href="<?= esc_url(app_url('trainers/overzicht/')) ?>">Overzicht trainers</a><?php endif; ?>
   <?php if (tr_mag_beheren()): ?><a class="knop secundair" href="<?= esc_url(app_url('trainers/beheer/')) ?>">Trainingen beheren</a><?php endif; ?></div></div>
 
@@ -23,6 +24,20 @@
     <button class="mini ok">✓ Ik was overal aanwezig (<?= count($te_bevestigen) ?>)</button></form>
   <?php endif; ?>
   <p class="help">Enkel trainingen waarop je aanwezig was, tellen mee voor je uren.</p>
+</div>
+<?php endif; ?>
+
+<?php if ($zwemmers_aanduiden): ?>
+<h2>🏊 Zwemmers aanduiden</h2>
+<div class="kaart" style="border-left:4px solid var(--ok)">
+  <?php foreach ($zwemmers_aanduiden as $b): ?>
+  <div class="tr-rij">
+    <a class="tr-datum" href="<?= esc_url(tr_training_url($b->moment, $b->datum) . '#zwemmers') ?>"><b><?= e(datum($b->datum, 'D')) ?></b><span><?= e(datum($b->datum, 'j M')) ?></span></a>
+    <div class="tr-info"><strong><?= e($b->moment->naam) ?></strong><span class="klein"><?= e(tr_tijd($b->moment)) ?> · <?= e(tr_ploegnamen(array_keys(tr_zw_ploegen_van($b)))) ?></span></div>
+    <div class="tr-status"><a class="knop mini ok" href="<?= esc_url(tr_training_url($b->moment, $b->datum) . '#zwemmers') ?>">Wie was er?</a></div>
+  </div>
+  <?php endforeach; ?>
+  <p class="help">Je trainingen van de voorbije week waarop de zwemmers nog niet aangeduid zijn.</p>
 </div>
 <?php endif; ?>
 

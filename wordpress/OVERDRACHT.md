@@ -140,6 +140,24 @@ Vragen van de eigenaar: *"er is ook een groot verschil tussen een trainer van de
 - **Fout uit main hersteld**: `views/_layout.php` (PR #16) zette `$p = $pagina` en overschreef zo de ploeg `$p` in `views/ploeg.php`; de pagina van een ploeg toonde geen naam, beschrijving of formulier. Nu `$_pagina`.
 - **Niet gedaan**: een vervangingsvraag gaat nog naar alle trainers (ook die van de andere soort). Dat zou kunnen per soort van de ploegen van de training. Kanalen per ploeg bestaan nog niet (communicatiemodule).
 
+## Trainers: aanwezigheid van zwemmers (branch `wordpress/zwemmers-aanwezigheid`)
+
+Vraag van de eigenaar: *"zwemmers moeten hun training niet bevestigen. het kan wel handig zijn voor een trainer dat die kan aangeven wie van zijn/haar zwemmers er die training waren. eender welke competitietrainer moet dat kunnen voor de competitie en zwemschool trainers voor de zwemschool (en bestuur)"*.
+
+- **Branch**: vertrekt van `main` met #7 tot #21 erin. Enkel de WordPress-plugin; de trainersmodule bestaat niet in Django.
+- **Geen bevestiging door zwemmers.** Nagekeken: de vraag *Was je aanwezig?* (`tr_vraag_aanwezigheid()`) gaat enkel naar de trainers die op de training staan (`tr_vast` en `tr_wijzigingen`). Er was geen melding of bevestiging voor zwemmers, er moest niets weg. De e2e-test controleert dat een ouder met een toestel na de cron geen melding krijgt.
+- **Tabel** `tr_zwemmers` (`TR_DB_VERSIE` 4): moment, datum, zwemmer, ploeg, aanwezig (1/0), door, op. Unieke sleutel per training en zwemmer. Wie bewaart, bewaart de hele lijst (1 of 0 per zwemmer); geen rijen = niet aangeduid. Zo tellen de percentages enkel aangeduide trainingen. `ploeg_id` is de ploeg waaronder de zwemmer op de lijst stond: nodig voor het overzicht per ploeg en voor de rechten.
+- **Rechten** (`tr_zw_mag_ploeg()` in `regels.php`), per ploeg en niet per training: `tr_mag_beheren()` (bestuur, beheerder, penningmeester, secretariaat) altijd; rol `trainer` voor ploegen met soort competitie, `trainer_zwemschool` voor de zwemschool. Bij een gemengde training ziet en bewaart elke trainer enkel de eigen soort (`tr_zw_ploegen_van()`); de andere ploegen blijven onaangeroerd, ook bij *wissen*.
+- **Snelste invoer op de gsm**: iedereen staat standaard aangevinkt en de trainer vinkt de afwezigen af (meestal zijn de meesten er). Grote aanraakvlakken, knoppen *Iedereen aanwezig* / *Niemand*, een teller op de bewaarknop en een plakkende bewaarknop onderaan (een klein inline script, zonder bibliotheek; zonder JavaScript werkt het formulier ook). `views/_zwemmers.php`, opgenomen in `views/training.php`.
+  - Vanaf de dag van de training (`tr_zw_kan()`), niet op een afgelaste training. Zwemmers die intussen uit de ploeg gingen, blijven op de lijst van een al aangeduide training. Een zwemmer in twee ploegen van dezelfde training staat één keer.
+  - De telling per training zit in `tr_context()` (`$b->zwemmers`, één groepsquery), dus de lijsten (`_training.php`), de kalender en *Mijn trainingen* (sectie *Zwemmers aanduiden*: eigen trainingen van de voorbije week zonder aanduiding) kosten geen extra query per training.
+- **Overzicht** `trainers/zwemmers/` (`v_tr_zwemmers()`, `tr_zw_overzicht()`): periode (standaard het lopende seizoen, anders drie maanden) en ploeg; per ploeg aangeduide trainingen en gemiddelde, per zwemmer aanwezig, afwezig en %. Export `trainers/zwemmers/export/` met `maak_xlsx()`. Wie geen enkele ploeg mag zien, krijgt 403.
+- **Zwemmers en ouders zien niets** in de app (zoals gevraagd; later eventueel bij de zwemmer tonen). Wel in de JSON van *Mijn gegevens* (`khzs_mijn_zwemmer`): dat is het recht op inzage van de AVG. De privacyverklaring vermeldt de aanwezigheden (wie ze ziet en waarom). **Zet in de instellingen een nieuwe versie van de privacyverklaring** als je dit uitrolt, zodat de leden ze opnieuw bevestigen.
+- **Opkuis**: een zwemmer verwijderen wist de aanwezigheden (`khzs_zwemmer_verwijderd`), een ploeg verwijderen ook die van de ploeg.
+- **Demo**: aanwezigheden voor alle voorbije trainingen behalve de laatste twee dagen (die staan bij *Zwemmers aanduiden*). Elke zwemmer heeft een eigen kans tussen 60 en 97 %. Fout opgelost: `demo_terugzetten()` maakte nieuwe tabellen enkel aan bij een nieuwe `DB_VERSIE` van de kern. Nu ook bij een nieuwe `TR_DB_VERSIE` (optie `khzs_demo_tr_db_versie`), en die versie zit in `demo_code_versie()`.
+- **Tests**: `ZwemmersAanwezigTest` (vóór de dag, lijst per soort, alles aangevinkt, *Zwemmers aanduiden* en tellingen in lijst en kalender, bewaren, soort van een andere trainer genegeerd, bestuur ziet alles, ouder 403 en geen push, overzicht met %, Excel, wissen per soort, afgelast, zwemmer verwijderen) en `DemoTest.test_aanwezigheid_zwemmers`.
+- **Niet gedaan**: zwemmers of ouders hun aanwezigheden tonen, of laten afmelden voor een training (RSVP). Een melding aan de trainer als de zwemmers van een training na een dag nog niet aangeduid zijn.
+
 ## Stand van zaken (14/11/2026, eind van de dag)
 
 - **Alles staat op `main`**, samengevoegd op vraag van de eigenaar via vijf pull requests:
@@ -193,7 +211,7 @@ Start Claude Code in de map van de repo. Claude leest dan automatisch `CLAUDE.md
 
 - Waarschuwing als een trainer een jaarbedrag nadert (bv. het plafond van de vrijwilligersvergoeding), instelbaar in wp-admin.
 - Groepen (A-groep, B-groep…) als gedeelde gegevens in de kern. Inschrijvingen kan dan een wedstrijd beperken tot een groep, en Trainers kan een groep aan een training koppelen.
-- RSVP of aanwezigheden voor zwemmers (afmelden voor een training, activiteiten).
+- RSVP voor zwemmers (afmelden voor een training, activiteiten). De aanwezigheid aanduiden door de trainer bestaat (branch `wordpress/zwemmers-aanwezigheid`).
 - Testen op echte toestellen: installeren op Android en iPhone, en pushmeldingen.
 - Eventueel "gelezen" per ouder bijhouden in plaats van per melding.
 - Installatie op www.khzs.be: zip uploaden, permalinks controleren, zelf registreren eerst uitzetten, en daarna de migratie vanuit Django.

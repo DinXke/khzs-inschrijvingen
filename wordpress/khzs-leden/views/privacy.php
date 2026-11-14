@@ -25,7 +25,7 @@ $_trainers = module_actief('trainers'); ?>
   <li><b>Zwemmers</b>: voornaam, naam, geboortedatum, geslacht, en als je ze invult je licentienummer en je Swimrankings-ID. Veel zwemmers zijn minderjarig: hun gegevens worden ingevuld door een ouder of voogd, die daarvoor toestemming geeft.</li>
   <li><b>Ploegen</b>: in welke ploeg een zwemmer zit of wil zitten, en wie de ploeg traint.</li>
   <li><b>Wedstrijden</b>: of een zwemmer wil deelnemen, de inschrijvingen met inschrijftijden, de beste tijden en uitslagen, en de wijzigingen die een trainer of het secretariaat daaraan deed.</li>
-  <?php if ($_trainers): ?><li><b>Trainers</b>: welke trainingen je geeft, afmeldingen en vervangingen, de gepresteerde uren, je vergoeding (tarief) en de uitbetalingen.</li><?php endif; ?>
+  <?php if ($_trainers): ?><li><b>Trainers</b>: welke trainingen je geeft, afmeldingen en vervangingen, de gepresteerde uren, je vergoeding (tarief) en de uitbetalingen. Voor zwemmers: op welke trainingen ze aanwezig waren, zoals een trainer dat aanduidt.</li><?php endif; ?>
   <li><b>Pushmeldingen</b>: zet je meldingen aan, dan bewaren we per toestel het adres van de pushdienst van je browser, de sleutels om berichten te versleutelen en het type browser. Je voorkeuren (welke meldingen je wil) horen bij je account.</li>
   <li><b>Technische gegevens</b>: om je aangemeld te houden, gebruikt de app cookies (zie punt 7). De server houdt een logboek bij met o.a. IP-adressen, om fouten en misbruik op te sporen.</li>
 </ul>
@@ -34,7 +34,7 @@ $_trainers = module_actief('trainers'); ?>
 <ul>
   <li><b>Ledenwerking en wedstrijden</b>: zwemmers inschrijven voor wedstrijden, ploegen indelen, de inschrijvingen nakijken en doorgeven. Dat is nodig om je lidmaatschap uit te voeren (rechtsgrond: overeenkomst, en het gerechtvaardigd belang van de club).</li>
   <li><b>Inschrijvingen doorgeven</b> aan de organisator van een wedstrijd en de zwemfederatie: zonder die gegevens kan een zwemmer niet deelnemen (overeenkomst).</li>
-  <?php if ($_trainers): ?><li><b>Trainers</b>: de trainingen plannen en de vergoedingen berekenen en uitbetalen. De uitbetalingen moet de club bewaren voor de boekhouding (wettelijke verplichting).</li><?php endif; ?>
+  <?php if ($_trainers): ?><li><b>Trainers</b>: de trainingen plannen, bijhouden welke zwemmers op de trainingen komen, en de vergoedingen berekenen en uitbetalen. De uitbetalingen moet de club bewaren voor de boekhouding (wettelijke verplichting).</li><?php endif; ?>
   <li><b>Meldingen</b> over nieuwe wedstrijden, deadlines en wijzigingen: enkel als je ze zelf aanzet (toestemming). Je kan ze altijd weer uitzetten onder <i>Meldingen</i>.</li>
   <li><b>Veiligheid</b>: aanmelden, misbruik voorkomen en backups maken (gerechtvaardigd belang).</li>
 </ul>
@@ -45,6 +45,7 @@ $_trainers = module_actief('trainers'); ?>
   <li><b>Jij</b>, en de andere accounts die aan dezelfde zwemmer gekoppeld zijn (bv. de andere ouder).</li>
   <li><b>Trainers en het sportsecretariaat</b>: de zwemmers, hun ploegen, tijden en inschrijvingen, om de wedstrijden te regelen.</li>
   <li><b>Bestuurders</b>: de accounts en hun rollen, en de ploegen.</li>
+  <?php if ($_trainers): ?><li><b>Trainers en bestuur</b>: de aanwezigheid van zwemmers op de trainingen (de trainers van de competitie voor de competitie, die van de zwemschool voor de zwemschool). Zwemmers en ouders zien ze niet in de app, wel in <i>Mijn gegevens</i>.</li><?php endif; ?>
   <?php if ($_trainers): ?><li><b>De penningmeester</b>: de uren, tarieven en uitbetalingen van de trainers.</li><?php endif; ?>
   <li><b>Beheerders</b> van de app en de website: alle gegevens, om de app te onderhouden en backups te maken.</li>
   <li><b>Buiten de club</b>:

@@ -6,10 +6,10 @@ namespace KHZS;
 defined('ABSPATH') || exit;
 
 add_filter('khzs_tabellen', fn($t) => array_merge($t, ['tr_momenten', 'tr_vast', 'tr_wijzigingen', 'tr_afgelast', 'tr_tarieven', 'tr_uitbetaald',
-    'tr_bevestigingen', 'tr_log', 'tr_moment_ploegen', 'tr_seizoenen']));
+    'tr_bevestigingen', 'tr_log', 'tr_moment_ploegen', 'tr_seizoenen', 'tr_zwemmers']));
 
 /** Versie van de tabellen van deze module; los van DB_VERSIE van de kern, zodat de module zelf kan bijwerken. */
-const TR_DB_VERSIE = '3';
+const TR_DB_VERSIE = '4';
 
 add_action('plugins_loaded', function () {
     if (get_option('khzs_tr_db_versie') === TR_DB_VERSIE) {
@@ -34,10 +34,23 @@ add_action('khzs_gebruiker_verwijderd', function (int $uid) {
 });
 
 add_action('khzs_ploeg_verwijderd', function (int $ploeg_id) {
-    // De trainingen blijven bestaan (zonder deze ploeg); het verlof van de ploeg verdwijnt mee.
+    // De trainingen blijven bestaan (zonder deze ploeg); het verlof en de aanwezigheden van de ploeg verdwijnen mee.
     db()->delete(t('tr_moment_ploegen'), ['ploeg_id' => $ploeg_id]);
     db()->delete(t('tr_afgelast'), ['ploeg_id' => $ploeg_id]);
+    db()->delete(t('tr_zwemmers'), ['ploeg_id' => $ploeg_id]);
 });
+
+add_action('khzs_zwemmer_verwijderd', fn(int $id) => db()->delete(t('tr_zwemmers'), ['zwemmer_id' => $id]));
+
+// AVG: de aanwezigheden van een zwemmer horen bij het recht op inzage (Mijn gegevens), ook al tonen we ze niet in de app.
+add_filter('khzs_mijn_zwemmer', function (array $d, object $z) {
+    $rijen = db()->get_results(db()->prepare("SELECT a.datum, a.aanwezig, m.naam FROM " . t('tr_zwemmers') . " a LEFT JOIN " . t('tr_momenten')
+        . " m ON m.id=a.moment_id WHERE a.zwemmer_id=%d ORDER BY a.datum", $z->id));
+    if ($rijen) {
+        $d['aanwezigheid_op_trainingen'] = array_map(fn($r) => ['datum' => $r->datum, 'training' => $r->naam, 'aanwezig' => (bool) $r->aanwezig], $rijen);
+    }
+    return $d;
+}, 10, 2);
 
 /**
  * AVG: wie trainingen gaf of vergoed werd, valt onder de bewaarplicht van de boekhouding. Verwijdert zo iemand het
@@ -186,6 +199,22 @@ function schema_trainers(string $c): array
   PRIMARY KEY  (id),
   UNIQUE KEY uniek (moment_id,datum,user_id),
   KEY datum (datum)
+) $c;",
+        // Aanwezigheid van zwemmers op een training, aangeduid door een trainer (zwemmers bevestigen zelf niets).
+        // ploeg_id: de ploeg waaronder de zwemmer op de lijst stond (voor de overzichten per ploeg en de rechten).
+        "CREATE TABLE " . t('tr_zwemmers') . " (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  moment_id bigint(20) unsigned NOT NULL,
+  datum date NOT NULL,
+  zwemmer_id bigint(20) unsigned NOT NULL,
+  ploeg_id bigint(20) unsigned NOT NULL DEFAULT 0,
+  aanwezig tinyint(1) NOT NULL DEFAULT 1,
+  door_id bigint(20) unsigned NULL,
+  op datetime NULL,
+  PRIMARY KEY  (id),
+  UNIQUE KEY uniek (moment_id,datum,zwemmer_id),
+  KEY datum (datum),
+  KEY zwemmer_id (zwemmer_id)
 ) $c;",
         // Aanpassingen door iemand anders (bestuur, secretariaat) aan de planning of de aanwezigheid van een trainer.
         "CREATE TABLE " . t('tr_log') . " (

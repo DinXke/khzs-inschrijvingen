@@ -47,6 +47,16 @@
 .tr-k-cel .tr-k-blok{font-size:.72rem;padding:.15rem .3rem;margin:.15rem 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tr-k-nr{font-weight:700}
 .tr-k-ploegen{margin:-.4rem 0 .4rem 4rem}
+.tr-zw-knoppen{gap:.4rem;margin:.4rem 0 .6rem}
+.tr-zw-ploeg{font-size:1rem;margin:.9rem 0 .3rem}
+.tr-zw-lijst{display:grid;grid-template-columns:repeat(auto-fill,minmax(12rem,1fr));gap:.35rem}
+.tr-zw{display:flex;align-items:center;gap:.6rem;min-height:2.8rem;padding:.35rem .6rem;border:1px solid var(--lijn);border-radius:10px;cursor:pointer;margin:0;font-weight:500}
+.tr-zw input{width:1.35rem;height:1.35rem;margin:0;flex:none;accent-color:var(--ok)}
+.tr-zw:has(input:checked){background:color-mix(in srgb,var(--ok) 12%,transparent);border-color:var(--ok)}
+.tr-zw:has(input:not(:checked)) span{color:var(--zacht);text-decoration:line-through}
+.tr-zw-bewaar{position:sticky;bottom:0;padding:.6rem 0 .2rem;background:var(--kaart,#fff);margin-top:.6rem}
+.tr-zw-bewaar button{width:100%}
+.tr-zw-telling{font-size:.78rem;white-space:nowrap}
 @media (max-width:760px){
   .tr-k-week{grid-template-columns:1fr}
   .tr-k-kol{min-height:0}.tr-k-kol.leeg{display:none}
