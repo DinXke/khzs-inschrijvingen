@@ -53,11 +53,12 @@ Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist 
 
 ## Stand van zaken (14/11/2026, eind van de dag)
 
-- **Alles staat op `main`**, samengevoegd op vraag van de eigenaar via vier pull requests:
+- **Alles staat op `main`**, samengevoegd op vraag van de eigenaar via vijf pull requests:
   - #1: WordPress-plugin met de modules Inschrijvingen en Trainers
   - #2: overdracht bijgewerkt
   - #3: zwemmer bij meerdere accounts (Django-migratie `0011_zwemmer_accounts`)
   - #4: *Ik zwem zelf* en *+ Mezelf*
+  - #5: nieuwe naam KHZS Leden (plugin `wordpress/khzs-leden/`, adres `/leden/`) en nieuw app-icoon
 - Elke commit op `main` komt binnen 10 minuten op de productieserver (`deploy/auto_update.sh`, met terugrol als `update.sh` faalt). Vraag daarom akkoord vóór een nieuwe samenvoeging.
 - **Werkbranch**: `ccr-5219135a-lksd0b`. Die is na de laatste samenvoeging opnieuw gelijkgezet met `main`. Op een andere pc maak je gerust een eigen branch van `main`.
 - **Tests**:
@@ -66,12 +67,16 @@ Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist 
 - **Migratie** naar WordPress getest met de Django-demodata: alle gegevens komen over, ook gekoppelde accounts, en oude wachtwoorden werken.
 - **Push**: de versleuteling en de VAPID-handtekening zijn gecontroleerd met de Python-bibliotheek `cryptography`. Nog niet getest op een echt toestel.
 - **Nog niet geïnstalleerd** op www.khzs.be. Claude had vanuit de cloudomgeving geen toegang tot die site. Maak de zip met `wordpress/bouw.sh` en upload hem via WordPress → Plugins.
-- **Niet bijgewerkt**: de PDF-handleidingen en filmpjes in `docs/` vermelden het koppelen en *Ik zwem zelf* nog niet. Opnieuw maken kan met `docs/build.py` en `docs/video.py`.
+- **Niet bijgewerkt**: de PDF-handleidingen, screenshots en filmpjes in `docs/` tonen nog de oude naam en het oude icoon, en vermelden het koppelen en *Ik zwem zelf* niet. Opnieuw maken kan met `docs/build.py` en `docs/video.py`.
+- **Open bij de eigenaar**:
+  - De GitHub-repo hernoemen van `khzs-inschrijvingen` naar `khzs-leden` (Settings → General). GitHub stuurt het oude adres door.
+  - Daarna op de server: `git -C /opt/khzs/app remote set-url origin https://github.com/DinXke/khzs-leden`.
+  - Op gsm's die de app al hadden, komen het nieuwe icoon en de nieuwe naam soms pas na opnieuw installeren.
 
 ## Verdergaan op een andere pc
 
 ```bash
-git clone https://github.com/DinXke/khzs-leden && cd khzs-leden
+git clone https://github.com/DinXke/khzs-leden && cd khzs-leden   # vóór het hernoemen: khzs-inschrijvingen
 git checkout -b mijn-werk            # niet rechtstreeks op main werken
 # Django
 uv venv --python 3.12 .venv && uv pip install --python .venv -r requirements.txt
@@ -82,13 +87,25 @@ wordpress/tests/testsite.sh && KHZS_URL=http://localhost:8080 python3 wordpress/
 
 Start Claude Code in de map van de repo. Claude leest dan automatisch `CLAUDE.md`, dat naar dit document verwijst. Vraag bijvoorbeeld: *"Lees wordpress/OVERDRACHT.md en ga verder met …"*.
 
+## Wat er gevraagd werd (chronologisch, sessie 14/11/2026)
+
+1. Kan Hugo meerdere gebruikers, editors, formulieren en een inschrijfsysteem met database aan? Advies: Hugo is statisch; de club heeft al WordPress en een eigen Django-inschrijfapp.
+2. "Maak er een WordPress-plugin van die exact hetzelfde werkt, met de WordPress-gebruikers" → plugin (PR #1).
+3. Installatiemelding om de app te installeren (PWA) op de website.
+4. Eén algemene KHZS-plugin met modules, met een extra module voor trainers: wanneer ze training geven, afmelden als ze niet kunnen, en de penningmeester die bedragen koppelt en per maand uren en verloning ziet.
+5. Alles in deze repo zetten, met een overdracht ("geheugen") om elders verder te kunnen.
+6. Een zwemmer aan meerdere accounts koppelen (gescheiden ouders) met een code (PR #3).
+7. Een vinkje "Ik zwem zelf" bij registratie en in het profiel (PR #4).
+8. Alles hernoemen naar KHZS Leden, ook de repo, met het adres `/leden/` (PR #5).
+9. Een logo in dezelfde stijl: HZS bovenaan, "Leden" eronder (PR #5).
+
 ## Mogelijke volgende stappen
 
 - Waarschuwing als een trainer een jaarbedrag nadert (bv. het plafond van de vrijwilligersvergoeding), instelbaar in wp-admin.
 - Groepen (A-groep, B-groep…) als gedeelde gegevens in de kern. Inschrijvingen kan dan een wedstrijd beperken tot een groep, en Trainers kan een groep aan een training koppelen.
 - RSVP of aanwezigheden voor zwemmers (afmelden voor een training, activiteiten).
 - Testen op echte toestellen: installeren op Android en iPhone, en pushmeldingen.
-- De PDF-handleidingen en filmpjes bijwerken met het koppelen van zwemmers en *Ik zwem zelf*.
+- De PDF-handleidingen, screenshots en filmpjes bijwerken met de nieuwe naam, het icoon, het koppelen van zwemmers en *Ik zwem zelf*.
 - Eventueel "gelezen" per ouder bijhouden in plaats van per melding.
 - Installatie op www.khzs.be: zip uploaden, permalinks controleren, zelf registreren eerst uitzetten, en daarna de migratie vanuit Django.
 
