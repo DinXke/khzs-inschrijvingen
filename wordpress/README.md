@@ -6,6 +6,7 @@ Eén plugin **KHZS Leden** met een gedeelde kern en modules:
 |---|---|
 | **Inschrijvingen** | De inschrijvingsapp, die hetzelfde werkt als de Django-versie: Lenex-import en -export, inschrijven, nakijken, finaliseren, Excel, uitslagen |
 | **Trainers** | Trainingsrooster, wie geeft welke training, afmelden en vervangen, gepresteerde uren, tarieven en verloning |
+| **Communicatie** | Berichten zoals WhatsApp en Discord: secties, kanalen per ploeg en per wedstrijd, threads, vastgepinde berichten, aankondigingen en hulpvragen met inschrijving |
 
 De **kern** bevat wat alle modules delen:
 - accounts (de gewone WordPress-gebruikers) en rollen
@@ -133,6 +134,45 @@ Een zwemmer kan bij meerdere accounts horen, bv. bij gescheiden ouders.
 
 De loonberekening zelf (bv. wettelijke plafonds van vrijwilligersvergoedingen of het statuut verenigingswerk) gebeurt niet in de plugin. De export is bedoeld voor de boekhouding of het sociaal secretariaat.
 
+## Module Communicatie (Berichten)
+
+Menu *Berichten* (`/leden/berichten/`), voor iedereen die aangemeld is. Alles gebeurt in de app, ook het beheer, en werkt op de gsm.
+
+- **Opbouw zoals Discord**: **secties** (Algemeen, Competitie, Zwemschool) → **kanalen** → **threads**.
+  - Bij de eerste keer maakt de app de secties met vaste kanalen: *Algemeen* (iedereen, enkel staf post), *Trainers en bestuur*, *Competitie algemeen*, *Wedstrijden* en *Zwemschool algemeen*.
+  - **Elke ploeg krijgt vanzelf een kanaal** in de sectie van haar soort. De naam en het archief volgen de ploeg.
+  - **Elke wedstrijd krijgt een thread** onder *Wedstrijden* zodra ze niet meer in concept staat. Op de pagina van de wedstrijd staat een knop *💬 Wedstrijdchat*.
+  - Threads maken trainers en bestuur in een kanaal (bv. *Stage Pasen*). Een thread ziet en gebruikt wie het kanaal ziet.
+- **Chatten**: berichten in tijdsvolgorde, met de dag ertussen, je eigen berichten rechts, de rol naast de naam (bv. *Trainer competitie*), links die klikbaar zijn.
+  - Versturen en nieuwe berichten zonder de pagina te herladen: de pagina vraagt elke 8 seconden nieuwe berichten op zolang ze open staat (geen websockets nodig). Zonder JavaScript werkt alles ook, met herladen.
+  - **@vermelden**: typ `@` en kies een naam. Je kan enkel mensen kiezen die het kanaal zien: trainers, bestuur, wie er al schreef en de leden van de ploeg of wedstrijd. Zo ziet een lid geen lijst van alle leden.
+  - **Bewerken en verwijderen**: je eigen berichten (met het label *bewerkt*). Wie het kanaal modereert, kan elk bericht verwijderen. Er staat dan *Bericht verwijderd*.
+  - **Vastpinnen**: trainers en bestuur pinnen berichten bovenaan het kanaal vast.
+  - **Foto's en pdf's**: enkel trainers en bestuur, tot 5 MB. Foto's worden verkleind tot 1600 pixels. Ze staan in de privémap en zijn enkel te zien voor wie het kanaal ziet.
+- **Wie ziet wat**:
+
+  | | Ziet | Post |
+  |---|---|---|
+  | Zwemmer, ouder | *Algemeen*, de algemene kanalen van zijn soort (competitie of zwemschool), de kanalen van de eigen ploegen, en de wedstrijden waaraan een zwemmer deelnam | waar *leden mogen posten* aanstaat |
+  | Trainer competitie, bestuurder, sportsecretaris, beheerder | alle kanalen | overal |
+  | Trainer zwemschool | alles buiten de competitie: geen sectie Competitie, geen wedstrijden, geen competitieploegen | daar overal |
+  | Trainer van een ploeg | altijd het kanaal van die ploeg | daar overal |
+
+  - **Wedstrijd**: de zwemmers die *Interesse* of *Ik doe mee* kozen of ingeschreven zijn, met al hun gekoppelde accounts. Wie daarna *Ik doe niet mee* kiest of geweigerd wordt, **blijft erin**. Een jaar na de wedstrijd gaat de thread naar het archief (enkel nog lezen).
+- **Beheer**:
+  - *⚙ Kanalen beheren* (bestuur, secretariaat, beheer): secties maken, hernoemen, verwijderen (enkel lege), extra kanalen maken met wie ze ziet (*Alle leden*, *Leden van de competitie*, *Leden van de zwemschool*, *Eén ploeg*, *Enkel trainers en bestuur*).
+  - ⚙ in een kanaal: beschrijving, *zwemmers en ouders mogen posten*, archiveren. Een trainer doet dat voor het kanaal van zijn eigen ploeg; het bestuur voor alle kanalen. Ploegkanalen en wedstrijdthreads kan je niet verwijderen, wel archiveren.
+- **Aankondigingen** bovenaan *Berichten* (hoogstens drie, dringend eerst) en bovenaan het kanaal waarvoor ze zijn. Soorten: *Informatief*, *Dringend*, *Aankondiging* en *Vraag naar hulp*.
+  - Het bestuur maakt ze voor iedereen of voor een kanaal; een trainer voor de kanalen die hij of zij beheert. Optioneel: *wanneer* en *bovenaan tot en met*. *Niet meer bovenaan tonen* beëindigt ze; ze blijven bij *Aankondigingen*.
+  - **Vraag naar hulp** (bv. vrijwilligers voor een wedstrijd of de pastadag): iedereen antwoordt met *Ja*, *Misschien* of *Nee*, met hoeveel personen (standaard 1) en een opmerking. Leden zien het totaal; het bestuur en wie de vraag maakte, zien de lijst en downloaden ze als **Excel**.
+- **Meldingen** (enkel webpush), elk met een eigen schakelaar onder *Meldingen*: *Nieuw bericht in een kanaal*, *Iemand vermeldt mij*, *Nieuwe aankondiging*, *Nieuwe vraag naar hulp*.
+  - Een nieuw bericht meldt de app aan wie **bij het kanaal hoort**: de leden en trainers van de ploeg, de deelnemers aan de wedstrijd en de trainers van de competitie, iedereen bij *Algemeen*. Wie een kanaal enkel ziet omdat hij of zij alles ziet (bv. een bestuurder bij een ploeg), krijgt standaard niets en kan het kanaal *volgen* met 🔔.
+  - Per kanaal kan je **dempen** (🔕); een thread volgt zijn kanaal. Een vermelding komt altijd door.
+  - Meldingen van hetzelfde kanaal vervangen elkaar op de gsm (één melding per kanaal).
+  - Het getal bij *Berichten* in het menu telt de ongelezen berichten in kanalen met meldingen aan, plus nieuwe aankondigingen.
+- **Bewaren**: berichten en aankondigingen 2 jaar (vastgepinde berichten blijven), via de dagelijkse opkuis. Wie het account verwijdert, verliest ook de eigen berichten en antwoorden.
+- **Bestaande installatie**: na de update staat de module uit als je eerder modules koos in wp-admin. Zet ze aan bij *Instellingen → KHZS Leden → Modules*.
+
 ## Websitekalender (The Events Calendar)
 
 Staat op de site de plugin **The Events Calendar**, dan zet de app de wedstrijden automatisch op de evenementenkalender en houdt ze bij.
@@ -205,7 +245,8 @@ De demo staat op **https://khzs.be/leden-demo/**, maar draait op een **aparte Wo
   - zwemmers met beste tijden, inschrijvingen, afgekeurde en geweigerde inschrijvingen, meldingen, en een zwemmer die gedeeld is met de andere ouder;
   - de **ploegen en trainingsuren van de competitie** van www.khzs.be (Competitie 3, Competitie 2, Beloften, Competitie 1 provinciaal en nationaal, Kern). Ploegen die op hetzelfde uur trainen, vormen één training;
   - de **zwemschool**: de lesmomenten van de website, met de groepen Startersgroep, Groep 1 (grijs) t.e.m. Groep 5 (groen), Recreatie en Pre-competitie 1 en 2. Welke groep wanneer zwemt, is verzonnen;
-  - trainersschema's met afmeldingen, vervangers, extra hulp en een *vervanger gezocht*, afgelaste lessen in de schoolvakanties, tarieven, uren, en uitbetaalde maanden (één met *gewijzigd na uitbetaling*).
+  - trainersschema's met afmeldingen, vervangers, extra hulp en een *vervanger gezocht*, afgelaste lessen in de schoolvakanties, tarieven, uren, en uitbetaalde maanden (één met *gewijzigd na uitbetaling*);
+  - berichten: de standaardsecties, een kanaal per ploeg, de thread *Stage Pasen*, wedstrijdthreads, vastgepinde berichten en vermeldingen, aankondigingen van elke soort en twee vragen naar hulp met antwoorden (de pastadag en juryleden).
   - De datums hangen af van vandaag, dus de demo blijft actueel.
 - **Terugzetten** naar de begintoestand:
   - elke nacht om 03:30 (WP-Cron);
@@ -248,6 +289,7 @@ De app heeft een privacyverklaring op `/leden/privacy/`, voor iedereen leesbaar 
   - wijzigingen aan inschrijvingen (meldingen) na 365 dagen;
   - behandelde rolaanvragen en afgekeurde ploegaanvragen na 365 dagen;
   - pushabonnementen van accounts die 365 dagen niet aanmeldden;
+  - berichten (behalve vastgepinde) en aankondigingen na 2 jaar; wedstrijdthreads gaan een jaar na de wedstrijd naar het archief;
   - verlopen koppelcodes;
   - het logboek van verstuurde herinneringen na 365 dagen;
   - afgesloten accounts na hun bewaartermijn.
@@ -275,7 +317,7 @@ khzs-leden/
     avg.php                   privacyverklaring, akkoord, mijn gegevens, account verwijderen, opkuis
     push.php  backup.php  xlsx.php  velden.php  admin.php  pwa.php
     demo.php                  demo op /leden-demo/: eigen tabellen, accounts en cookie, terugzetten
-    demo-data.php             demodata (ploegen en uren van khzs.be, zwemschool, wedstrijden, trainers)
+    demo-data.php             demodata (ploegen en uren van khzs.be, zwemschool, wedstrijden, trainers, berichten)
   views/                      sjablonen van de kern (_layout, aanmelden, gebruikers…)
   modules/<id>/
     db.php                    tabellen (altijd geladen, zodat gegevens bewaard blijven)
@@ -283,6 +325,8 @@ khzs-leden/
     …                         eigen code en views/
   assets/                     app.css en iconen
 ```
+
+Modules: `inschrijvingen/`, `trainers/` en `communicatie/` (`regels.php`: wie ziet wat, opbouw, meldingen; `acties.php`: de pagina's).
 
 Een nieuwe module voeg je toe met een map `modules/<id>/` (`db.php` met `schema_<id>()`, en `module.php` die via de filters `khzs_routes`, `khzs_menu`, `khzs_tabellen`, `khzs_voorkeuren` en `khzs_taken` inhaakt) en een regel in `modules()` in `includes/kern.php`.
 
