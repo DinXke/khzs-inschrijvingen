@@ -31,6 +31,7 @@ require_once KHZS_PAD . 'includes/velden.php';
 require_once KHZS_PAD . 'includes/kern-acties.php';
 require_once KHZS_PAD . 'includes/admin.php';
 require_once KHZS_PAD . 'includes/pwa.php';
+require_once KHZS_PAD . 'includes/update.php';
 
 // ---------- modules ----------
 // De tabellen van elke module worden altijd geladen (ook uitgeschakeld blijven de gegevens bewaard en in de backup);

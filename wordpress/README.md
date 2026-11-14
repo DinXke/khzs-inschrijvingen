@@ -29,6 +29,22 @@ De app staat op `https://jouwsite.be/leden/`. De oudere adressen `/inschrijvinge
 
 Vereisten: WordPress 6.2+, PHP 8.0+ met de extensies `zip`, `simplexml`, `dom` en `openssl`. Er zijn geen andere plugins nodig.
 
+## Updates vanaf GitHub
+
+De plugin haalt nieuwe versies zelf op uit de GitHub-releases van deze repo (`includes/update.php`). Je hoeft de zip enkel de eerste keer zelf te uploaden.
+
+- WordPress toont een nieuwe versie zoals bij elke andere plugin, onder **Dashboard → Updates** en in de pluginlijst.
+- Klik in de pluginlijst bij KHZS Leden op **Automatische updates inschakelen**. Dan installeert WordPress elke nieuwe versie vanzelf.
+- WordPress kijkt twee keer per dag. Wil je meteen kijken? Klik dan in de pluginlijst op **Op updates controleren**.
+
+Een nieuwe versie uitbrengen:
+
+1. Verhoog de versie in `khzs-leden/khzs-leden.php`, zowel op de regel `Version:` als bij `const VERSIE`.
+2. Merge naar `main`.
+3. `git tag plugin-v2.1.0 && git push origin plugin-v2.1.0`
+
+De GitHub Action `.github/workflows/plugin-release.yml` controleert dan of de versies kloppen, bouwt `khzs-leden.zip` met `bouw.sh` en maakt de release. Enkel releases met een tag `plugin-v…` en de bijlage `khzs-leden.zip` tellen mee. Concepten en pre-releases worden genegeerd.
+
 ## Rollen
 
 | App-rol | Kan |
