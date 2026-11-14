@@ -691,6 +691,7 @@ function v_bijlage_toevoegen($id): void
         naar($terug);
     }
     db()->insert(t('bijlagen'), ['wedstrijd_id' => $w->id, 'bestand' => $rel, 'naam' => $naam, 'door_id' => get_current_user_id(), 'toegevoegd' => nu_sql()]);
+    do_action('khzs_wedstrijd_bewaard', (int) $w->id);
     flash("Bijlage ‘{$naam}’ toegevoegd.");
     naar($terug);
 }
@@ -702,15 +703,20 @@ function v_bijlage_verwijderen($id): void
     $b = rij('bijlagen', (int) $id) ?: niet_gevonden();
     @unlink(prive_map() . '/' . $b->bestand);
     db()->delete(t('bijlagen'), ['id' => $b->id]);
+    do_action('khzs_bijlage_verwijderd', (int) $b->id);
+    do_action('khzs_wedstrijd_bewaard', (int) $b->wedstrijd_id);
     flash("Bijlage ‘{$b->naam}’ verwijderd.");
     naar(terug(app_url("wedstrijd/{$b->wedstrijd_id}/nakijken/")));
 }
 
-/** Download via de app (de privémap wordt niet publiek geserveerd). */
+/** Download via de app (de privémap wordt niet publiek geserveerd). Publieke bijlagen (websitekalender) ook zonder aanmelden. */
 function v_bijlage($id): void
 {
-    vereist_login();
-    $b = rij('bijlagen', (int) $id) ?: niet_gevonden();
+    $b = rij('bijlagen', (int) $id);
+    if (!$b || !bijlage_publiek($b)) {
+        vereist_login();
+    }
+    $b = $b ?: niet_gevonden();
     $pad = prive_map() . '/' . $b->bestand;
     if (!is_file($pad)) {
         niet_gevonden();
@@ -741,6 +747,7 @@ function v_nakijken($id): void
             $instfout['dagen_trainer'] = 'Geef een positief geheel getal op.';
         } else {
             db()->update(t('wedstrijden'), ['dagen_trainer' => $dagen, 'info' => post('info')], ['id' => $w->id]);
+            do_action('khzs_wedstrijd_bewaard', (int) $w->id);
             $w = wedstrijd((int) $w->id);
             flash('Bewaard. Deadline zwemmers is nu ' . deadline_zwemmer($w)->format('d/m/Y') . '.');
             naar(app_url("wedstrijd/{$w->id}/nakijken/"));
@@ -1036,6 +1043,7 @@ function v_instellingen($id): void
                 db()->update(t('limietlijsten'), ['gekozen' => isset($gekozen["{$l->naam}|{$l->baan}"]) ? 1 : 0], ['id' => $l->id]);
             }
             $w = wedstrijd((int) $w->id);
+            do_action('khzs_wedstrijd_bewaard', (int) $w->id);
             if ($vorige_status !== W_OPEN && $w->status === W_OPEN) {
                 $n = stuur(users_met('push_nieuwe_wedstrijd', null, (int) $w->id), "Inschrijvingen open: {$w->naam}",
                     'Inschrijven kan tot ' . deadline_zwemmer($w)->format('d/m') . '.', app_url("wedstrijd/{$w->id}/"));

@@ -235,4 +235,5 @@ function verwijder_wedstrijd(int $id): void
         db()->delete(t($tab), ['wedstrijd_id' => $id]);
     }
     db()->delete(t('wedstrijden'), ['id' => $id]);
+    do_action('khzs_wedstrijd_verwijderd', $id);
 }

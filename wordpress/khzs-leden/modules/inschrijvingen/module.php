@@ -10,6 +10,7 @@ require_once __DIR__ . '/data.php';
 require_once __DIR__ . '/lenex.php';
 require_once __DIR__ . '/export.php';
 require_once __DIR__ . '/acties.php';
+require_once __DIR__ . '/kalender.php';
 
 add_filter('khzs_routes', fn($r) => array_merge($r, [
     ['registreren', 'registreren', 'v_registreren'],

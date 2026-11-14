@@ -39,6 +39,20 @@ mkdir -p "$MAP/site/wp-content/plugins" "$MAP/site/wp-content/mu-plugins"
 ln -sfn "$PLUGIN" "$MAP/site/wp-content/plugins/khzs-leden"
 ln -sfn "$HIER/khzs-test-helper.php" "$MAP/site/wp-content/mu-plugins/khzs-test-helper.php"
 WP plugin activate khzs-leden >/dev/null
+# The Events Calendar, voor de synchronisatie van de wedstrijden met de websitekalender (KHZS_TEC=0 slaat dit over).
+# Lukt de installatie niet, dan worden die tests overgeslagen.
+if [ "${KHZS_TEC:-1}" = 1 ]; then
+  if [ ! -d "$MAP/plugins/the-events-calendar" ]; then
+    composer config -q --no-interaction repositories.wpackagist composer https://wpackagist.org
+    composer config -q --no-interaction allow-plugins.composer/installers true
+    composer config -q --no-interaction --json extra.installer-paths '{"plugins/{$name}/": ["type:wordpress-plugin"]}'
+    composer require -q --no-interaction wpackagist-plugin/the-events-calendar || echo "The Events Calendar niet geïnstalleerd"
+  fi
+  if [ -d "$MAP/plugins/the-events-calendar" ]; then
+    ln -sfn "$MAP/plugins/the-events-calendar" "$MAP/site/wp-content/plugins/the-events-calendar"
+    WP plugin activate the-events-calendar >/dev/null
+  fi
+fi
 WP config set KHZS_DEMO true --raw >/dev/null   # demo op /leden-demo/ (demo / demo); nooit op een echte site
 WP rewrite flush >/dev/null
 
