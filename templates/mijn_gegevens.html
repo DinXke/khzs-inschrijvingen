@@ -1,0 +1,34 @@
+{% extends "base.html" %}{% block titel %}Mijn gegevens{% endblock %}{% block mainklasse %}smal{% endblock %}
+{% block inhoud %}
+<h1>Mijn gegevens</h1>
+<div class="kaart">
+  <h2 style="margin-top:0">Privacyverklaring</h2>
+  {% if profiel.privacy_akkoord %}<p>Je aanvaardde versie <b>{{ profiel.privacy_versie }}</b> op {{ profiel.privacy_akkoord|date:"j/m/Y H:i" }}.
+    {% if profiel.privacy_versie != versie %}Er is een nieuwe versie ({{ versie }}).{% endif %}</p>
+  {% else %}<p>Je hebt de privacyverklaring nog niet aanvaard.</p>{% endif %}
+  <p><a class="knop secundair" href="{% url 'privacy' %}">Lees de privacyverklaring</a></p>
+</div>
+<div class="kaart">
+  <h2 style="margin-top:0">Mijn gegevens downloaden</h2>
+  <p class="klein">Alles wat de app over jou en je zwemmers bijhoudt, in één bestand (JSON): je account, rollen, meldingsvoorkeuren, zwemmers, ploegen, tijden, inschrijvingen en meldingen.</p>
+  <p><a class="knop" href="{% url 'mijn_gegevens_download' %}">⬇ Download mijn gegevens</a></p>
+  <p class="help">Iets aanpassen? Je eigen zwemmers pas je aan via <a href="{% url 'zwemmers' %}">Mijn zwemmers</a>, je meldingen via <a href="{% url 'meldingen' %}">Meldingen</a>. Voor de rest kan je terecht bij de club.</p>
+</div>
+<div class="kaart">
+  <h2 style="margin-top:0">Account verwijderen</h2>
+  {% if geblokkeerd %}<p>{{ geblokkeerd }}</p>
+  {% else %}
+  <p>Je account, je rollen, je aanvragen en je meldingsvoorkeuren worden meteen verwijderd. Dat kan je niet ongedaan maken.</p>
+  {% if weg %}<p><b>Deze zwemmers verdwijnen mee</b>, met hun tijden, inschrijvingen en ploegen: {% for z in weg %}{{ z }}{% if not forloop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
+  {% if blijft %}<p><b>Deze zwemmers blijven</b> bij het andere gekoppelde account (bv. de andere ouder): {% for z in blijft %}{{ z }}{% if not forloop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
+  <p class="help">Inschrijvingen die de club al doorgaf aan een organisator, blijven daar bewaard. Download eventueel eerst je gegevens.</p>
+  <form method="post" action="{% url 'account_verwijderen' %}">{% csrf_token %}
+    <label for="bevestig">Typ VERWIJDER om te bevestigen</label>
+    <input id="bevestig" name="bevestig" autocomplete="off" autocapitalize="characters" required>
+    <label for="wachtwoord">Je wachtwoord</label>
+    <input id="wachtwoord" name="wachtwoord" type="password" autocomplete="current-password" required>
+    <p><button class="gevaar vol">Mijn account definitief verwijderen</button></p>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

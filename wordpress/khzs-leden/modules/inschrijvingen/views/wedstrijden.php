@@ -1,5 +1,5 @@
 <?php namespace KHZS; defined('ABSPATH') || exit; ?>
-<div class="rij tussen"><h1>Wedstrijden</h1><?php if ($is_secretaris): ?><a class="knop" href="<?= esc_url(app_url('wedstrijd/nieuw/')) ?>">+ Lenex uploaden</a><?php endif; ?></div>
+<div class="rij tussen"><h1>Wedstrijden</h1><?php if ($is_secretaris): ?><div class="rij"><?php if (tec_actief() && !is_demo()): ?><a class="knop secundair" href="<?= esc_url(app_url('kalender/')) ?>">📅 Websitekalender</a><?php endif; ?><a class="knop" href="<?= esc_url(app_url('wedstrijd/nieuw/')) ?>">+ Lenex uploaden</a></div><?php endif; ?></div>
 <?php foreach ($lijst as $w):
   $k = $keuzes[$w->id] ?? [];
   $doel = $is_staf ? ($is_secretaris ? "wedstrijd/{$w->id}/instellingen/" : "wedstrijd/{$w->id}/nakijken/") : "wedstrijd/{$w->id}/"; ?>

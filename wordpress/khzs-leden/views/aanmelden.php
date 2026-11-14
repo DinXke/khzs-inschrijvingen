@@ -2,7 +2,7 @@
 <h1>Aanmelden</h1>
 <p class="klein" style="margin-top:-.6rem">Wedstrijdinschrijvingen van de <?= e(club()['naam']) ?></p>
 <?php if (is_demo()): ?><div class="melding info">Dit is de demo. Meld je aan met gebruikersnaam <b>demo</b> en wachtwoord <b>demo</b>: dat account heeft alle rollen.
-  Wil je de app zien zoals een ander? Gebruik dan <b>katrien</b> (sportsecretaris), <b>lotte</b> (trainer) of <b>koen</b> (ouder), ook met wachtwoord <b>demo</b>.</div><?php endif; ?>
+  Wil je de app zien met één rol? Gebruik dan <b>trainer</b>, <b>zwemmer</b>, <b>ouder</b> of <b>bestuur</b>, met als wachtwoord telkens de gebruikersnaam.</div><?php endif; ?>
 <form method="post" class="kaart" action="<?= esc_url(app_url('aanmelden/')) ?>"><?= nonce_veld() ?>
   <?php if ($fout): ?><div class="melding error">E-mail of wachtwoord klopt niet.</div><?php endif; ?>
   <label for="id_username">E-mail of gebruikersnaam</label>
@@ -15,3 +15,4 @@
 </form>
 <?php if (registratie_open()): ?><p class="leeg">Nog geen account? <a href="<?= esc_url(app_url('registreren/')) ?>">Maak een profiel aan</a></p><?php endif; ?>
 <p class="leeg"><a href="<?= esc_url(app_url('installeer/')) ?>">📲 Installeer als app</a></p>
+<p class="leeg klein"><a href="<?= esc_url(app_url('privacy/')) ?>">Privacy en cookies</a></p>

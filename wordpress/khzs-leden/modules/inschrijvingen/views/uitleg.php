@@ -21,3 +21,4 @@
   <?php foreach ($pdfs as $pdf): ?><li><a href="<?= esc_url(KHZS_URL . "assets/docs/pdf/$pdf.pdf") ?>" target="_blank"><?= e(PDF_NAMEN[$pdf] ?? $pdf) ?></a></li><?php endforeach; ?>
 </ul></div>
 <?php endif; endif; ?>
+<p class="leeg klein"><a href="<?= esc_url(app_url('privacy/')) ?>">Privacy en cookies</a> · <a href="<?= esc_url(app_url('privacy/mijn-gegevens/')) ?>">Mijn gegevens</a></p>

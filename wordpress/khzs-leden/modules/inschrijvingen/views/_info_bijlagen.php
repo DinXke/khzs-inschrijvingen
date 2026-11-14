@@ -4,6 +4,9 @@ if ($w->info || $bijlagen || $beheer_bijlagen): ?>
   <?php if ($w->info): ?><div>ℹ️ <?= nl2br(e($w->info)) ?></div><?php endif; ?>
   <?php if ($bijlagen): ?><div class="bijlagen"><?php foreach ($bijlagen as $b): ?>
     <span class="bijlage"><a href="<?= esc_url(app_url("bijlage/{$b->id}/")) ?>" target="_blank"><?= icoon($b) ?> <?= e($b->naam) ?></a>
+      <?php if ($beheer_bijlagen && tec_actief() && !is_demo()): $_publiek = in_array((int) $b->id, publieke_bijlagen(), true); ?><form method="post" action="<?= esc_url(app_url("bijlage/{$b->id}/publiek/")) ?>"><?= nonce_veld() ?>
+        <input type="hidden" name="terug" value="<?= esc_attr(huidige_url()) ?>"><input type="hidden" name="publiek" value="<?= $_publiek ? '' : '1' ?>">
+        <button class="mini <?= $_publiek ? '' : 'secundair' ?>" title="<?= $_publiek ? 'Publiek: staat op de websitekalender. Klik om privé te maken.' : 'Privé. Klik om publiek te maken (websitekalender, downloaden zonder aanmelden).' ?>">🌐<?= $_publiek ? ' publiek' : '' ?></button></form><?php endif; ?>
       <?php if ($beheer_bijlagen): ?><form method="post" action="<?= esc_url(app_url("bijlage/{$b->id}/verwijderen/")) ?>" onsubmit="return confirm('Bijlage verwijderen?')"><?= nonce_veld() ?>
         <input type="hidden" name="terug" value="<?= esc_attr(huidige_url()) ?>"><button class="mini secundair" title="Verwijderen">✕</button></form><?php endif; ?></span>
   <?php endforeach; ?></div><?php endif; ?>

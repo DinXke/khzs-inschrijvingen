@@ -7,6 +7,7 @@
   <div class="stap">Trainers tot<b><?= e(datum(deadline_trainer($w), 'D j M')) ?></b></div>
   <div class="stap">Organisator<b><?= e(datum($w->deadline, 'D j M Y')) ?></b></div>
 </div>
+<?php if ($kal = kalender_stand($w)): ?><p class="klein">📅 <?= e($kal['tekst']) ?><?php if ($kal['link']): ?> <a href="<?= esc_url($kal['link']) ?>" target="_blank">Bekijken ↗</a><?php endif; ?></p><?php endif; ?>
 <?php include __DIR__ . '/_info_bijlagen.php'; ?>
 <div class="grid twee">
   <form method="post" class="kaart" action="<?= esc_url(app_url("wedstrijd/{$w->id}/instellingen/")) ?>"><?= nonce_veld() ?>

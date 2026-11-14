@@ -90,23 +90,20 @@ def programma_voor(zwemmer, wedstrijd):
 
 
 def rol(user):
-    if not user.is_authenticated:
-        return None
-    if user.is_superuser:
-        return Profiel.BEHEERDER
-    p = getattr(user, "profiel", None)
-    return p.rol if p else Profiel.ZWEMMER
+    """Hoofdrol (de hoogste rol). Gebruik voor rechten heeft_rol(): een account kan meerdere rollen hebben."""
+    from .rollen import hoofdrol
+    return hoofdrol(user)
 
 
 def mag_wijzigen(user, wedstrijd, dag: date | None = None) -> bool:
     """Mag deze gebruiker nu nog inschrijvingen toevoegen/schrappen voor deze wedstrijd?"""
     dag = dag or vandaag()
-    r = rol(user)
-    if r in Profiel.SECRETARIAAT:
+    from .rollen import heeft_rol
+    if heeft_rol(user, *Profiel.SECRETARIAAT):
         return wedstrijd.status in (Wedstrijd.OPEN, Wedstrijd.GESLOTEN)
     if wedstrijd.status != Wedstrijd.OPEN:
         return False
-    if r == Profiel.TRAINER:
+    if heeft_rol(user, Profiel.TRAINER):
         return dag <= wedstrijd.deadline_trainer
     return dag <= wedstrijd.deadline_zwemmer
 

@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% block titel %}Zwemmers{% endblock %}
 {% block inhoud %}
 <div class="rij tussen"><h1>{% if alle %}Zwemmers{% else %}Mijn zwemmers{% endif %}</h1>
-  <div class="rij">{% if is_staf %}<a class="knop" href="{% url 'uitslagen' %}">Uitslagen importeren</a>{% endif %}{% if zelf_ontbreekt %}<a class="knop secundair" href="{% url 'zwemmer_nieuw' %}?zelf=1">+ Mezelf</a>{% endif %}<a class="knop secundair" href="{% url 'zwemmer_nieuw' %}">+ Zwemmer</a></div></div>
+  <div class="rij">{% if is_staf %}<a class="knop" href="{% url 'uitslagen' %}">Uitslagen importeren</a>{% endif %}{% if zelf_ontbreekt %}<a class="knop secundair" href="{% url 'zwemmer_nieuw' %}?zelf=1">+ Mezelf</a>{% endif %}<a class="knop secundair" href="{% url 'zwemmer_nieuw' %}">+ Zwemmer</a><a class="knop secundair" href="{% url 'ploegen' %}">Ploegen{% if open_ploegaanvragen %} <span class="badge wacht">{{ open_ploegaanvragen }}</span>{% endif %}</a><a class="knop secundair" href="{% url 'mijn_rollen' %}">Mijn rollen</a></div></div>
 {% if alle %}<form method="get" class="kaart"><input type="search" name="q" value="{{ q }}" placeholder="Zoek op naam…"></form>{% endif %}
 {% for z in zwemmers %}
 <a class="kaart" href="{% url 'zwemmer' z.pk %}"><div class="rij tussen"><strong>{{ z.voornaam }} {{ z.naam }}</strong><span class="klein">{{ z.geboortedatum|date:"j/m/Y" }} · {{ z.get_geslacht_display }}</span></div>
@@ -15,4 +15,5 @@
 </form>
 {% if not alle and zelf_ontbreekt %}<p class="klein">Zwem je zelf (bv. masters)? Voeg jezelf toe met <a href="{% url 'zwemmer_nieuw' %}?zelf=1"><b>+ Mezelf</b></a>.</p>{% endif %}
 {% if not alle %}<p class="klein">Eén account kan meerdere zwemmers hebben, bv. al je kinderen. Voeg ze toe met <b>+ Zwemmer</b>; bij elke wedstrijd kies je dan voor wie je inschrijft.</p>{% endif %}
+{% if webshop %}<a class="kaart rij tussen webshop" href="{{ webshop }}" target="_blank" rel="noopener"><span><strong>🛍️ Webshop</strong><br><span class="klein">Clubkledij en badmutsen van de club bestellen</span></span><span class="knop secundair mini">Naar de webshop ↗</span></a>{% endif %}
 {% endblock %}

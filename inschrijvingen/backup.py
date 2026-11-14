@@ -68,6 +68,8 @@ def herstel(zipbestand):
             call_command("flush", interactive=False, verbosity=0)
             for obj in objecten:
                 obj.save()
+            from .rollen import vul_ontbrekende
+            vul_ontbrekende()  # backup van vóór de rollen: iedereen houdt zijn rol
         media = Path(settings.MEDIA_ROOT)
         for naam in z.namelist():
             p = PurePosixPath(naam)

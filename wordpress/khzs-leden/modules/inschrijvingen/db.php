@@ -14,6 +14,32 @@ add_action('khzs_zwemmer_verwijderd', function (int $id) {
     }
 });
 
+// AVG: de gegevens van een zwemmer in 'Mijn gegevens downloaden' (ook als de module uit staat).
+add_filter('khzs_mijn_zwemmer', function (array $d, object $z) {
+    $tijd = fn($h) => $h === null ? null : (function_exists(__NAMESPACE__ . '\\toon_tijd') ? toon_tijd((int) $h) : (int) $h);
+    $slag = fn($s) => defined(__NAMESPACE__ . '\\SLAG') ? mb_strtolower(SLAG[$s] ?? $s) : $s;
+    $d['beste_tijden'] = array_map(fn($t) => ['nummer' => "{$t->afstand} m " . $slag($t->slag), 'baan' => $t->baan === 'LCM' ? '50 m' : '25 m',
+        'tijd' => $tijd($t->tijd), 'datum' => $t->datum, 'wedstrijd' => $t->wedstrijd, 'bron' => $t->bron],
+        db()->get_results(db()->prepare("SELECT * FROM " . t('tijden') . " WHERE zwemmer_id=%d ORDER BY slag, afstand, baan, tijd", $z->id)));
+    $d['deelnames'] = array_map(fn($x) => ['wedstrijd' => $x->wnaam, 'keuze' => $x->keuze, 'geweigerd' => (bool) $x->geweigerd, 'reden' => $x->weigerreden],
+        db()->get_results(db()->prepare("SELECT d.*, w.naam AS wnaam FROM " . t('deelnames') . " d JOIN " . t('wedstrijden') . " w ON w.id=d.wedstrijd_id WHERE d.zwemmer_id=%d ORDER BY d.id", $z->id)));
+    $d['inschrijvingen'] = array_map(fn($i) => ['wedstrijd' => $i->wnaam, 'nummer' => '#' . $i->nummer . ' ' . ($i->naam ?: "{$i->afstand} m " . $slag($i->slag)),
+        'inschrijftijd' => $tijd($i->inschrijftijd), 'status' => $i->status, 'opmerking' => $i->opmerking, 'aangemaakt' => $i->aangemaakt],
+        db()->get_results(db()->prepare("SELECT i.*, n.nummer, n.naam, n.afstand, n.slag, w.naam AS wnaam FROM " . t('inschrijvingen') . " i
+            JOIN " . t('nummers') . " n ON n.id=i.nummer_id JOIN " . t('sessies') . " s ON s.id=n.sessie_id JOIN " . t('wedstrijden') . " w ON w.id=s.wedstrijd_id
+            WHERE i.zwemmer_id=%d ORDER BY s.datum, n.volgorde", $z->id)));
+    $d['meldingen'] = array_map(fn($m) => ['wedstrijd' => $m->wnaam, 'tekst' => $m->tekst, 'op' => $m->aangemaakt],
+        db()->get_results(db()->prepare("SELECT m.*, w.naam AS wnaam FROM " . t('meldingen') . " m LEFT JOIN " . t('wedstrijden') . " w ON w.id=m.wedstrijd_id WHERE m.zwemmer_id=%d ORDER BY m.id", $z->id)));
+    return $d;
+}, 10, 2);
+
+// AVG: bewaartermijnen (zie includes/avg.php).
+add_filter('khzs_opkuis_aantallen', function (array $n) {
+    $n['meldingen'] = (int) db()->query(db()->prepare("DELETE FROM " . t('meldingen') . " WHERE aangemaakt<%s", wp_date('Y-m-d H:i:s', time() - MELDINGEN_DAGEN * DAY_IN_SECONDS)));
+    $n['herinneringen'] = (int) db()->query(db()->prepare("DELETE FROM " . t('herinneringen') . " WHERE datum<%s", wp_date('Y-m-d', time() - HERINNERINGEN_DAGEN * DAY_IN_SECONDS)));
+    return $n;
+});
+
 function schema_inschrijvingen(string $c): array
 {
     $sql = [];
@@ -209,4 +235,5 @@ function verwijder_wedstrijd(int $id): void
         db()->delete(t($tab), ['wedstrijd_id' => $id]);
     }
     db()->delete(t('wedstrijden'), ['id' => $id]);
+    do_action('khzs_wedstrijd_verwijderd', $id);
 }

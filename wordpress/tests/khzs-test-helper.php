@@ -35,7 +35,7 @@ add_action('init', function () {
                 wp_delete_user($u->ID);
             }
             delete_option('khzs_test_push');
-            $wpdb->query("DELETE FROM {$wpdb->usermeta} WHERE meta_key='khzs_penningmeester'");
+            $wpdb->query("DELETE FROM {$wpdb->usermeta} WHERE meta_key IN ('khzs_penningmeester','khzs_rollen','khzs_rol')");
             foreach (\KHZS\backup_lijst() as $f) {
                 unlink($f);
             }
@@ -85,3 +85,41 @@ add_action('init', function () {
             }
     }
 }, 1);
+
+// Websitekalender (The Events Calendar): pas na init, want dan bestaan de posttypes.
+add_action('init', function () {
+    if (empty($_GET['khzs_test']) || !str_starts_with($_GET['khzs_test'], 'tec')) {
+        return;
+    }
+    $d = json_decode(file_get_contents('php://input'), true) ?: [];
+    $types = ['tribe_events', 'tribe_venue', 'tribe_organizer'];
+    switch ($_GET['khzs_test']) {
+        case 'tec':
+            wp_send_json(['actief' => function_exists('\KHZS\tec_actief') && \KHZS\tec_actief()]);
+        case 'tec_leeg':
+            foreach (get_posts(['post_type' => $types, 'post_status' => ['publish', 'future', 'draft', 'pending', 'private', 'trash'], 'numberposts' => -1, 'fields' => 'ids',
+                'suppress_filters' => true, 'tribe_suppress_query_filters' => true]) as $id) {
+                wp_delete_post($id, true);
+            }
+            foreach (['aan', 'statussen', 'categorie', 'publiceren', 'info', 'bijlagen', 'fout', 'laatst'] as $k) {
+                delete_option("khzs_kalender_$k");
+            }
+            wp_send_json(['ok' => true]);
+        case 'tec_evenementen':
+            $uit = [];
+            foreach (get_posts(['post_type' => 'tribe_events', 'post_status' => ['publish', 'future', 'draft', 'pending', 'private', 'trash'], 'numberposts' => -1, 'orderby' => 'ID', 'order' => 'ASC',
+                'suppress_filters' => true, 'tribe_suppress_query_filters' => true]) as $p) {
+                $meta = array_map(fn($v) => count($v) === 1 ? $v[0] : $v, get_post_meta($p->ID));
+                $venue = (int) ($meta['_EventVenueID'] ?? 0);
+                $org = (int) ($meta['_EventOrganizerID'] ?? 0);
+                $uit[] = ['id' => $p->ID, 'status' => $p->post_status, 'titel' => $p->post_title, 'inhoud' => $p->post_content,
+                    'meta' => $meta, 'categorieen' => wp_get_object_terms($p->ID, 'tribe_events_cat', ['fields' => 'names']),
+                    'locatie' => $venue ? get_the_title($venue) : '', 'stad' => $venue ? get_post_meta($venue, '_VenueCity', true) : '',
+                    'organisator' => $org ? get_the_title($org) : ''];
+            }
+            wp_send_json($uit);
+        case 'tec_wijzig':
+            // Zoals iemand die het evenement op de website met de hand aanpast.
+            wp_send_json(['ok' => wp_update_post($d)]);
+    }
+}, 999);
