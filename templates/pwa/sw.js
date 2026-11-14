@@ -1,5 +1,5 @@
 {% load static %}// Service worker: statische bestanden uit cache, pagina's altijd vers van het net (inschrijvingen moeten actueel zijn).
-const CACHE = "hzs-v3";
+const CACHE = "hzs-v4";
 const STATISCH = ["{% static 'app.css' %}", "{% static 'img/icon-192.png' %}", "{% static 'img/logo.png' %}", "{% url 'offline' %}"];
 
 self.addEventListener("install", e => {

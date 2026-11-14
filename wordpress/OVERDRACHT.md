@@ -42,6 +42,11 @@ Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist 
    - Interne namen zijn gebleven: PHP-namespace `KHZS`, tabellen en opties met `khzs_`.
    - Django: de zichtbare naam is "KHZS Leden" (titel, app op de gsm, mails, beheer).
    - De GitHub-repo heet `khzs-leden`. GitHub verwijst het oude adres `khzs-inschrijvingen` automatisch door, dus de server werkt gewoon verder.
+12. **Logo KHZS Leden**: de app-iconen tonen het HZS-logo met daaronder "Leden" in dezelfde stijl.
+   - "Leden" staat in Rubik Black Italic (SIL OFL), in dezelfde twee blauwtinten `#009FE0` en `#074DA2`, met de golf zoals die in het HZS-logo gemeten is.
+   - Opnieuw maken: `python3 tools/logo/maak_iconen.py`. Dat schrijft naar `static/img/` en `wordpress/khzs-leden/assets/img/`.
+   - De kleine iconen (192 en 180 pixels) hebben meer letterruimte, zodat de e leesbaar blijft.
+   - Het favicon (32 pixels) en het logo bovenaan in de app tonen enkel HZS.
 10. **Zelf zwemmer** (bv. masters), in Django én WordPress:
    - Bij registratie vult het vinkje *Ik zwem zelf* het eerste zwemmerblok met de eigen naam. Dat gebeurt enkel met JavaScript; de server verandert niet.
    - Bij *Mijn zwemmers* opent de knop *+ Mezelf* het formulier met de naam al ingevuld. De knop verdwijnt zodra er een zwemmer met de naam van het account bestaat.
