@@ -70,6 +70,10 @@ add_action('init', function () {
             wp_send_json(['ok' => wp_delete_user((int) $d['id'])]);
         case 'versleutel':
             wp_send_json(['v' => base64_encode(\KHZS\versleutel($d['tekst'], $d['p256dh'], $d['auth']))]);
+        case 'optie':
+            // Via update_option, zodat de hooks meedraaien (bv. de demo aan- of uitzetten).
+            update_option($d['naam'], $d['waarde']);
+            wp_send_json(['ok' => true]);
         case 'cache':
             wp_cache_flush();
             wp_send_json(['ok' => true]);

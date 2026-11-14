@@ -80,6 +80,35 @@ Bezoekers op gsm zien op de website en in de app een melding *"Installeer de app
 - Op de rest van de website gaat de knop naar `/leden/installeer/`. Daar installeer je met één tik op Android; op iPhone legt de pagina stap voor stap uit hoe het moet.
 - Wie op *Niet nu* tikt, ziet de melding 30 dagen niet.
 
+## Demo op /leden-demo/
+
+Naast de echte app kan dezelfde site een **demo** tonen op `https://jouwsite.be/leden-demo/`. Zet ze aan bij **Instellingen → KHZS Leden → Demo**.
+
+- **Aanmelden** met `demo` / `demo`. Dat account heeft alle rollen: beheerder (dus ook sportsecretaris), trainer, penningmeester, ouder van drie kinderen en zelf zwemmer.
+  Andere demo-accounts, ook met wachtwoord `demo`:
+  - `katrien` (sportsecretaris)
+  - `lotte`, `bram`, `tom`, `wout`, `annelies` (competitie) en `nina`, `ruben`, `elise`, `jasper` (zwemschool): trainers
+  - `koen`, `an`, `pieter`, `hilde`, `sofie`, `marc`: ouders
+- **Zelfde schermen en werking** als de app, maar zonder PWA: geen manifest, geen service worker, geen installatiemelding. Er gaan ook geen pushmeldingen of mails uit.
+- **Demodata** (verzonnen personen):
+  - zes wedstrijden in alle stadia: twee doorgestuurd met uitslagen, één gesloten, twee open (één met bijlage) en één concept;
+  - zwemmers met beste tijden, inschrijvingen, afgekeurde en geweigerde inschrijvingen, meldingen, en een zwemmer die gedeeld is met de andere ouder;
+  - de **ploegen en trainingsuren van de competitie** van www.khzs.be (Competitie 3, Competitie 2, Beloften, Competitie 1 provinciaal en nationaal, Kern). Ploegen die op hetzelfde uur trainen, vormen één training;
+  - de **zwemschool**: de lesmomenten van de website, met de groepen Startersgroep, Groep 1 (grijs) t.e.m. Groep 5 (groen), Recreatie en Pre-competitie 1 en 2. Welke groep wanneer zwemt, is verzonnen;
+  - trainersschema's met afmeldingen, vervangers, extra hulp en een *vervanger gezocht*, afgelaste lessen in de schoolvakanties, tarieven, uren, en uitbetaalde maanden (één met *gewijzigd na uitbetaling*).
+  - De datums hangen af van vandaag, dus de demo blijft actueel.
+- **Terugzetten** naar de begintoestand:
+  - elke nacht om 03:30 (WP-Cron);
+  - met de knop *Demo terugzetten* in de demo (voor beheerders);
+  - met *Demo nu terugzetten* in wp-admin.
+- **Volledig gescheiden** van de echte gegevens:
+  - eigen tabellen (`wp_khzsdemo_…`) en een eigen privémap;
+  - eigen accounts in `wp_khzsdemo_users` en `wp_khzsdemo_usermeta`, met id's vanaf 900000001;
+  - een eigen aanmeldcookie dat enkel binnen `/leden-demo/` geldt.
+
+  Een demo-account komt dus niet in wp-admin of in de echte app, en echte leden zien de demo-accounts nergens.
+- In de demo kan je **geen backup terugzetten** en **niet zelf registreren**. Zo komen er geen echte gegevens in de demo.
+
 ## Overstappen vanuit de Django-versie
 
 ```bash
@@ -109,6 +138,8 @@ khzs-leden/
     app.php                   routes, menu, weergave, meldingen, toegang
     kern-acties.php           aanmelden, gebruikers, meldingen, backup, PWA
     push.php  backup.php  xlsx.php  velden.php  admin.php  pwa.php
+    demo.php                  demo op /leden-demo/: eigen tabellen, accounts en cookie, terugzetten
+    demo-data.php             demodata (ploegen en uren van khzs.be, zwemschool, wedstrijden, trainers)
   views/                      sjablonen van de kern (_layout, aanmelden, gebruikers…)
   modules/<id>/
     db.php                    tabellen (altijd geladen, zodat gegevens bewaard blijven)
