@@ -165,7 +165,7 @@ function users_met(string $voorkeur, ?array $rollen = null, ?int $deelname_aan =
     $uit = [];
     foreach (db()->get_col($sql) as $uid) {
         $u = get_userdata((int) $uid);
-        if (!$u || !voorkeur($u->ID, $voorkeur) || ($rollen !== null && !in_array(rol($u), $rollen, true))) {
+        if (!$u || !voorkeur($u->ID, $voorkeur) || ($rollen !== null && !heeft_rol($rollen, $u))) {
             continue;
         }
         $uit[] = $u->ID;

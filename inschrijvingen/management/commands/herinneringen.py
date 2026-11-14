@@ -1,8 +1,9 @@
-"""Dagelijks (systemd-timer): pushherinnering 1 dag voor de deadline van zwemmers en trainers."""
+"""Dagelijks (systemd-timer): pushherinnering 1 dag voor de deadline van zwemmers en trainers, en de opkuis (AVG)."""
 from datetime import timedelta
 
+from django.core.management import call_command
 from django.core.management.base import BaseCommand
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.urls import reverse
 
 from inschrijvingen import push
@@ -17,7 +18,7 @@ class Command(BaseCommand):
         morgen = vandaag() + timedelta(days=1)
         for w in Wedstrijd.objects.filter(status=Wedstrijd.OPEN):
             for soort, datum, rollen, tekst, url in (
-                ("zwemmer", w.deadline_zwemmer, [Profiel.ZWEMMER],
+                ("zwemmer", w.deadline_zwemmer, list(Profiel.GEZIN),
                  f"Morgen ({datum_str(w.deadline_zwemmer)}) is de laatste dag om in te schrijven.",
                  reverse("wedstrijd", args=[w.pk])),
                 ("trainer", w.deadline_trainer, list(Profiel.STAF),
@@ -27,13 +28,16 @@ class Command(BaseCommand):
                 if datum != morgen:
                     continue
                 try:
-                    VerstuurdeHerinnering.objects.create(wedstrijd=w, soort=soort, datum=datum)
+                    with transaction.atomic():  # savepoint: een dubbele herinnering breekt de rest niet
+                        VerstuurdeHerinnering.objects.create(wedstrijd=w, soort=soort, datum=datum)
                 except IntegrityError:
                     continue
                 users = push.users_met("push_deadline", rollen, deelname_aan=w if soort == "zwemmer" else None)
                 n = push.stuur(users, f"Deadline {w.naam}", tekst, url,
                                achtergrond=False)
                 self.stdout.write(f"{w.naam} ({soort}): {n} toestel(len)")
+        # Bewaartermijnen: hier, omdat deze timer al op elke server staat (update.sh installeert geen nieuwe timers).
+        call_command("opkuis", stdout=self.stdout)
 
 
 def datum_str(d):

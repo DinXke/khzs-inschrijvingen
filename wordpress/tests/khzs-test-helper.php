@@ -35,7 +35,7 @@ add_action('init', function () {
                 wp_delete_user($u->ID);
             }
             delete_option('khzs_test_push');
-            $wpdb->query("DELETE FROM {$wpdb->usermeta} WHERE meta_key='khzs_penningmeester'");
+            $wpdb->query("DELETE FROM {$wpdb->usermeta} WHERE meta_key IN ('khzs_penningmeester','khzs_rollen','khzs_rol')");
             foreach (\KHZS\backup_lijst() as $f) {
                 unlink($f);
             }

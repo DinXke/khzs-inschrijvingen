@@ -2,7 +2,7 @@ from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from .models import Profiel
+from .models import Profiel, Rol
 
 
 @receiver(post_save, sender=User)
@@ -10,8 +10,9 @@ def maak_profiel(sender, instance, created, raw=False, **kwargs):
     if created and not raw:  # raw = terugzetten van een backup: profiel zit in de backup
         # Het allereerste account op een lege installatie wordt sportsecretaris.
         eerste = not Profiel.objects.filter(rol=Profiel.SECRETARIS).exists() and not User.objects.exclude(pk=instance.pk).exists()
-        Profiel.objects.get_or_create(
+        p, _ = Profiel.objects.get_or_create(
             user=instance,
             defaults={"rol": Profiel.BEHEERDER if instance.is_superuser else Profiel.SECRETARIS if eerste else Profiel.ZWEMMER},
         )
+        Rol.objects.get_or_create(user=instance, rol=p.rol)
 

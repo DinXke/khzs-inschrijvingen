@@ -98,7 +98,7 @@ function backup_herstel(string $bron): array
     foreach (alle_tabellen() as $tab) {
         db()->query("DELETE FROM " . t($tab));
         foreach ($data['tabellen'][$tab] ?? [] as $rij) {
-            foreach (['account_id', 'user_id', 'door_id', 'gefinaliseerd_door'] as $k) {
+            foreach (['account_id', 'user_id', 'door_id', 'gefinaliseerd_door', 'behandeld_door', 'aangevraagd_door', 'toestemming_door'] as $k) {
                 if (isset($rij[$k]) && $rij[$k] !== '') {
                     $rij[$k] = $user_map[(int) $rij[$k]] ?? $rij[$k];
                 }

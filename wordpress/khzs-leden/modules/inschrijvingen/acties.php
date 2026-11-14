@@ -69,31 +69,22 @@ function v_registreren(): void
     if (!registratie_open()) {
         toon('fout', ['titel' => 'Registreren', 'tekst' => 'Zelf een account aanmaken is uitgeschakeld. Vraag een account aan de club.'], 'Registreren', 'smal');
     }
-    $form = ['email' => '', 'voornaam' => '', 'naam' => '', 'koppelcode' => ''];
+    $form = ['email' => '', 'voornaam' => '', 'naam' => ''];
     $fouten = [];
-    $zwemmers = [[[], []]];
-    $gekoppeld = null;
     if (is_post()) {
-        $form = ['email' => strtolower(post('email')), 'voornaam' => post('voornaam'), 'naam' => post('naam'), 'koppelcode' => post('koppelcode')];
-        if ($form['koppelcode'] !== '') {
-            try {
-                $gekoppeld = koppel_zoek($form['koppelcode']);
-                if (!$gekoppeld) {
-                    $fouten['koppelcode'] = 'Deze koppelcode klopt niet of is verlopen.';
-                }
-            } catch (\RuntimeException $e) {
-                $fouten['koppelcode'] = $e->getMessage();
-            }
-        }
+        $form = ['email' => strtolower(post('email')), 'voornaam' => post('voornaam'), 'naam' => post('naam')];
         if (!is_email($form['email'])) {
             $fouten['email'] = 'Geef een geldig e-mailadres op.';
         } elseif (username_exists($form['email']) || email_exists($form['email'])) {
             $fouten['email'] = 'Er bestaat al een account met dit e-mailadres.';
         }
-        foreach (['voornaam' => 60, 'naam' => 80] as $k => $max) {
+        foreach (['voornaam', 'naam'] as $k) {
             if ($form[$k] === '') {
                 $fouten[$k] = 'Dit veld is verplicht.';
             }
+        }
+        if (empty($_POST['privacy'])) {
+            $fouten['privacy'] = 'Je moet de privacyverklaring aanvaarden om een account te maken.';
         }
         $w1 = post_ruw('password1') ?? '';
         $w2 = post_ruw('password2') ?? '';
@@ -104,49 +95,130 @@ function v_registreren(): void
         } elseif ($w1 !== $w2) {
             $fouten['password2'] = 'De twee wachtwoorden komen niet overeen.';
         }
-        $zwemmers = [];
-        $aantal = min(max((int) post('zw-TOTAL_FORMS'), 0), 10);
-        $ok_zwemmers = true;
-        for ($i = 0; $i < $aantal; $i++) {
-            [$v, $f] = lees_zwemmer("zw-$i-");
-            // Een volledig leeg blok mag als er een koppelcode is.
-            $leeg = !array_filter(array_intersect_key($v, array_flip(['voornaam', 'naam', 'geboortedatum', 'geslacht'])));
-            if ($leeg && $gekoppeld) {
-                continue;
-            }
-            $zwemmers[] = [$v, $f];
-            $ok_zwemmers = $ok_zwemmers && !$f;
-        }
-        if (!$zwemmers && !$gekoppeld) {
-            $fouten['__zwemmers'] = 'Voeg minstens één zwemmer toe, of geef de koppelcode van de andere ouder in.';
-        }
-        if (!$fouten && $ok_zwemmers) {
+        if (!$fouten) {
             $uid = wp_insert_user(['user_login' => $form['email'], 'user_email' => $form['email'], 'user_pass' => $w1,
                 'first_name' => $form['voornaam'], 'last_name' => $form['naam'],
                 'display_name' => trim($form['voornaam'] . ' ' . $form['naam']), 'role' => get_option('default_role', 'subscriber')]);
             if (is_wp_error($uid)) {
                 $fouten['email'] = $uid->get_error_message();
             } else {
-                foreach ($zwemmers as [$v]) {
-                    db()->insert(t('zwemmers'), $v + ['account_id' => $uid]);
-                }
-                if ($gekoppeld) {
-                    koppel($gekoppeld, $uid);
-                }
+                zet_rollen($uid, []); // nog geen rol: die volgt uit de antwoorden in het stappenplan
+                privacy_akkoord($uid);
                 wp_set_current_user($uid);
                 wp_set_auth_cookie($uid, true, is_ssl());
-                $n = count($zwemmers) + ($gekoppeld ? 1 : 0);
-                flash("Account aangemaakt met $n zwemmer" . ($n !== 1 ? 's' : '') . '. Kies een wedstrijd om in te schrijven.');
-                naar(app_url('wedstrijden/'));
+                naar(app_url('welkom/'));
             }
         }
     }
-    toon('inschrijvingen/registreren', ['form' => $form, 'fouten' => $fouten, 'zwemmers' => $zwemmers ?: [[[], []]]], 'Profiel aanmaken', 'smal');
+    toon('inschrijvingen/registreren', ['form' => $form, 'fouten' => $fouten], 'Profiel aanmaken', 'smal');
+}
+
+const WELKOM_STAPPEN = ['zelf', 'kinderen', 'staf', 'klaar'];
+
+/** Bewaart een nieuwe zwemmer uit het formulier: account, gezinsrol en eventueel een ploegaanvraag. Geeft het id. */
+function nieuwe_zwemmer(array $v, int $uid, bool $zelf): int
+{
+    $ploeg = (int) ($v['ploeg'] ?? 0);
+    $toestemming = !empty($v['toestemming']);
+    unset($v['ploeg'], $v['toestemming']);
+    db()->insert(t('zwemmers'), $v + ['account_id' => $uid] + ($toestemming ? ['toestemming_op' => nu_sql(), 'toestemming_door' => $uid] : []));
+    $id = (int) db()->insert_id;
+    zorg_gezinsrol($uid, $zelf);
+    if ($ploeg && ($p = ploeg($ploeg))) {
+        vraag_ploeg_aan($uid, zwemmer($id), $p);
+    }
+    return $id;
+}
+
+/** Heeft deze zwemmer de naam van het account? Dan is het het account zelf (rol zwemmer, geen ouder). */
+function is_zelf(array $v, \WP_User $u): bool
+{
+    return [mb_strtolower($v['voornaam']), mb_strtolower($v['naam'])] === [mb_strtolower($u->first_name), mb_strtolower($u->last_name)];
+}
+
+/** Stappenplan na de registratie, één vraag per scherm. Elke stap kan je overslaan en later opnieuw doen. */
+function v_welkom(): void
+{
+    vereist_login();
+    $u = wp_get_current_user();
+    $stap = in_array(get('stap'), WELKOM_STAPPEN, true) ? get('stap') : 'zelf';
+    $volgende = WELKOM_STAPPEN[min(array_search($stap, WELKOM_STAPPEN, true) + 1, 3)];
+    $v = $stap === 'zelf' ? ['voornaam' => $u->first_name, 'naam' => $u->last_name] : ['naam' => $u->last_name];
+    $f = [];
+    $koppel_fout = null;
+    if (is_post()) {
+        if ($stap === 'zelf' || post('actie') === 'kind') {
+            [$v, $f] = lees_zwemmer('');
+            $v['ploeg'] = post('ploeg');
+            controleer_toestemming($v, $f);
+            if (!$f) {
+                $id = nieuwe_zwemmer($v, $u->ID, $stap === 'zelf');
+                flash($stap === 'zelf' ? 'Je bent toegevoegd als zwemmer.' : "{$v['voornaam']} is toegevoegd. Nog een kind? Vul het formulier opnieuw in.");
+                naar(app_url('welkom/', ['stap' => 'kinderen']));
+            }
+        } elseif (post('actie') === 'koppel') {
+            try {
+                $z = koppel_zoek(post('code'));
+                if (!$z) {
+                    $koppel_fout = 'Deze koppelcode klopt niet of is verlopen. Vraag de andere ouder om een nieuwe code.';
+                } else {
+                    koppel($z, $u->ID);
+                    zorg_gezinsrol($u->ID);
+                    flash("{$z->voornaam} {$z->naam} is gekoppeld aan je account.");
+                    naar(app_url('welkom/', ['stap' => 'kinderen']));
+                }
+            } catch (\RuntimeException $e) {
+                $koppel_fout = $e->getMessage();
+            }
+        } elseif ($stap === 'staf') {
+            $aangevraagd = [];
+            foreach (array_intersect([TRAINER, TRAINER_ZWEMSCHOOL, BESTUURDER, SECRETARIS], (array) ($_POST['rollen'] ?? [])) as $r) {
+                if (!heeft_rol([$r], $u->ID)) {
+                    try {
+                        vraag_rol_aan($u->ID, $r, post('motivatie'));
+                        $aangevraagd[] = rol_naam($r);
+                    } catch (\RuntimeException $e) {
+                        flash($e->getMessage(), 'error');
+                    }
+                }
+            }
+            if ($aangevraagd) {
+                flash('Je aanvraag voor de rol ' . implode(' en ', $aangevraagd) . ' wacht op goedkeuring. Je krijgt een melding zodra ze behandeld is.', 'info');
+            }
+            naar(app_url('welkom/', ['stap' => 'klaar']));
+        }
+    }
+    $zwemmers = zwemmers_van($u->ID);
+    $kinderen = array_values(array_filter($zwemmers, fn($z) => !is_zelf((array) $z, $u)));
+    $open = db()->get_results(db()->prepare("SELECT * FROM " . t('rolaanvragen') . " WHERE user_id=%d AND status=%s", $u->ID, RA_OPEN));
+    toon('inschrijvingen/welkom', ['stap' => $stap, 'nr' => array_search($stap, WELKOM_STAPPEN, true) + 1, 'volgende' => $volgende,
+        'v' => $v, 'f' => $f, 'koppel_fout' => $koppel_fout, 'zwemmers' => $zwemmers, 'kinderen' => $kinderen,
+        'zelf_ontbreekt' => zelf_ontbreekt(), 'eigen_rollen' => rollen_van($u), 'open_rollen' => $open, 'ploegen' => actieve_ploegen()],
+        'Welkom', 'smal');
+}
+
+/** Een ploeg aanvragen voor een zwemmer (of, voor de staf, de zwemmer er meteen in zetten). */
+function v_zwemmer_ploeg($id): void
+{
+    vereist_login();
+    vereist_post();
+    $z = zwemmer_voor($id);
+    $p = ploeg((int) post('ploeg')) ?: niet_gevonden();
+    try {
+        $lid = vraag_ploeg_aan(get_current_user_id(), $z, $p);
+        flash($lid->status === PL_GOEDGEKEURD ? "{$z->voornaam} zit nu in {$p->naam}." : "Aanvraag voor {$p->naam} verstuurd. Je krijgt een melding zodra ze behandeld is.");
+    } catch (\RuntimeException $e) {
+        flash($e->getMessage(), 'error');
+    }
+    naar(app_url("zwemmers/{$z->id}/"));
 }
 
 function v_wedstrijden(): void
 {
     vereist_login();
+    if (zonder_wedstrijden()) {
+        naar(app_url(''));
+    }
     $staf = is_staf();
     $uid = get_current_user_id();
     $vandaag = vandaag()->format('Y-m-d');
@@ -225,15 +297,16 @@ function v_zwemmer_nieuw(): void
     $f = [];
     if (is_post()) {
         [$v, $f] = lees_zwemmer('');
+        $v['ploeg'] = post('ploeg');
+        controleer_toestemming($v, $f);
         if (!$f) {
-            db()->insert(t('zwemmers'), $v + ['account_id' => get_current_user_id()]);
-            $id = db()->insert_id;
+            $id = nieuwe_zwemmer($v, $u->ID, is_zelf($v, $u));
             flash("{$v['voornaam']} {$v['naam']} toegevoegd.");
             naar(app_url("zwemmers/$id/"));
         }
     }
     $titel = $zelf ? 'Mezelf toevoegen als zwemmer' : 'Zwemmer toevoegen';
-    toon('inschrijvingen/zwemmer_form', ['v' => $v, 'f' => $f, 'titel' => $titel, 'zelf' => $zelf], $titel, 'smal');
+    toon('inschrijvingen/zwemmer_form', ['v' => $v, 'f' => $f, 'titel' => $titel, 'zelf' => $zelf, 'ploegen' => actieve_ploegen()], $titel, 'smal');
 }
 
 const AFSTANDEN = [25, 50, 100, 200, 400, 800, 1500];
@@ -248,6 +321,11 @@ function v_zwemmer($id): void
     $tijd = ['slag' => 'FREE', 'afstand' => '', 'baan' => 'SCM', 'tijd' => '', 'datum' => '', 'wedstrijd' => ''];
     $tf = [];
     if (is_post()) {
+        if (post('actie') === 'toestemming' && heeft_account($z, get_current_user_id())) {
+            geef_toestemming((int) $z->id, get_current_user_id());
+            flash('Toestemming bewaard. Bedankt!');
+            naar(app_url("zwemmers/{$z->id}/"));
+        }
         if (isset($_POST['z-voornaam'])) {
             [$v, $f] = lees_zwemmer('z-');
             if (!$f) {
@@ -292,9 +370,16 @@ function v_zwemmer($id): void
         w.id AS wid, w.naam AS wnaam, s.datum FROM " . t('inschrijvingen') . " i JOIN " . t('nummers') . " n ON n.id=i.nummer_id
         JOIN " . t('sessies') . " s ON s.id=n.sessie_id JOIN " . t('wedstrijden') . " w ON w.id=s.wedstrijd_id
         WHERE i.zwemmer_id=%d ORDER BY s.datum DESC, s.nummer, n.volgorde", $z->id));
+    $lidmaatschappen = ploegen_van_zwemmer((int) $z->id);
+    if (heeft_account($z, get_current_user_id())) { // de beslissingen over de ploegen zijn nu gezien
+        db()->query(db()->prepare("UPDATE " . t('ploegleden') . " SET gelezen=1 WHERE zwemmer_id=%d AND status<>%s", $z->id, PL_OPEN));
+    }
+    $al = array_column(array_filter($lidmaatschappen, fn($l) => $l->status !== PL_AFGEKEURD), 'ploeg_id');
     toon('inschrijvingen/zwemmer', ['z' => $z, 'v' => $v, 'f' => $f, 'tijd' => $tijd, 'tf' => $tf, 'tijden' => tijden_van((int) $z->id),
+        'lidmaatschappen' => $lidmaatschappen, 'kies_ploegen' => array_values(array_filter(actieve_ploegen(), fn($p) => !in_array($p->id, $al))),
         'meldingen' => meldingen(db()->prepare('m.zwemmer_id=%d', $z->id)), 'inschrijvingen' => $inschrijvingen,
-        'accounts' => array_filter(array_map('get_userdata', zwemmer_accounts($z))), 'koppelcode' => koppel_toon(koppel_geldige_code($z) ?? '')],
+        'accounts' => array_filter(array_map('get_userdata', zwemmer_accounts($z))), 'koppelcode' => koppel_toon(koppel_geldige_code($z) ?? ''),
+        'toestemming_nodig' => minderjarig($z->geboortedatum) && empty($z->toestemming_op) && heeft_account($z, get_current_user_id())],
         "{$z->voornaam} {$z->naam}");
 }
 
@@ -314,6 +399,7 @@ function v_zwemmer_koppelen(): void
         naar(app_url('zwemmers/'));
     }
     if (koppel($z, get_current_user_id())) {
+        zorg_gezinsrol(get_current_user_id());
         flash("{$z->voornaam} {$z->naam} is gekoppeld aan je account. Je ziet nu dezelfde inschrijvingen en meldingen.");
     } else {
         flash("{$z->voornaam} {$z->naam} hoort al bij je account.", 'info');
@@ -886,7 +972,7 @@ function v_upload($id = null): void
                 $wid = importeer($meet, $rel, $bestaand ? (int) $bestaand->id : null);
                 $w = wedstrijd($wid);
                 if (!$bestaand) {
-                    stuur(users_met('push_nieuwe_wedstrijd', [ZWEMMER]), "Nieuwe wedstrijd: {$w->naam}",
+                    stuur(users_met('push_nieuwe_wedstrijd', GEZIN), "Nieuwe wedstrijd: {$w->naam}",
                         'Laat weten of je interesse hebt of meedoet.', app_url("wedstrijd/$wid/"));
                 }
                 $aantal = array_sum(array_map(fn($s) => count($s['nummers']), $meet['sessies']));
@@ -1033,13 +1119,14 @@ const PDF_NAMEN = [
 function v_uitleg(): void
 {
     vereist_login();
-    $r = rol();
-    $zichtbaar = [ZWEMMER => ['zwemmer'], TRAINER => ['trainer', 'zwemmer']][$r] ?? array_column(FILMPJES, 0);
+    $secretariaat = is_secretariaat();
+    $trainer = heeft_rol([TRAINER]);
+    $zichtbaar = $secretariaat ? array_column(FILMPJES, 0) : ($trainer ? ['trainer', 'zwemmer'] : ['zwemmer']);
     $filmpjes = array_values(array_filter(FILMPJES, fn($f) => in_array($f[0], $zichtbaar, true)));
-    $pdfs = $r === ZWEMMER ? ['onepager-zwemmer', 'handleiding-zwemmer'] : ($r === TRAINER
-        ? ['onepager-trainer', 'handleiding-trainer', 'handleiding-zwemmer']
-        : array_merge(['HZS-inschrijvingen-documentatie', 'onepager-sportsecretaris', 'handleiding-sportsecretaris', 'handleiding-trainer', 'handleiding-zwemmer'],
-            $r === BEHEERDER ? ['handleiding-beheerder', 'technisch'] : []));
+    $pdfs = $secretariaat
+        ? array_merge(['HZS-inschrijvingen-documentatie', 'onepager-sportsecretaris', 'handleiding-sportsecretaris', 'handleiding-trainer', 'handleiding-zwemmer'],
+            heeft_rol([BEHEERDER]) ? ['handleiding-beheerder', 'technisch'] : [])
+        : ($trainer ? ['onepager-trainer', 'handleiding-trainer', 'handleiding-zwemmer'] : ['onepager-zwemmer', 'handleiding-zwemmer']);
     // Filmpjes en PDF's zijn optioneel (groot); enkel tonen wat meegeleverd is in assets/docs.
     $filmpjes = array_values(array_filter($filmpjes, fn($f) => is_file(KHZS_PAD . "assets/docs/video/{$f[0]}.mp4")));
     $pdfs = array_values(array_filter($pdfs, fn($p) => is_file(KHZS_PAD . "assets/docs/pdf/$p.pdf")));

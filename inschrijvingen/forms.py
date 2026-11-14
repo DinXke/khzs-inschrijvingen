@@ -1,8 +1,11 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
+from django.urls import reverse
+from django.utils.html import format_html
 
-from .models import BesteTijd, Profiel, Wedstrijd, Zwemmer
+from .avg import minderjarig
+from .models import BesteTijd, Ploeg, Profiel, Wedstrijd, Zwemmer
 from .regels import parse_invoer_tijd, toon_tijd
 
 
@@ -14,43 +17,28 @@ class DatumInput(forms.DateInput):
 
 
 class RegistratieForm(UserCreationForm):
-    """Account (bv. van een ouder). De zwemmers komen uit een aparte formset (ZwemmerFormSet)."""
+    """Enkel het account. Zwemmers, ploegen en rollen volgen in het stappenplan na de registratie (view welkom)."""
 
     email = forms.EmailField(label="E-mail")
     voornaam = forms.CharField(label="Jouw voornaam", max_length=60)
     naam = forms.CharField(label="Jouw naam", max_length=80)
-    koppelcode = forms.CharField(label="Koppelcode (optioneel)", max_length=12, required=False,
-                                 help_text="Heeft de andere ouder je kind al ingeschreven? Vraag een koppelcode (bij de zwemmer → "
-                                           "‘Koppelcode maken’) en vul ze hier in. Je hoeft je kind dan niet opnieuw toe te voegen.")
+    privacy = forms.BooleanField(error_messages={"required": "Je moet de privacyverklaring aanvaarden om een account te maken."})
 
     class Meta:
         model = User
         fields = ["email"]
+
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        self.fields["privacy"] = self.fields.pop("privacy")  # als laatste, onder de wachtwoorden
+        self.fields["privacy"].label = format_html(
+            'Ik heb de <a href="{}" target="_blank">privacyverklaring</a> gelezen en ga akkoord.', reverse("privacy"))
 
     def clean_email(self):
         email = self.cleaned_data["email"].lower().strip()
         if User.objects.filter(username__iexact=email).exists():
             raise forms.ValidationError("Er bestaat al een account met dit e-mailadres.")
         return email
-
-    def clean_koppelcode(self):
-        from .koppelen import zoek
-        code = self.cleaned_data.get("koppelcode", "").strip()
-        self.cleaned_data["gekoppeld"] = None
-        if code:
-            try:
-                z = zoek(code)
-            except ValueError as e:
-                raise forms.ValidationError(str(e))
-            if z is None:
-                raise forms.ValidationError("Deze koppelcode klopt niet of is verlopen.")
-            self.cleaned_data["gekoppeld"] = z
-        return code
-
-    def clean(self):
-        data = super().clean()
-        data.setdefault("gekoppeld", None)
-        return data
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -71,8 +59,46 @@ class ZwemmerForm(forms.ModelForm):
         labels = {"licentie": "Licentienummer (optioneel)", "swimrankings_id": "Swimrankings-ID (optioneel)"}
 
 
-# Eén leeg zwemmerblok; leeg laten mag als er een koppelcode is (dat controleert de view).
-ZwemmerFormSet = forms.formset_factory(ZwemmerForm, extra=1, min_num=0, max_num=10)
+TOESTEMMING_LABEL = ("Ik ben ouder of voogd van deze zwemmer (of heb hun toestemming) en ga akkoord dat de club de gegevens "
+                     "van deze minderjarige zwemmer verwerkt zoals beschreven in de privacyverklaring.")
+TOESTEMMING_FOUT = "Voor een zwemmer jonger dan 18 jaar is de toestemming van een ouder of voogd nodig."
+
+
+class ZwemmerMetPloegForm(ZwemmerForm):
+    """Nieuwe zwemmer, met meteen de ploeg (wordt een aanvraag die de staf goedkeurt). Een minderjarige zwemmer
+    vraagt de toestemming van een ouder of voogd (AVG)."""
+
+    ploeg = forms.ModelChoiceField(Ploeg.objects.filter(actief=True), required=False, empty_label="Weet ik nog niet",
+                                   help_text="De trainer of het bestuur keurt de ploeg goed.")
+    toestemming = forms.BooleanField(label=TOESTEMMING_LABEL, required=False, help_text="Enkel nodig voor zwemmers jonger dan 18 jaar.")
+
+    class Meta(ZwemmerForm.Meta):
+        fields = ["voornaam", "naam", "geboortedatum", "geslacht", "ploeg", "licentie", "swimrankings_id", "toestemming"]
+
+    def clean(self):
+        d = super().clean()
+        if minderjarig(d.get("geboortedatum")) and not d.get("toestemming"):
+            self.add_error("toestemming", TOESTEMMING_FOUT)
+        return d
+
+
+class PloegForm(forms.ModelForm):
+    trainers = forms.ModelMultipleChoiceField(User.objects.none(), required=False, widget=forms.CheckboxSelectMultiple,
+                                              help_text="Accounts met de rol trainer competitie of trainer zwemschool.")
+
+    class Meta:
+        model = Ploeg
+        fields = ["naam", "beschrijving", "soort", "trainers", "actief"]
+
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        self.fields["trainers"].queryset = User.objects.filter(app_rollen__rol__in=Profiel.TRAINERS).distinct().order_by(
+            "first_name", "last_name")
+        self.fields["trainers"].label_from_instance = lambda u: u.get_full_name() or u.username
+        self.fields["soort"].required = False  # leeg (bv. een ouder formulier) = competitie
+
+    def clean_soort(self):
+        return self.cleaned_data.get("soort") or Ploeg.COMPETITIE
 
 
 class TijdVeld(forms.CharField):
@@ -147,19 +173,18 @@ class TrainerInstellingenForm(forms.ModelForm):
         help_texts = {"dagen_trainer": "Extra dagen vóór de deadline van het sportsecretariaat dat zwemmers moeten ingeschreven zijn."}
 
 
-class RolForm(forms.ModelForm):
-    class Meta:
-        model = Profiel
-        fields = ["rol"]
-
-
 class MeldingenForm(forms.ModelForm):
     class Meta:
         model = Profiel
-        fields = ["push_nieuwe_wedstrijd", "push_deadline", "push_wijziging", "push_nieuwe_inschrijving"]
+        fields = ["push_nieuwe_wedstrijd", "push_deadline", "push_wijziging", "push_beslissing", "push_nieuwe_inschrijving",
+                  "push_rolaanvraag", "push_ploegaanvraag"]
 
-    def __init__(self, *a, staf=False, **kw):
+    def __init__(self, *a, staf=False, rolbeheer=False, alle_ploegen=False, **kw):
         super().__init__(*a, **kw)
+        if not rolbeheer:
+            del self.fields["push_rolaanvraag"]
+        if not alle_ploegen and not (self.instance.pk and self.instance.user.getrainde_ploegen.exists()):
+            del self.fields["push_ploegaanvraag"]
         if not staf:
             del self.fields["push_nieuwe_inschrijving"]
         else:

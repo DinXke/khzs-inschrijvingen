@@ -14,6 +14,8 @@ require_once __DIR__ . '/kalender.php';
 
 add_filter('khzs_routes', fn($r) => array_merge($r, [
     ['registreren', 'registreren', 'v_registreren'],
+    ['welkom', 'welkom', 'v_welkom'],
+    ['zwemmers/(\d+)/ploeg', 'zwemmer', 'v_zwemmer_ploeg'],
     ['wedstrijden', 'wedstrijden', 'v_wedstrijden'],
     ['wedstrijd/nieuw', 'upload', 'v_upload'],
     ['wedstrijd/(\d+)', 'wedstrijd', 'v_wedstrijd'],
@@ -46,7 +48,7 @@ add_filter('khzs_routes', fn($r) => array_merge($r, [
 
 add_filter('khzs_menu', fn($m) => $m + [
     10 => ['Wedstrijden', 'wedstrijden/', ['wedstrijden', 'wedstrijd', 'nakijken', 'instellingen', 'upload'],
-        '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>', fn() => true],
+        '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>', fn() => !zonder_wedstrijden()],
     20 => [is_staf() ? 'Zwemmers' : 'Profiel', 'zwemmers/', ['zwemmers', 'zwemmer', 'zwemmer_nieuw', 'uitslagen'],
         '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>', fn() => true],
     70 => ['Uitleg', 'uitleg/', ['uitleg'], '<circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z" fill="currentColor"/>', fn() => true],
