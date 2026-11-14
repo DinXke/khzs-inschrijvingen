@@ -6,9 +6,10 @@
     <h2 style="margin-top:0">1. Account</h2>
     <p class="klein">Eén account per gezin: de ouder maakt het account aan en voegt daaronder al zijn of haar zwemmende kinderen toe. Zwem je zelf? Voeg jezelf dan toe als zwemmer.</p>
     {{ form.non_field_errors }}
-    {% for field in form %}{% include "_veld.html" %}{% endfor %}
+    {% for field in form %}{% if field.name != "koppelcode" %}{% include "_veld.html" %}{% endif %}{% endfor %}
   </div>
   <h2>2. Zwemmer(s)</h2>
+  <div class="kaart">{% with field=form.koppelcode %}{% include "_veld.html" %}{% endwith %}</div>
   {{ zwemmers.management_form }}{{ zwemmers.non_form_errors }}
   <div id="zwemmers">
     {% for zf in zwemmers %}

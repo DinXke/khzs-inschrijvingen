@@ -36,8 +36,35 @@ class Profiel(models.Model):
         return f"{self.user} ({self.get_rol_display()})"
 
 
+def account_verwijderd(collector, field, sub_objs, using):
+    """on_delete van Zwemmer.account: wordt een account verwijderd, dan blijft een gedeelde zwemmer bij het andere
+    account (bv. de andere ouder); enkel zwemmers zonder ander account verdwijnen mee."""
+    weg = []
+    for z in sub_objs:
+        extra = [u for u in z.extra_accounts.all() if u.pk != z.account_id]
+        if extra:
+            z.account = extra[0]
+            z.save(update_fields=["account"])
+            z.extra_accounts.remove(extra[0])
+        else:
+            weg.append(z)
+    if weg:
+        models.CASCADE(collector, field, weg, using)
+
+
+class ZwemmerQuerySet(models.QuerySet):
+    def van(self, user):
+        """Zwemmers van dit account: eigen zwemmers en zwemmers die met dit account gedeeld zijn (bv. gescheiden ouders)."""
+        return self.filter(models.Q(account=user) | models.Q(extra_accounts=user)).distinct()
+
+
 class Zwemmer(models.Model):
-    account = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="zwemmers")
+    # Eerste account (wie de zwemmer aanmaakte). Andere ouders koppelen zich met een koppelcode (extra_accounts).
+    account = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=account_verwijderd, related_name="zwemmers")
+    extra_accounts = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="gedeelde_zwemmers",
+                                            help_text="Andere accounts die deze zwemmer ook beheren (bv. de andere ouder)")
+    koppelcode = models.CharField(max_length=8, blank=True, db_index=True)
+    koppelcode_tot = models.DateTimeField(null=True, blank=True)
     voornaam = models.CharField(max_length=60)
     naam = models.CharField(max_length=80)
     geboortedatum = models.DateField()
@@ -46,12 +73,22 @@ class Zwemmer(models.Model):
     swimrankings_id = models.CharField("Swimrankings-ID", max_length=20, blank=True,
                                        help_text="Het getal achter athleteId= in de link van je Swimrankings-pagina")
 
+    objects = ZwemmerQuerySet.as_manager()
+
     class Meta:
         ordering = ["naam", "voornaam"]
         verbose_name_plural = "zwemmers"
 
     def __str__(self):
         return f"{self.voornaam} {self.naam}"
+
+    @property
+    def accounts(self):
+        """Alle accounts van deze zwemmer: eerst het eerste account, dan de gekoppelde."""
+        return [self.account] + [u for u in self.extra_accounts.all() if u.pk != self.account_id]
+
+    def heeft_account(self, user):
+        return user.is_authenticated and (self.account_id == user.pk or self.extra_accounts.filter(pk=user.pk).exists())
 
     @property
     def swimrankings_url(self):

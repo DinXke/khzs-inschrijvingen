@@ -6,6 +6,7 @@ Inschrijfsysteem (PWA) voor zwemwedstrijden van Hasseltse Zwemvereniging Spartac
 - **Trainers**: extra dagen instellen, inschrijvingen nakijken, goed-/afkeuren en aanpassen.
 - **Zwemmers**: profiel + beste tijden, interesse/ik doe mee/ik doe niet mee, inschrijven op nummers waarvoor ze in aanmerking komen.
 - Pushmeldingen (instelbaar): nieuwe wedstrijd, inschrijvingen open, 1 dag voor de deadline, wijziging door de club.
+- Zwemmer delen met meerdere accounts (bv. gescheiden ouders) via een koppelcode: beide ouders zien dezelfde inschrijvingen en krijgen dezelfde meldingen.
 - Beste tijden via import van uitslagen-Lenexen; deelname weigeren met melding; info per wedstrijd; backup & terugzetten.
 
 Deadline zwemmers = deadline organisator − dagen secretariaat − dagen trainer.

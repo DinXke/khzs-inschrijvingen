@@ -30,6 +30,13 @@ Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist 
    - de penningmeester is een vlag (`khzs_penningmeester`) los van de rol en kan ook een ouder zijn; enkel een beheerder kan die vlag zetten
    - **geen loonberekening**: wettelijke plafonds (vrijwilligersvergoeding, verenigingswerk) zitten niet in de plugin; de Excel-export is voor de boekhouding
 
+9. **Zwemmer bij meerdere accounts** (gescheiden ouders), in Django én WordPress:
+   - Het eerste account blijft `account`. Extra accounts staan in `extra_accounts` (Django) en in de tabel `khzs_zwemmer_accounts` (WordPress).
+   - Een koppelcode van 8 tekens zonder O/0/I/1 is 7 dagen geldig en meermaals te gebruiken.
+   - Na 10 foute pogingen per uur wordt het account geblokkeerd voor koppelen.
+   - Meldingen en push gaan naar alle accounts. "Gelezen" geldt per melding, dus voor beide ouders samen.
+   - Verwijder je het eerste account, dan wordt de andere ouder het eerste account (Django: `on_delete=account_verwijderd`).
+
 ## Stand van zaken
 
 - Alles staat op **`main`** (PR #1). De map `wordpress/` en `export_wordpress` raken de draaiende Django-app niet. Werk verder op een branch: elke commit op `main` komt binnen 10 minuten op de server.

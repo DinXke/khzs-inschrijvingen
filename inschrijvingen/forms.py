@@ -19,6 +19,9 @@ class RegistratieForm(UserCreationForm):
     email = forms.EmailField(label="E-mail")
     voornaam = forms.CharField(label="Jouw voornaam", max_length=60)
     naam = forms.CharField(label="Jouw naam", max_length=80)
+    koppelcode = forms.CharField(label="Koppelcode (optioneel)", max_length=12, required=False,
+                                 help_text="Heeft de andere ouder je kind al ingeschreven? Vraag een koppelcode (bij de zwemmer → "
+                                           "‘Delen met een andere ouder’) en vul ze hier in. Je hoeft je kind dan niet opnieuw toe te voegen.")
 
     class Meta:
         model = User
@@ -29,6 +32,25 @@ class RegistratieForm(UserCreationForm):
         if User.objects.filter(username__iexact=email).exists():
             raise forms.ValidationError("Er bestaat al een account met dit e-mailadres.")
         return email
+
+    def clean_koppelcode(self):
+        from .koppelen import zoek
+        code = self.cleaned_data.get("koppelcode", "").strip()
+        self.cleaned_data["gekoppeld"] = None
+        if code:
+            try:
+                z = zoek(code)
+            except ValueError as e:
+                raise forms.ValidationError(str(e))
+            if z is None:
+                raise forms.ValidationError("Deze koppelcode klopt niet of is verlopen.")
+            self.cleaned_data["gekoppeld"] = z
+        return code
+
+    def clean(self):
+        data = super().clean()
+        data.setdefault("gekoppeld", None)
+        return data
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -49,7 +71,8 @@ class ZwemmerForm(forms.ModelForm):
         labels = {"licentie": "Licentienummer (optioneel)", "swimrankings_id": "Swimrankings-ID (optioneel)"}
 
 
-ZwemmerFormSet = forms.formset_factory(ZwemmerForm, extra=0, min_num=1, validate_min=True, max_num=10)
+# Eén leeg zwemmerblok; leeg laten mag als er een koppelcode is (dat controleert de view).
+ZwemmerFormSet = forms.formset_factory(ZwemmerForm, extra=1, min_num=0, max_num=10)
 
 
 class TijdVeld(forms.CharField):

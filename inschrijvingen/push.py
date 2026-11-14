@@ -77,6 +77,7 @@ def users_met(voorkeur, rollen=None, deelname_aan=None):
     if rollen:
         qs = qs.filter(profiel__rol__in=rollen)
     if deelname_aan is not None:
-        qs = qs.filter(zwemmers__deelnames__wedstrijd=deelname_aan, zwemmers__deelnames__keuze__in=Deelname.ACTIEF,
-                       zwemmers__deelnames__geweigerd=False)
+        from django.db.models import Q
+        zids = Deelname.objects.filter(wedstrijd=deelname_aan, keuze__in=Deelname.ACTIEF, geweigerd=False).values("zwemmer_id")
+        qs = qs.filter(Q(zwemmers__in=zids) | Q(gedeelde_zwemmers__in=zids))
     return qs.distinct()

@@ -11,6 +11,8 @@
     <?= veld_tekst('password2', 'Wachtwoord bevestigen', '', $fouten['password2'] ?? null, ['type' => 'password', 'required' => true, 'autocomplete' => 'new-password'], 'Geef hetzelfde wachtwoord nogmaals in, ter controle.') ?>
   </div>
   <h2>2. Zwemmer(s)</h2>
+  <div class="kaart"><?= veld_tekst('koppelcode', 'Koppelcode (optioneel)', $form['koppelcode'], $fouten['koppelcode'] ?? null, ['autocomplete' => 'off', 'autocapitalize' => 'characters', 'placeholder' => 'bv. K7QM-2PXA'],
+    'Heeft de andere ouder je kind al ingeschreven? Vraag een koppelcode (bij de zwemmer → ‘Koppelcode maken’) en vul ze hier in. Je hoeft je kind dan niet opnieuw toe te voegen.') ?></div>
   <input type="hidden" name="zw-TOTAL_FORMS" id="id_zw-TOTAL_FORMS" value="<?= count($zwemmers) ?>">
   <?= fouten_html($fouten['__zwemmers'] ?? null) ?>
   <div id="zwemmers">
@@ -54,5 +56,14 @@
     nieuw.querySelector("input[type=text]")?.focus();
   });
   lijst.addEventListener("click", e => { if (e.target.closest(".weg")) { e.target.closest(".zwemmer-blok").remove(); hernummer(); } });
+  // Met een koppelcode mag het zwemmerblok leeg blijven.
+  const code = document.getElementById("id_koppelcode");
+  const verplicht = () => lijst.querySelectorAll("input, select").forEach(el => {
+    if (el.dataset.req === undefined) el.dataset.req = el.required ? "1" : "";
+    el.required = !code.value.trim() && el.dataset.req === "1";
+  });
+  code.addEventListener("input", verplicht);
+  document.getElementById("nog-zwemmer").addEventListener("click", () => setTimeout(verplicht));
+  verplicht();
 })();
 </script>

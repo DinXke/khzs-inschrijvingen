@@ -40,6 +40,22 @@ $url = app_url("zwemmers/{$z->id}/"); ?>
       <?php endforeach; ?>
       <?php if (!$inschrijvingen): ?><p class="klein">Nog geen inschrijvingen.</p><?php endif; ?>
     </div>
+    <h2>Ouders &amp; accounts</h2>
+    <div class="kaart">
+      <?php $ik = get_current_user_id(); foreach ($accounts as $u): ?><div class="rij tussen" style="padding:.3rem 0;border-bottom:1px solid var(--lijn)">
+        <span><?= e(volle_naam($u) ?: $u->user_login) ?><?= $u->ID === $ik ? ' <span class="klein">(jij)</span>' : '' ?><br><span class="klein"><?= e($u->user_email ?: $u->user_login) ?></span></span>
+        <?php if (count($accounts) > 1 && ($u->ID === $ik || (int) $z->account_id === $ik || $is_staf)): ?>
+          <form method="post" action="<?= esc_url(app_url("zwemmers/{$z->id}/ontkoppelen/")) ?>" onsubmit="return confirm(<?= esc_attr(wp_json_encode($u->ID === $ik ? "Jezelf loskoppelen van {$z->voornaam}?" : (volle_naam($u) ?: $u->user_login) . ' loskoppelen?')) ?>)"><?= nonce_veld() ?>
+          <input type="hidden" name="user" value="<?= (int) $u->ID ?>"><button class="mini secundair"><?= $u->ID === $ik ? 'Mij loskoppelen' : 'Loskoppelen' ?></button></form><?php endif; ?>
+      </div><?php endforeach; ?>
+      <p class="klein" style="margin-top:.6rem"><b>Delen met een andere ouder</b> (bv. bij gescheiden ouders): maak een koppelcode en geef ze door. De andere ouder vult ze in bij <i>Mijn zwemmers → Zwemmer koppelen</i> of bij het aanmaken van een profiel. Jullie zien dan allebei dezelfde inschrijvingen en meldingen.</p>
+      <?php if ($koppelcode): ?><div class="melding success" style="margin:.4rem 0">Koppelcode: <b style="font-size:1.3rem;letter-spacing:.08em"><?= e($koppelcode) ?></b><br><span class="klein">Geldig tot <?= e(datum($z->koppelcode_tot, 'j M H:i')) ?></span></div><?php endif; ?>
+      <form method="post" action="<?= esc_url(app_url("zwemmers/{$z->id}/delen/")) ?>"><?= nonce_veld() ?><button class="mini <?= $koppelcode ? 'secundair' : '' ?>"><?= $koppelcode ? 'Nieuwe code maken' : '🔗 Koppelcode maken' ?></button></form>
+      <?php if ($is_staf): ?><form method="post" action="<?= esc_url(app_url('zwemmers/account/')) ?>" class="rij" style="margin-top:.6rem;align-items:end"><?= nonce_veld() ?>
+        <input type="hidden" name="zwemmer" value="<?= (int) $z->id ?>">
+        <div style="flex:1;min-width:180px"><label for="acc-email">Account koppelen (staf)</label><input id="acc-email" type="email" name="email" placeholder="e-mail van het account" required></div>
+        <button class="mini secundair">Koppelen</button></form><?php endif; ?>
+    </div>
     <h2>Gegevens</h2>
     <form method="post" class="kaart" action="<?= esc_url($url) ?>"><?= nonce_veld() ?><?= zwemmer_velden('z-', $v, $f) ?><p><button>Bewaren</button></p></form>
   </div>

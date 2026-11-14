@@ -158,8 +158,9 @@ function users_met(string $voorkeur, ?array $rollen = null, ?int $deelname_aan =
 {
     $sql = "SELECT DISTINCT p.user_id FROM " . t('push') . " p";
     if ($deelname_aan !== null) {
-        $sql .= " JOIN " . t('zwemmers') . " z ON z.account_id=p.user_id JOIN " . t('deelnames') . " d ON d.zwemmer_id=z.id"
-            . db()->prepare(" WHERE d.wedstrijd_id=%d AND d.keuze IN ('interesse','doet_mee') AND d.geweigerd=0", $deelname_aan);
+        // Alle accounts (ook gekoppelde ouders) van zwemmers met interesse of 'ik doe mee'.
+        $zids = "SELECT zwemmer_id FROM " . t('deelnames') . db()->prepare(" WHERE wedstrijd_id=%d AND keuze IN ('interesse','doet_mee') AND geweigerd=0", $deelname_aan);
+        $sql .= " WHERE p.user_id IN (SELECT account_id FROM " . t('zwemmers') . " WHERE id IN ($zids) UNION SELECT user_id FROM " . t('zwemmer_accounts') . " WHERE zwemmer_id IN ($zids))";
     }
     $uit = [];
     foreach (db()->get_col($sql) as $uid) {

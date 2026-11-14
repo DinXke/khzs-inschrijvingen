@@ -11,7 +11,8 @@ class BesteTijdInline(admin.TabularInline):
 @admin.register(Zwemmer)
 class ZwemmerAdmin(admin.ModelAdmin):
     list_display = ["naam", "voornaam", "geboortedatum", "geslacht", "licentie", "account"]
-    search_fields = ["naam", "voornaam", "licentie", "account__username"]
+    search_fields = ["naam", "voornaam", "licentie", "account__username", "extra_accounts__username"]
+    filter_horizontal = ["extra_accounts"]
     inlines = [BesteTijdInline]
 
 

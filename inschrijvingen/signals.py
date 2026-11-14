@@ -14,3 +14,4 @@ def maak_profiel(sender, instance, created, raw=False, **kwargs):
             user=instance,
             defaults={"rol": Profiel.BEHEERDER if instance.is_superuser else Profiel.SECRETARIS if eerste else Profiel.ZWEMMER},
         )
+
