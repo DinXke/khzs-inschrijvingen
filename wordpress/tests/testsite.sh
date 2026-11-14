@@ -15,7 +15,7 @@ SOCK="/run/mysqld/khzs-$POORT.sock"
 mkdir -p /run/mysqld "$MAP/mysql"
 if [ ! -d "$MAP/mysql/mysql" ]; then mysql_install_db --user=root --datadir="$MAP/mysql" >/dev/null; fi
 if ! [ -S "$SOCK" ]; then
-  nohup mariadbd --user=root --datadir="$MAP/mysql" --socket="$SOCK" --port=$((POORT + 10000)) --bind-address=127.0.0.1 >"$MAP/mysql.log" 2>&1 &
+  setsid nohup mariadbd --user=root --datadir="$MAP/mysql" --socket="$SOCK" --port=$((POORT + 10000)) --bind-address=127.0.0.1 </dev/null >"$MAP/mysql.log" 2>&1 &
   for _ in $(seq 30); do [ -S "$SOCK" ] && break; sleep 1; done
 fi
 mysql -uroot --socket="$SOCK" -e "CREATE DATABASE IF NOT EXISTS $DB; CREATE USER IF NOT EXISTS 'wp'@'127.0.0.1' IDENTIFIED BY 'wp'; GRANT ALL ON $DB.* TO 'wp'@'127.0.0.1';"
@@ -52,7 +52,9 @@ $_SERVER['SCRIPT_NAME'] = '/index.php';
 require $_SERVER['DOCUMENT_ROOT'] . '/index.php';
 PHP
 if ! curl -s -o /dev/null "http://localhost:$POORT/"; then
-  (cd "$MAP/site" && nohup php -d upload_max_filesize=30M -d post_max_size=40M -S "127.0.0.1:$POORT" -t "$MAP/site" "$MAP/router.php" >"$MAP/php.log" 2>&1 &)
+  # Volledig loskoppelen (anders blijft de uitvoer van dit script openstaan).
+  setsid nohup php -d upload_max_filesize=30M -d post_max_size=40M -S "127.0.0.1:$POORT" -t "$MAP/site" "$MAP/router.php" \
+    </dev/null >"$MAP/php.log" 2>&1 &
   sleep 2
 fi
 echo "Testsite: http://localhost:$POORT/club/  (wp-admin: admin / admin123)  map: $MAP"
