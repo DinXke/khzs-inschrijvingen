@@ -15,7 +15,7 @@ namespace KHZS;
 defined('ABSPATH') || exit;
 
 const VERSIE = '2.0.0';
-const DB_VERSIE = '3';
+const DB_VERSIE = '6';
 define('KHZS_PAD', plugin_dir_path(__FILE__));
 define('KHZS_URL', plugin_dir_url(__FILE__));
 
@@ -29,10 +29,14 @@ require_once KHZS_PAD . 'includes/backup.php';
 require_once KHZS_PAD . 'includes/app.php';
 require_once KHZS_PAD . 'includes/velden.php';
 require_once KHZS_PAD . 'includes/kern-acties.php';
+require_once KHZS_PAD . 'includes/rollen.php';
+require_once KHZS_PAD . 'includes/ploegen.php';
+require_once KHZS_PAD . 'includes/avg.php';
 require_once KHZS_PAD . 'includes/admin.php';
 require_once KHZS_PAD . 'includes/pwa.php';
 // Demo op /leden-demo/ (eigen tabellen en accounts); moet vóór de modules geladen worden.
 require_once KHZS_PAD . 'includes/demo.php';
+require_once KHZS_PAD . 'includes/update.php';
 
 // ---------- modules ----------
 // De tabellen van elke module worden altijd geladen (ook uitgeschakeld blijven de gegevens bewaard en in de backup);

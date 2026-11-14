@@ -15,3 +15,4 @@
 </form>
 <?php if (registratie_open()): ?><p class="leeg">Nog geen account? <a href="<?= esc_url(app_url('registreren/')) ?>">Maak een profiel aan</a></p><?php endif; ?>
 <p class="leeg"><a href="<?= esc_url(app_url('installeer/')) ?>">📲 Installeer als app</a></p>
+<p class="leeg klein"><a href="<?= esc_url(app_url('privacy/')) ?>">Privacy en cookies</a></p>

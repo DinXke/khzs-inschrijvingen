@@ -7,6 +7,7 @@ from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 
 from inschrijvingen.models import Profiel
+from inschrijvingen.rollen import geef_rol, zet_rollen
 
 
 class Command(BaseCommand):
@@ -22,5 +23,8 @@ class Command(BaseCommand):
         u.is_staff = u.is_superuser = True
         u.set_password(wachtwoord)
         u.save()
-        Profiel.objects.update_or_create(user=u, defaults={"rol": Profiel.BEHEERDER})
+        if nieuw:
+            zet_rollen(u, [Profiel.BEHEERDER])
+        else:
+            geef_rol(u, Profiel.BEHEERDER)  # bestaand account houdt zijn andere rollen
         self.stdout.write(f"{'Aangemaakt' if nieuw else 'Bijgewerkt'}: {gebruiker} / {wachtwoord}")

@@ -1,0 +1,39 @@
+# Nieuwe versie van de WordPress-plugin KHZS Leden publiceren.
+# 1. Verhoog de versie in wordpress/khzs-leden/khzs-leden.php (kopregel "Version:" én const VERSIE).
+# 2. git tag plugin-v2.1.0 && git push origin plugin-v2.1.0
+# De sites met de plugin zien de update binnen 6 uur (of meteen via "Op updates controleren" in de pluginlijst).
+name: Plugin-release
+
+on:
+  push:
+    tags: ["plugin-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Versie controleren
+        run: |
+          tag="${GITHUB_REF_NAME#plugin-v}"
+          kop=$(sed -n 's/^ \* Version: *//p' wordpress/khzs-leden/khzs-leden.php | tr -d '[:space:]')
+          const=$(sed -n "s/^const VERSIE = '\(.*\)';/\1/p" wordpress/khzs-leden/khzs-leden.php)
+          echo "tag=$tag kop=$kop const=$const"
+          if [ "$tag" != "$kop" ] || [ "$tag" != "$const" ]; then
+            echo "::error::De tag ($tag) moet gelijk zijn aan 'Version:' ($kop) en VERSIE ($const) in khzs-leden.php"
+            exit 1
+          fi
+
+      - name: Zip bouwen
+        run: bash wordpress/bouw.sh
+
+      - name: Release maken
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" wordpress/khzs-leden.zip \
+            --title "KHZS Leden ${GITHUB_REF_NAME#plugin-v}" --generate-notes

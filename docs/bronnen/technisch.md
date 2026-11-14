@@ -11,6 +11,12 @@
 | Hosting | Proxmox LXC (Debian 12, VLAN 10.10.30.0/24) |
 | Push | Web Push met VAPID (`pywebpush`), sleutel in `/opt/khzs/data/vapid.pem` |
 
+## Naam en iconen
+
+- De app heet **KHZS Leden** (titel, app op de gsm, mails). Het adres blijft `https://inschrijvingen.khzs.be`.
+- App-iconen: het HZS-logo met *Leden* eronder. Opnieuw maken met `python3 tools/logo/maak_iconen.py` (schrijft naar `static/img/` en naar de WordPress-plugin).
+- Een zwemmer kan bij meerdere accounts horen: het eerste in `account`, de andere in `extra_accounts` (migratie `0011_zwemmer_accounts`). Koppelcodes: 8 tekens, 7 dagen geldig, max. 10 foute pogingen per uur.
+
 ## Lenex
 
 - Import: `.lxf` (zip) en `.lef` (XML), Lenex 2.x en 3.0. Veilig ingelezen met `defusedxml`.
@@ -26,10 +32,32 @@
 - Backup: `khzs-backup.timer` maakt elke nacht om 02:30 een volledige app-backup (zip: `dumpdata` + media) in `/opt/khzs/backups/app` (30 dagen). Daarnaast om 03:15 een `pg_dump` in `/opt/khzs/backups/pg`. Beheer via `/backup/` (enkel de rol Beheerder) of `manage.py backup`.
 - Instellingen en geheimen: `/etc/khzs.env` (niet in git). SMTP invullen voor de mails bij een vergeten wachtwoord.
 
+## Privacy (AVG)
+
+- **Privacyverklaring** op `/privacy/` (sjabloon `templates/privacy.html`), zonder aanmelden te lezen en gelinkt vanaf de aanmeldpagina, de registratie en *Uitleg*. **Het is een sjabloon: laat het juridisch nakijken door de club.**
+- **Gegevens van de club** in `/etc/khzs.env`:
+
+  | Variabele | Inhoud |
+  |---|---|
+  | `PRIVACY_VERANTWOORDELIJKE` | juridische naam van de club (leeg = `CLUB_NAAM`) |
+  | `PRIVACY_ADRES` | maatschappelijke zetel |
+  | `PRIVACY_ONDERNEMINGSNUMMER` | optioneel |
+  | `PRIVACY_EMAIL` | contact voor privacyvragen |
+  | `PRIVACY_VERSIE` | standaard `2026-11-14`; verander het na een inhoudelijke wijziging, dan krijgen leden een melding |
+  | `PRIVACY_EXTRA` | optionele aanvullende tekst onderaan |
+
+  Na een wijziging: `systemctl restart khzs`.
+- **Akkoord**: een vinkje bij de registratie (`Profiel.privacy_akkoord` en `privacy_versie`). Wie de huidige versie nog niet aanvaardde, ziet bovenaan een melding.
+- **Toestemming van een ouder** voor een zwemmer jonger dan 18 jaar, bij het toevoegen (`Zwemmer.toestemming_op` en `toestemming_door`, migratie `0014_avg`). Voor bestaande minderjarige zwemmers vraagt de zwemmerpagina die toestemming achteraf.
+- **Mijn gegevens** (`/privacy/mijn-gegevens/`, link bij *Meldingen*): alles downloaden als JSON, en het account verwijderen (wachtwoord en het woord VERWIJDER). Gedeelde zwemmers gaan naar het andere account, de andere verdwijnen mee. Accounts met toegang tot `/beheer/` verwijder je niet zelf.
+- **Opkuis**: `manage.py opkuis` draait elke dag mee met `manage.py herinneringen` (de bestaande timer). Ze wist meldingen, behandelde aanvragen en het logboek van herinneringen na 365 dagen, pushabonnementen van accounts die 365 dagen niet aanmeldden, verlopen koppelcodes en verlopen sessies. Termijnen in `inschrijvingen/avg.py`.
+- **Cookies**: enkel strikt noodzakelijk (`sessionid` 90 dagen, `csrftoken`, `messages`), plus de lokale opslag `thema` en de cache van de service worker. Geen trackers, dus geen cookiebanner.
+- **Logboeken**: nginx en gunicorn bewaren IP-adressen volgens logrotate (op Debian 14 dagen).
+
 ## Documentatie bijwerken
 
 ```
-.venv/bin/python docs/build.py
+.venv/bin/python docs/build.py          # Windows: .venv/Scripts/python docs/build.py
 ```
 
 Het script start de app met demodata, maakt alle screenshots opnieuw (gsm + pc, licht + donker) en bouwt de PDF's in `docs/pdf/`.
@@ -40,7 +68,7 @@ Het script start de app met demodata, maakt alle screenshots opnieuw (gsm + pc, 
 .venv/bin/python docs/video.py            # alle drie, of: docs/video.py zwemmer
 ```
 
-Het script (macOS) start de app met demodata en neemt met Playwright een gescripte rondleiding per rol op. De voice-over komt van de Vlaamse stem *nathalie* van Piper (lokaal, open source, licentie CC0; het model wordt automatisch gedownload, met de macOS-stem *Ellen* als reserve), en ffmpeg (`imageio-ffmpeg`) voegt beeld, stem en ondertitels samen tot `docs/video/<rol>.mp4`, met `.srt` en `.vtt`. Er zijn een geanimeerd splashscreen, hoofdstukkaarten en zachte overgangen. **Andere stem (bv. Artlist):** `docs/video.py --script` exporteert de tekst per filmpje. Bewaar de gegenereerde audio in `docs/video/stem/<rol>.mp3`, en `docs/stem.py` knipt die per stap: faster-whisper geeft de woordtijden, difflib lijnt ze uit met het script. Stappen die niet gevonden worden, vallen terug op de standaardstem. Meer uitleg in `docs/video/stem/LEESMIJ.md`.
+Het script (macOS en Windows; met Piper is geen macOS-stem nodig) start de app met demodata en neemt met Playwright een gescripte rondleiding per rol op. De voice-over komt van de Vlaamse stem *nathalie* van Piper (lokaal, open source, licentie CC0; het model wordt automatisch gedownload, met de macOS-stem *Ellen* als reserve), en ffmpeg (`imageio-ffmpeg`) voegt beeld, stem en ondertitels samen tot `docs/video/<rol>.mp4`, met `.srt` en `.vtt`. Er zijn een geanimeerd splashscreen, hoofdstukkaarten en zachte overgangen. **Andere stem (bv. Artlist):** `docs/video.py --script` exporteert de tekst per filmpje. Bewaar de gegenereerde audio in `docs/video/stem/<rol>.mp3`, en `docs/stem.py` knipt die per stap: faster-whisper geeft de woordtijden, difflib lijnt ze uit met het script. Stappen die niet gevonden worden, vallen terug op de standaardstem. Meer uitleg in `docs/video/stem/LEESMIJ.md`.
 
 De app toont de filmpjes en PDF's op `/uitleg/`: ze worden via `STATICFILES_DIRS` aangeboden als `/static/video/` en `/static/docs/`.
 

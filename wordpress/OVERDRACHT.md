@@ -51,6 +51,65 @@ Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist 
    - Bij registratie vult het vinkje *Ik zwem zelf* het eerste zwemmerblok met de eigen naam. Dat gebeurt enkel met JavaScript; de server verandert niet.
    - Bij *Mijn zwemmers* opent de knop *+ Mezelf* het formulier met de naam al ingevuld. De knop verdwijnt zodra er een zwemmer met de naam van het account bestaat.
 
+## Trainers: eigen schema, aanwezigheid bevestigen, bestuur past aan (branch `wordpress/trainers-aanwezigheid`)
+
+Vraag van de eigenaar: trainers geven zelf hun gewone schema in, krijgen na de training een melding met de vraag of ze aanwezig waren, kunnen achteraf nog het schema of één training aanpassen; bestuurders zien alles, passen desnoods aan, en de trainer krijgt daarvan een melding en ziet het in de app.
+
+Gekozen werking (details in `wordpress/README.md`, *Module Trainers*):
+- **Schema**: blijft `tr_vast` (vaste trainer per moment, met periode). De trainer kiest nu zelf een datum *vanaf* of *niet meer vanaf*, ook in het verleden tot het begin van vorige maand, maar niet in een uitbetaalde maand.
+- **Aanwezigheid**: nieuwe tabel `tr_bevestigingen` (moment, datum, trainer, `aanwezig` 1/0/NULL, door wie, bron, gevraagd, herinnerd).
+  - Geplande taak `khzs_tr_vragen` elk kwartier (eigen cron-interval `khzs_kwartier`): na het einde van de training een webpush *Was je aanwezig?* met de knoppen Ja/Nee; kijkt 2 dagen terug. Eén herinnering na minstens 12 uur, enkel tussen 8 en 21 uur.
+  - Antwoorden met één tik: de service worker post naar `/leden/trainers/bevestig/` met een HMAC-token (trainer + training, 60 dagen geldig). Geen nonce nodig, ook geen aanmelding. Tik op de melding zelf → eenvoudig scherm met twee knoppen.
+  - **Uren tellen enkel wat als aanwezig bevestigd is.** Niet bevestigd telt niet mee, maar staat apart (overzicht, verloning, Excel-kolom *Niet bevestigd*) tot de trainer of het bestuur bevestigt. Zo betaalt de club niets uit wat niemand bevestigde, en ziet de penningmeester wat er nog openstaat.
+  - Bestaande installaties met planning: trainingen vóór de dag van de update tellen mee zonder bevestiging (optie `khzs_tr_bevestigen_vanaf`, eenmalig gezet bij de update).
+  - Een trainer wijzigt eigen voorbije trainingen tot de maand voor hem of haar *uitbetaald* is; daarna enkel het bestuur (met de bestaande waarschuwing *gewijzigd na uitbetaling*).
+  - Bestuurders die ook trainer (en zwemmer) zijn: voor hun **eigen** trainingen en schema gelden de trainersregels (`tr_mag_bevestigen()`, `v_tr_actie()`, `v_tr_vast()`), zodat niemand zijn eigen uren na uitbetaling wijzigt. Ze krijgen geen melding over hun eigen wijzigingen. Getest in `test_bestuurder_die_ook_trainer_is`.
+- **Bestuur**: functie `tr_is_bestuur()` in `modules/trainers/regels.php`: `heeft_rol([BESTUURDER, BEHEERDER])` als die helper en rol bestaan (PR #7, `feature/rollen`), en altijd `is_penningmeester()` (penningmeester-vlag of beheerder). Zonder #7 valt hij dus terug op penningmeester en beheerder; na het samenvoegen van #7 werkt de rol *bestuurder* zonder verdere aanpassing. `tr_mag_beheren()` = bestuur of sportsecretariaat; dat bepaalt wie alles ziet en aanpast.
+  - Nieuw scherm `/leden/trainers/overzicht/`: per maand per trainer schema, aanwezig, niet aanwezig, niet bevestigd en uren; per trainer de trainingen met Ja/Nee, *alles bevestigen*, het schema en het logboek. Een bestuurder zonder trainersrol komt via *Trainingen* meteen op dit overzicht.
+- **Melding bij aanpassing**: nieuwe tabel `tr_log`. Elke wijziging door iemand anders dan de trainer zelf (schema, afmelden, toevoegen, schrappen, aanwezigheid) komt in het logboek en stuurt de push *Je planning is aangepast*. De trainer ziet *Aangepast door het bestuur* bovenaan *Trainingen*, en alles op `/leden/trainers/wijzigingen/` (wordt dan gelezen).
+- **Nieuwe pushvoorkeuren**: `push_aanwezig` en `push_aanpassing` (standaard aan, enkel voor staf).
+- **Buiten `modules/trainers/`** (klein, let op bij samenvoegen met andere branches):
+  - `includes/app.php`: filter `khzs_zonder_nonce` voor POST-routes met een eigen beveiliging (hier het token).
+  - `views/sw.js.php`: meldingen met knoppen (`acties`: actie, titel, post, velden) en `tag`; bij een tik op een knop post de service worker en toont een bevestiging, anders opent het antwoordscherm. Algemeen bruikbaar voor andere modules.
+  - De tabellen worden aangemaakt via een eigen versie `TR_DB_VERSIE` in `modules/trainers/db.php`, zodat `DB_VERSIE` in `khzs-leden.php` niet hoeft te veranderen.
+- **Tests**: `TrainersTest` gebruikt nu een gedeelde basis `TrainersBasis`; nieuw is `AanwezigheidTest` (4 scenario's: bestuurder die ook trainer is, vraag en antwoord vanuit de melding met herinnering, bestuur past aan met melding en logboek, trainer past eigen schema en voorbije training aan met de grens *uitbetaald*). Getest op een Docker-testsite (`mariadb:11`, `wordpress:php8.2`).
+- **Niet getest op een echt toestel**: de knoppen in de melding (Android/Chrome en desktop ondersteunen ze; iPhone toont geen knoppen en opent dan het scherm).
+- **Bewust niet gedaan**: een wijziging aan het rooster zelf (uur, afgelasting) geeft geen persoonlijke melding; wettelijke plafonds blijven buiten de plugin.
+
+## Trainers: verlof per ploeg en seizoen (branch `wordpress/trainers-verlof-seizoen`)
+
+Vraag van de eigenaar: *"de mogelijkheid toevoegen om verlofperiodes in te stellen per groep enzo zou ook handig zijn, begin en einde seizoen,..."*
+
+- **Branch**: vertrekt van `wordpress/trainers-aanwezigheid` (PR #13) met `origin/feature/ploegen` (PR #9, bovenop #7) erin gemerged. Hangt dus af van #9 en #13. Enige botsing: `tests/test_e2e.py` (beide voegden testklassen toe; allebei behouden).
+- **Ploeg per training**: nieuwe tabel `tr_moment_ploegen` (moment, ploeg; meerdere ploegen per training kan). Vinkjes in het formulier van de training (`views/_moment_velden.php`). Zonder ploeg = voor iedereen.
+- **Verlof per ploeg**: `tr_afgelast` kreeg de kolommen `ploeg_id`, `soort` (vakantie, verlof, zwembad, ander: `TR_AFGELAST_SOORT`), `door_id` en `aangemaakt` (via `TR_DB_VERSIE` 3, dbDelta). Eén rij geldt voor één training (`moment_id`), een ploeg (`ploeg_id`) of alles (beide 0). In `tr_bezetting()`: een training valt weg door ploegverlof als **al** haar ploegen verlof hebben (een gedeelde training gaat door zolang één ploeg traint). Een training zonder ploeg valt enkel weg door een afgelasting voor alles of voor die training.
+- **Seizoen: apart, niet via `tr_afgelast`.** Nieuwe tabel `tr_seizoenen` (naam, van, tot). `tr_in_seizoen()` filtert in `tr_trainingen()` en `tr_geldig()`, dus buiten het seizoen bestaat een training gewoon niet: niet in planning, *Mijn trainingen*, uren, Excel of `tr_vraag_aanwezigheid()`, en de trainingspagina geeft 404. Waarom apart: een afgelasting blijft zichtbaar met een reden, terwijl een zomerstop niet als honderd afgelaste trainingen in de planning hoort te staan.
+  - Zonder seizoenen verandert er niets. Dagen **vóór het begin van het eerste seizoen** tellen als *in seizoen*: zo verdwijnen de bestaande (en uitbetaalde) uren niet als het bestuur pas nu een seizoen invoert.
+  - Valt vandaag buiten elk seizoen, dan toont de beheerpagina een waarschuwing (*Voeg het volgende seizoen toe…* als het laatste voorbij is).
+- **Wie**: de beheerpagina `/leden/trainers/beheer/` en de trainingspagina `/leden/trainers/moment/<id>/` gebruiken nu `tr_vereist_beheer()` (bestuur **en** secretariaat) in plaats van `vereist_rol(SECRETARIAAT)`. De knop *Trainingen beheren* staat er voor wie `tr_mag_beheren()`.
+- **Melding**: `tr_wijzig_afgelast()` vergelijkt de afgelaste trainingen vanaf vandaag vóór en na de wijziging en stuurt elke betrokken trainer één push (*Training afgelast* of *Training gaat toch door*). Nieuwe voorkeur `push_afgelast` (standaard aan, enkel staf).
+- **Buiten `modules/trainers/`**: `includes/ploegen.php` roept `do_action('khzs_ploeg_verwijderd', $id)` als een ploeg verwijderd wordt; de trainersmodule ruimt dan de koppelingen en het verlof van die ploeg op (de trainingen blijven).
+- **Tests**: nieuwe klasse `VerlofSeizoenTest` (2 scenario's: verlof per ploeg met meldingen, gedeelde training, geen vraag, verwijderen, voorkeur uit, ploeg verwijderen, ongeldige invoer; en seizoenen met overlap, planning, 404, vraag, uren, waarschuwing en terug zonder seizoen). Alle e2e-tests groen op een Docker-testsite.
+- **Niet gedaan**: seizoenen en verlof zitten niet in de Django-versie (de trainersmodule bestaat enkel in WordPress). Verlof voor een zwemmer (in plaats van een ploeg) en een kalenderweergave van de vakanties zijn mogelijke volgende stappen.
+
+## Trainers: zwemschool en competitie, en een kalender (branch `wordpress/trainers-soorten-kalender`)
+
+Vragen van de eigenaar: *"er is ook een groot verschil tussen een trainer van de zwemschool en een trainer van de competitie (sommigen doen beide). Trainers van de zwemschool zijn niet bezig met wedstrijden enzo."* en *"kan je voor de trainingsregistratie ook een kalenderview maken? dag/week/maand?"*
+
+- **Branch**: vertrekt van `wordpress/trainers-verlof-seizoen` (PR #14, met `main`, rollen #7 en ploegen #9 erin, commit d155246). Hangt dus af van #7, #9, #13 en #14.
+- **Twee rollen, geen omzetting.** De bestaande rol `trainer` is nu *Trainer competitie* (enkel de naam veranderde, de sleutel niet). Nieuw: `trainer_zwemschool` (*Trainer zwemschool*), aan te vragen bij het registreren en bij *Mijn rollen*. Wie beide doet, krijgt beide rollen. Zo verliest niemand rechten en is er geen migratie van gegevens nodig. Gekozen boven een rol met een "soort" erbij: de rollen uit #7 tellen al samen, en zo blijven `heeft_rol()` en de bestaande backups ongewijzigd.
+  - `STAF` (wedstrijden, nakijken, uitslagen) blijft `[trainer, secretaris, beheerder]`: zonder zwemschool. Nieuw: `TRAINERS` (beide soorten) en `is_trainer()` in `includes/kern.php`, `TR_STAF` en `tr_is_trainer()` in de trainersmodule (vervangt `is_staf()` daar). De pushvoorkeuren van de trainers hebben nu de zichtbaarheid `'trainer'`.
+  - `zonder_wedstrijden()`: enkel trainer zwemschool (geen zwemmer, ouder of wedstrijdstaf). Geen menu *Wedstrijden*, `wedstrijden/` stuurt door naar de start, en de startpagina is *Trainingen* (nieuwe filter `khzs_start` in `v_start()`). Wie ook ouder is, ziet de wedstrijden voor de eigen kinderen.
+  - **Ploegen** kregen een kolom `soort` (competitie, standaard, of zwemschool; `DB_VERSIE` 6, dbDelta). Een trainer zwemschool ziet de ploegen van de zwemschool en de eigen ploegen, en het menu *Ploegen* (`ziet_ploegenmenu()`). Beide soorten trainers kunnen aan een ploeg gekoppeld worden. Kleine verbetering: een trainer die een ploeg traint maar niet alle ploegen ziet, ziet nu ook de aanvragen voor die ploeg.
+  - **Django** volgt voor het inschrijvingsdeel: zelfde rol en namen (`Profiel.TRAINER_ZWEMSCHOOL`, `TRAINERS`), `Ploeg.soort`, `zonder_wedstrijden()` in `rollen.py` (menu, start → ploegen, `wedstrijden/` → ploegen), zichtbaarheid van de ploegen, het stappenplan. Migratie `0014_trainer_zwemschool` (nieuwe kolom en nieuwe keuzes, geen gegevens omgezet). `export_wordpress` neemt de soort mee. Tests: `TrainerZwemschoolTest` in `test_ploegen.py`; 111 tests groen.
+- **Kalender**: `/leden/trainers/kalender/` (`v_tr_kalender()`, `views/kalender.php`). Parameters `weergave` (dag, week, maand), `datum`, `wie` (`mij`, `alle` of, voor het bestuur, een user-id) en `ploeg`. Trainer standaard `mij`, bestuur en secretariaat standaard `alle`; een trainer die een user-id meegeeft, krijgt `mij`. Gebruikt `tr_trainingen()`, dus afgelast, verlof per ploeg en het seizoen komen vanzelf mee. De dagweergave gebruikt `_training.php` (met de knoppen); de week en de maand tonen blokjes die naar de trainingspagina linken.
+  - Op de gsm: geen aparte dagweergave als standaard, maar een week waarin de dagen onder elkaar staan (lege dagen weg). Dat leest op een klein scherm beter dan één dag per keer en vraagt geen JavaScript. De maand toont dan gekleurde streepjes per training.
+  - `_training.php` toont nu ook wie zich afmeldde (doorstreept) en voor wie een vervanger invalt; dat zie je ook in *Planning*.
+- **Demo** (`includes/demo-data.php`): de rollen staan nu in `khzs_rollen` (demo heeft alle rollen; ouders krijgen de rol ouder). Nina, Ruben, Elise en Jasper zijn trainer zwemschool, Lotte is beide. De ploegen staan nu echt in de tabel (`demo_vul_ploegen()`, met soort, trainers en zwemmers), en elke training hangt aan haar ploegen (`tr_moment_ploegen`). De bevestigingen van voorbije trainingen blijven zoals voordien.
+- **Tests**: `SoortenKalenderTest` (trainer zwemschool: start, menu, geen uitslagen, schema, voorkeuren, ploegen, aanvragen, combinatie met ouder; kalender: week, maand, dag, bevestigen vanuit de dag, vinkjes, afmelden, filters voor trainer en bestuur, ploegfilter, toegang) en `DemoTest.test_soorten_trainers_ploegen_en_kalender`.
+- **Fout uit main hersteld**: `views/_layout.php` (PR #16) zette `$p = $pagina` en overschreef zo de ploeg `$p` in `views/ploeg.php`; de pagina van een ploeg toonde geen naam, beschrijving of formulier. Nu `$_pagina`.
+- **Niet gedaan**: een vervangingsvraag gaat nog naar alle trainers (ook die van de andere soort). Dat zou kunnen per soort van de ploegen van de training. Kanalen per ploeg bestaan nog niet (communicatiemodule).
+
 ## Stand van zaken (14/11/2026, eind van de dag)
 
 - **Alles staat op `main`**, samengevoegd op vraag van de eigenaar via vijf pull requests:
@@ -67,7 +126,7 @@ Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist 
 - **Migratie** naar WordPress getest met de Django-demodata: alle gegevens komen over, ook gekoppelde accounts, en oude wachtwoorden werken.
 - **Push**: de versleuteling en de VAPID-handtekening zijn gecontroleerd met de Python-bibliotheek `cryptography`. Nog niet getest op een echt toestel.
 - **Nog niet geïnstalleerd** op www.khzs.be. Claude had vanuit de cloudomgeving geen toegang tot die site. Maak de zip met `wordpress/bouw.sh` en upload hem via WordPress → Plugins.
-- **Niet bijgewerkt**: de PDF-handleidingen, screenshots en filmpjes in `docs/` tonen nog de oude naam en het oude icoon, en vermelden het koppelen en *Ik zwem zelf* niet. Opnieuw maken kan met `docs/build.py` en `docs/video.py`.
+- **Documentatie bijgewerkt** (branch `docs/khzs-leden-bijwerken`): de PDF-handleidingen, screenshots en filmpjes in `docs/` tonen de naam KHZS Leden en het nieuwe icoon, en leggen het koppelen van zwemmers (koppelcode) en *Ik zwem zelf* / *+ Mezelf* uit. `docs/build.py` en `docs/video.py` werken nu ook op Windows (`.venv/Scripts/python`). Op de gsm heet het menu *Profiel*, op de pc *Mijn zwemmers*.
 - **Open bij de eigenaar**:
   - De GitHub-repo hernoemen van `khzs-inschrijvingen` naar `khzs-leden` (Settings → General). GitHub stuurt het oude adres door.
   - Daarna op de server: `git -C /opt/khzs/app remote set-url origin https://github.com/DinXke/khzs-leden`.
@@ -105,7 +164,6 @@ Start Claude Code in de map van de repo. Claude leest dan automatisch `CLAUDE.md
 - Groepen (A-groep, B-groep…) als gedeelde gegevens in de kern. Inschrijvingen kan dan een wedstrijd beperken tot een groep, en Trainers kan een groep aan een training koppelen.
 - RSVP of aanwezigheden voor zwemmers (afmelden voor een training, activiteiten).
 - Testen op echte toestellen: installeren op Android en iPhone, en pushmeldingen.
-- De PDF-handleidingen, screenshots en filmpjes bijwerken met de nieuwe naam, het icoon, het koppelen van zwemmers en *Ik zwem zelf*.
 - Eventueel "gelezen" per ouder bijhouden in plaats van per melding.
 - Installatie op www.khzs.be: zip uploaden, permalinks controleren, zelf registreren eerst uitzetten, en daarna de migratie vanuit Django.
 
@@ -203,3 +261,130 @@ wordpress/bouw.sh                               # khzs-leden.zip voor WordPress
 - **Sjablonen**: `toon('module/naam', …)` laadt `modules/<module>/views/naam.php`. Sjablonen die met `include` herbruikt worden in een lus, gebruiken variabelen met een `_`-prefix om botsingen te vermijden.
 - **Datum in tests**: de header `X-Vandaag` simuleert een andere datum (enkel via de testhulp). In de code loopt alles via `vandaag()`.
 - **Bewaren**: tijden staan als gehele honderdsten en bedragen in cent.
+
+## Rollen: meerdere per account, met aanvragen (branch `feature/rollen`)
+
+Vraag van de eigenaar: elk lid moet één of meerdere rollen kunnen hebben (bestuurder, trainer, zwemmer, ouder, sportsecretaris…). Leden vragen rollen aan; bestuurders en beheerders keuren goed, keuren af of geven een andere rol. Gebouwd in Django én WordPress, met dezelfde werking.
+
+- **Rollen**: beheerder, sportsecretaris, trainer, bestuurder, ouder, zwemmer (van hoog naar laag). De rechten van alle rollen van een account tellen samen. De hoogste rol is de *hoofdrol*, enkel voor weergave (bv. "Trainer Tom" in een melding).
+- **Beslissingen van de eigenaar** (14/11/2026):
+  - *Bestuurder* beheert leden en rollen: het scherm *Gebruikers*, aanvragen behandelen, rollen toekennen en afnemen. Geen wedstrijden, inschrijvingen, uitslagen of backup, tenzij de persoon ook een andere rol heeft.
+  - *Sportsecretaris* behoudt het scherm *Gebruikers* (zoals vroeger) en kan ook aanvragen behandelen.
+  - *Zwemmer* en *ouder* krijg je meteen, zonder goedkeuring. *Ouder* heeft dezelfde rechten als zwemmer. Trainer, sportsecretaris en bestuurder vragen goedkeuring. Beheerder kan je niet aanvragen; enkel een beheerder stelt beheerders aan.
+- **Werking**:
+  - Aanvragen bij registratie (*Ik ben…*) of later via *Mijn rollen* (`/rollen/`, link bij *Mijn zwemmers* en *Meldingen*). Een open aanvraag kan het lid intrekken.
+  - Bovenaan *Gebruikers* staan de open aanvragen: *Goedkeuren*, *Afkeuren* (reden verplicht) of *Deze rol geven* (een andere rol in de plaats). In de tabel staan de rollen als labels: ✕ neemt een rol af, *+ rol* voegt er een toe. Een account houdt minstens één rol.
+  - Wie een rol rechtstreeks toekent waarvoor een aanvraag openstaat, keurt die aanvraag meteen goed.
+  - Melding voor het lid: een balk bovenaan elke pagina tot het *Mijn rollen* opent, plus een pushmelding. Bestuurders en sportsecretarissen krijgen een push bij een nieuwe aanvraag (voorkeur *(bestuur) Nieuwe rolaanvraag*).
+  - Meldingen voor zwemmers (nieuwe wedstrijd, deadline) gaan naar zwemmers én ouders (`GEZIN`).
+- **Django**:
+  - Modellen `Rol` (account + rol, meerdere per account) en `Rolaanvraag`. `Profiel.rol` blijft bestaan als hoofdrol.
+  - Migratie `0012_rollen`: elk account krijgt de rol uit `Profiel.rol`; superusers krijgen ook beheerder; accounts zonder profiel worden zwemmer. Zo verliest niemand rechten. Getest in `MigratieTest`, ook terug naar 0011.
+  - Logica in `inschrijvingen/rollen.py`. Rechten controleren met `heeft_rol(user, *rollen)`; `regels.rol()` geeft de hoofdrol.
+  - Een backup van vóór de rollen terugzetten werkt: accounts zonder rollen krijgen hun hoofdrol (`vul_ontbrekende()`).
+  - `export_wordpress` zet de rollen in `khzs_rollen` en neemt de rolaanvragen mee.
+  - Tests: 14 nieuwe in `inschrijvingen/tests/test_rollen.py`; samen 98, alle geslaagd.
+- **WordPress**:
+  - Rollen in de user meta `khzs_rollen` (komma-gescheiden); `khzs_rol` houdt de hoofdrol bij. Een account met enkel `khzs_rol` houdt die rol, dus er is geen datamigratie nodig. WordPress-beheerders zijn altijd ook beheerder.
+  - Tabel `khzs_rolaanvragen` (`DB_VERSIE` 4), logica en pagina's in `includes/rollen.php`. Op het WordPress-profiel zijn de rollen nu vinkjes.
+  - Tests: 7 nieuwe in `RollenTest` (`test_e2e.py`); samen 84, alle geslaagd. Gedraaid in een Docker-container (Debian trixie, PHP 8.4, MariaDB), omdat PHP en MariaDB niet op de Windows-pc staan. Op Windows moet `testsite.sh` eerst LF-regeleindes krijgen.
+- **Niet gedaan**: de handleidingen en screenshots in `docs/` tonen de rollen nog niet. De penningmeester blijft een aparte vlag, geen rol.
+- **Status**: PR #7 naar `main`, nog niet samengevoegd. Samenvoegen zet de migratie automatisch op de productieserver.
+- **Later aangepast** (branch `feature/ploegen`): een nieuw account start zonder rol en kiest in het stappenplan; zie hieronder.
+
+## Ploegen en registratie in stappen (branch `feature/ploegen`, bovenop `feature/rollen`)
+
+Vraag van de eigenaar: elke zwemmer kiest in welke ploeg hij of zij zwemt, met meerdere ploegen, als basis voor een latere communicatiemodule waarin mensen enkel de groepen zien waartoe ze behoren. Daarna: rollen en ploeg pas kiezen na de registratie, in een stappenplan.
+
+- **Beslissingen van de eigenaar** (14/11/2026):
+  - De staf keurt een gekozen ploeg eerst goed: een trainer van die ploeg, een bestuurder, sportsecretaris of beheerder.
+  - Ploegen aanmaken en beheren: bestuurder, sportsecretaris en beheerder. Zij duiden ook de trainers van een ploeg aan.
+  - Trainers, bestuurders, sportsecretarissen en beheerders zien alle ploegen; zwemmers en ouders enkel de ploegen van hun zwemmers.
+  - Alles gebeurt in de app zelf (ook op de gsm), niet via `/beheer/` of wp-admin.
+- **Werking**:
+  - *Ploegen* (`/ploegen/`): lijst, nieuwe ploeg, open aanvragen. Per ploeg: zwemmers, aanvragen, zwemmer rechtstreeks toevoegen, uit de ploeg halen, bewerken, archiveren (*Actief* uit) of verwijderen.
+  - Bij de zwemmer: blok *Ploegen* met de status per ploeg, *Ploeg kiezen* en ✕ om in te trekken of uit de ploeg te gaan. Een zwemmer kan in meerdere ploegen zitten.
+  - Wie de ploeg mag behandelen (staf), zet een zwemmer er meteen in. Afkeuren vraagt een reden; daarna kan je opnieuw aanvragen.
+  - Melding voor de ouders: balk bovenaan tot ze de zwemmer openen, en een pushmelding. De behandelaars krijgen een push bij een nieuwe aanvraag.
+  - Nieuwe pushvoorkeuren onder *Meldingen*: *Mijn aanvraag voor een rol of ploeg is behandeld* (iedereen) en *(staf) Nieuwe ploegaanvraag* (bestuur, secretariaat, beheer en trainers van een ploeg). De testknop bestond al.
+- **Registratie in stappen** (`/welkom/`): het formulier vraagt enkel e-mail, naam en wachtwoord. Daarna één vraag per scherm, elk over te slaan en later opnieuw te doen (link *Stappenplan* bij *Mijn rollen*):
+  1. *Zwem je zelf?* → je eigen gegevens en ploeg; je krijgt de rol zwemmer.
+  2. *Heb je kinderen die zwemmen?* → kind toevoegen met ploeg, of koppelen met de koppelcode van de andere ouder; je krijgt de rol ouder.
+  3. *Help je mee bij de club?* → aanvraag voor trainer, bestuurder of sportsecretaris.
+  4. Overzicht.
+  - Een nieuw account start **zonder rol** (Django: lege `Profiel.rol`; WordPress: lege `khzs_rollen`). Het allereerste account van een Django-installatie blijft sportsecretaris.
+  - Ook later geeft een zwemmer toevoegen of koppelen automatisch de rol zwemmer (jezelf) of ouder.
+- **Voor de latere communicatiemodule** bestaat al: `ploegen.zwemmers_van`, `accounts_van` (accounts van de zwemmers, ook gekoppelde ouders, en de trainers van de ploeg), `lezers_van` (dat plus iedereen die alle ploegen ziet), `zichtbare_ploegen(user)`. In WordPress: `ploeg_zwemmers`, `ploeg_accounts`, `ploeg_lezers`, `zichtbare_ploegen`.
+- **Django**: modellen `Ploeg` (met `trainers`) en `PloegLid` (zwemmer, ploeg, status, reden, gelezen); migratie `0013_ploegen`. Logica in `inschrijvingen/ploegen.py`. Tests: `test_ploegen.py` (9); de registratietests zijn omgezet naar het stappenplan. Samen 107, alle geslaagd.
+- **WordPress**: tabellen `khzs_ploegen`, `khzs_ploeg_trainers`, `khzs_ploegleden` (`DB_VERSIE` 5), `includes/ploegen.php`, `views/ploegen.php` en `views/ploeg.php`, stappenplan in de module Inschrijvingen (`v_welkom`). Menu-item *Ploegen* (sleutel 45; 40 is *Verloning*). Tests: `PloegenTest` (8) en de omgezette registratietests; samen 92, alle geslaagd (Docker, zoals bij de rollen).
+- `export_wordpress` neemt de ploegen, trainers en leden mee.
+
+## Communicatiemodule: wensen (nog niet gebouwd)
+
+Wat de eigenaar tot nu toe vroeg (14/11/2026):
+
+- **Kanalen per ploeg**, WhatsApp-achtig: een chat met berichten in tijdsvolgorde, en eventueel threads binnen een ploeg.
+- **Kanaal per wedstrijd**: alle trainers, bestuurders en beheerders, plus de zwemmers die ingeschreven zijn of *Interesse* of *Ik doe mee* kozen, met hun gekoppelde ouders of accounts. Het lidmaatschap volgt de deelname vanzelf.
+- **Wie ziet wat**: trainers, bestuurders en beheerders zien alle kanalen en kunnen er overal lezen en posten. Zwemmers en ouders zien enkel de kanalen van hun eigen ploegen en wedstrijden (zie `lezers_van`).
+- **Vastpinnen**: trainers en bestuurders kunnen berichten bovenaan vastpinnen.
+- **Reacties**: per bericht instellen of leden mogen reageren.
+- **Ook gevraagd**: berichten per ploeg, pushmelding per bericht, reacties of chat, prikbord met bijlagen.
+- **Meldingen**: enkel webpush, geen Telegram. Elk soort melding (nieuw bericht in een kanaal, vastgepind bericht…) krijgt een eigen schakelaar onder *Meldingen*.
+
+Nog na te vragen voor het bouwen:
+
+- Mogen zwemmers en ouders zelf berichten starten, of enkel reageren (als dat aanstaat)?
+- Foto's en bijlagen in berichten: ja of nee, en hoe groot?
+- Verdwijnt wie *Ik doe niet mee* kiest of geweigerd wordt uit het wedstrijdkanaal (met of zonder de oude berichten)?
+- Push bij elk bericht of enkel bij vastgepinde, en kan je een kanaal dempen?
+- Hoe lang blijven berichten bewaard, en wie mag berichten verwijderen?
+
+
+## AVG / GDPR (branch `feature/avg`, bovenop `feature/ploegen`)
+
+Vraag van de eigenaar: *"zaken als AVG melding/pagina, GDPR, cookie regeling?"* Gebouwd in Django én WordPress, met dezelfde werking.
+
+**Inventaris van de persoonsgegevens**
+
+| Gegevens | Django | WordPress | Wie ziet het |
+|---|---|---|---|
+| Account: naam, e-mail, wachtwoordhash, laatste aanmelding | `auth_user` | `wp_users`, user meta `khzs_laatst_aangemeld` | zelf, rolbeheer, beheer |
+| Rollen, rolaanvragen (met motivatie en reden), penningmeester | `Rol`, `Rolaanvraag`, `Profiel.rol` | user meta `khzs_rollen`, tabel `khzs_rolaanvragen` | zelf, rolbeheer |
+| Akkoord privacyverklaring (datum, versie) | `Profiel.privacy_*` | user meta `khzs_privacy_*` | beheer |
+| Zwemmers: naam, geboortedatum (vaak minderjarig), geslacht, licentie, Swimrankings-ID, toestemming ouder | `Zwemmer` | `khzs_zwemmers` | gekoppelde accounts, staf |
+| Gekoppelde accounts en koppelcodes | `extra_accounts`, `koppelcode` | `khzs_zwemmer_accounts` | gekoppelde accounts, staf |
+| Ploegen, trainers van een ploeg, ploegaanvragen | `Ploeg`, `PloegLid` | `khzs_ploegen`, `_ploeg_trainers`, `_ploegleden` | zie *Ploegen* hierboven |
+| Beste tijden, deelname, inschrijvingen, meldingen van wijzigingen | `BesteTijd`, `Deelname`, `Inschrijving`, `Melding` | `khzs_tijden`, `_deelnames`, `_inschrijvingen`, `_meldingen` | gekoppelde accounts, staf; inschrijvingen ook naar organisator en federatie (Lenex) |
+| Pushmeldingen: endpoint, sleutels, browser, voorkeuren | `PushAbonnement`, `Profiel.push_*` | `khzs_push`, user meta `khzs_push_*` | beheer; pushdiensten (Google, Mozilla, Apple, Microsoft) krijgen versleutelde berichten |
+| Trainers: vaste trainingen, afmeldingen en vervangingen, uren, tarieven, uitbetalingen | (niet in Django) | `khzs_tr_*` | staf; tarieven en verloning enkel penningmeester en beheer |
+| Backups | zip + `pg_dump`, 30 dagen | zip in de privémap, 30 dagen | beheer |
+| Logboeken (IP-adressen) | nginx/gunicorn, logrotate | hosting van de website | beheer, hosting |
+
+**Cookies en opslag**: allemaal strikt noodzakelijk, dus **geen cookiebanner** nodig voor de app. Een vermelding in de privacyverklaring volstaat.
+- Django: `sessionid` (90 dagen), `csrftoken`, `messages`.
+- WordPress: `wordpress_logged_in_…`/`wordpress_sec_…` (14 dagen), `wordpress_test_cookie`, `khzs_f` (melding voor wie niet aangemeld is); in de demo enkel `khzs_demo_sessie`.
+- Lokale opslag: `thema` (licht/donker), `khzs_pwa_weg` (‘Niet nu’ bij de installatiemelding, ook op de rest van de website).
+- Service worker: cache van opmaak, logo en offlinepagina; pushabonnement.
+- Geen statistieken, trackers, externe lettertypes of scripts. Cloudflare kan `__cf_bm` zetten (beveiliging, strikt noodzakelijk). **Let op**: de rest van www.khzs.be (thema, andere plugins, ingesloten video's…) valt hierbuiten en kan wel een cookiebanner vragen.
+
+**Beslissingen**
+- **Privacyverklaring** in de app (`/privacy/`, in WordPress `/leden/privacy/`), zonder aanmelden. Het is een sjabloon in duidelijk Vlaams; de club laat het juridisch nakijken. De gegevens van de club zijn instelbaar: Django via `PRIVACY_*` in `/etc/khzs.env`, WordPress via *Instellingen → KHZS Leden*.
+- **Versie**: wie de huidige versie nog niet aanvaardde (ook alle bestaande accounts), ziet een melding met een link; op de privacypagina bevestigen ze met één knop. Een nieuwe versie instellen vraagt iedereen opnieuw te lezen.
+- **Registratie**: verplicht vinkje voor de privacyverklaring. **Toestemming van een ouder of voogd** bij elke nieuwe zwemmer jonger dan 18 jaar (ook in het stappenplan); voor bestaande minderjarige zwemmers vraagt de zwemmerpagina het achteraf. Rechtsgrond in de tekst: overeenkomst en gerechtvaardigd belang; toestemming voor pushmeldingen.
+- **Rechten in de app** (*Mijn gegevens*, link bij *Meldingen* en *Uitleg*): download als JSON, en account verwijderen met wachtwoord en het woord VERWIJDER. Gedeelde zwemmers blijven bij het andere account; de rest verdwijnt mee.
+- **Bewaarplicht boekhouding** (enkel WordPress, module Trainers): wie trainingen gaf of vergoed werd, wordt *afgesloten* in plaats van verwijderd. Geen aanmelden meer, e-mail en andere gegevens weg, enkel de naam bij uren en uitbetalingen. 10 jaar na het boekjaar van de laatste prestatie (`BOEKHOUDING_JAREN`, filter `khzs_bewaarplicht`) wist de opkuis het account en de trainersgegevens.
+- **Niet zelf te verwijderen**: beheerders van de website (WordPress), accounts met `/beheer/` (Django), auteurs van berichten op de website, en de demo. De demo toont alle AVG-functies maar verwijdert niets en verstuurt niets.
+- **Opkuis**: Django `manage.py opkuis`, dagelijks mee met de herinneringen (`update.sh` installeert geen nieuwe timers); WordPress WP-Cron `khzs_opkuis` om 03:00. Termijnen: meldingen, behandelde aanvragen en het logboek van herinneringen 365 dagen; pushabonnementen na 365 dagen zonder aanmelden; verlopen koppelcodes; verlopen sessies (Django).
+- WordPress: de gegevens van de app zitten ook in *Extra → Persoonsgegevens exporteren*. Modules haken in met de filters `khzs_mijn_zwemmer`, `khzs_mijn_gegevens`, `khzs_bewaarplicht`, `khzs_opkuis_aantallen` en de actie `khzs_bewaartermijn_voorbij` (zie `includes/avg.php`).
+
+**Technisch**
+- Django: `inschrijvingen/avg.py`, migratie `0014_avg`, sjablonen `privacy.html` en `mijn_gegevens.html`, commando `opkuis`. Tests: `test_avg.py` (12). In `herinneringen` staat het aanmaken van een herinnering nu in een savepoint, anders breekt een dubbele herinnering de opkuis erna.
+- WordPress: `includes/avg.php`, `views/privacy.php` en `views/mijn_gegevens.php`, kolommen `toestemming_op`/`toestemming_door` in `khzs_zwemmers` (`DB_VERSIE` 6). Tests: `AvgTest` in `test_e2e.py`.
+- `export_wordpress` neemt het akkoord en de toestemming mee.
+- **Bij het samenvoegen**: andere branches kunnen ook `DB_VERSIE` verhogen; neem dan de hoogste en controleer dat `installeer_db()` alle kolommen heeft. De Django-migratie `0014_avg` hangt af van `0013_ploegen`.
+
+**Nog te doen door de club** (vragen aan de eigenaar)
+- De gegevens van de club invullen: juridische naam (vzw), adres, ondernemingsnummer, contactadres voor privacyvragen.
+- Staat er al een privacyverklaring of cookieverklaring op www.khzs.be? Dan best op elkaar afstemmen en naar elkaar linken.
+- De tekst laten nakijken, en de bewaartermijn voor de boekhouding (nu 10 jaar) laten bevestigen door de penningmeester of boekhouder.
+- Verwerkersovereenkomsten nakijken met de hosting en Cloudflare, en het register van verwerkingsactiviteiten van de club aanvullen met deze app.

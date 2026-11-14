@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import BesteTijd, Bijlage, Inschrijving, Profiel, Wedstrijd, Zwemmer
+from .models import BesteTijd, Bijlage, Inschrijving, Profiel, Rol, Rolaanvraag, Wedstrijd, Zwemmer
 
 
 class BesteTijdInline(admin.TabularInline):
@@ -32,3 +32,16 @@ admin.site.register(Profiel)
 admin.site.site_header = "KHZS Leden – beheer"
 
 admin.site.register(Bijlage)
+
+
+@admin.register(Rol)
+class RolAdmin(admin.ModelAdmin):
+    list_display = ["user", "rol", "sinds", "door"]
+    list_filter = ["rol"]
+    search_fields = ["user__username", "user__first_name", "user__last_name"]
+
+
+@admin.register(Rolaanvraag)
+class RolaanvraagAdmin(admin.ModelAdmin):
+    list_display = ["user", "rol", "status", "toegekende_rol", "aangemaakt", "behandeld_door"]
+    list_filter = ["status", "rol"]
