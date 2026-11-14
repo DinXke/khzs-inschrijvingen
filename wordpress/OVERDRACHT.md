@@ -1,6 +1,6 @@
 # Overdracht: WordPress-plugin KHZS
 
-Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist en gebouwd is, zodat iemand anders of een volgende sessie meteen verder kan. Lees daarna `wordpress/README.md` voor installatie en gebruik.
+Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist en gebouwd is, zodat iemand anders of een volgende sessie meteen verder kan, ook op een andere pc. Lees daarna `wordpress/README.md` voor installatie en gebruik.
 
 ## Voorgeschiedenis en beslissingen
 
@@ -36,15 +36,41 @@ Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist 
    - Na 10 foute pogingen per uur wordt het account geblokkeerd voor koppelen.
    - Meldingen en push gaan naar alle accounts. "Gelezen" geldt per melding, dus voor beide ouders samen.
    - Verwijder je het eerste account, dan wordt de andere ouder het eerste account (Django: `on_delete=account_verwijderd`).
+   - De staf kan een account ook rechtstreeks koppelen via het e-mailadres.
+10. **Zelf zwemmer** (bv. masters), in Django én WordPress:
+   - Bij registratie vult het vinkje *Ik zwem zelf* het eerste zwemmerblok met de eigen naam. Dat gebeurt enkel met JavaScript; de server verandert niet.
+   - Bij *Mijn zwemmers* opent de knop *+ Mezelf* het formulier met de naam al ingevuld. De knop verdwijnt zodra er een zwemmer met de naam van het account bestaat.
 
-## Stand van zaken
+## Stand van zaken (14/11/2026, eind van de dag)
 
-- Alles staat op **`main`** (PR #1). De map `wordpress/` en `export_wordpress` raken de draaiende Django-app niet. Werk verder op een branch: elke commit op `main` komt binnen 10 minuten op de server.
-- **Tests**: `wordpress/tests/test_e2e.py`, 63 scenario's: alle Django-scenario's plus de trainersmodule. Ze slaagden allemaal.
-- **Migratie** getest met de Django-demodata: alle gegevens komen over en oude wachtwoorden werken.
+- **Alles staat op `main`**, samengevoegd op vraag van de eigenaar via vier pull requests:
+  - #1: WordPress-plugin met de modules Inschrijvingen en Trainers
+  - #2: overdracht bijgewerkt
+  - #3: zwemmer bij meerdere accounts (Django-migratie `0011_zwemmer_accounts`)
+  - #4: *Ik zwem zelf* en *+ Mezelf*
+- Elke commit op `main` komt binnen 10 minuten op de productieserver (`deploy/auto_update.sh`, met terugrol als `update.sh` faalt). Vraag daarom akkoord vóór een nieuwe samenvoeging.
+- **Werkbranch**: `ccr-5219135a-lksd0b`. Die is na de laatste samenvoeging opnieuw gelijkgezet met `main`. Op een andere pc maak je gerust een eigen branch van `main`.
+- **Tests**:
+  - Django: 84, alle geslaagd. De vroeger falende datumafhankelijke test staat nu op een vaste datum.
+  - WordPress: 76 end-to-end-scenario's in `wordpress/tests/test_e2e.py`, alle geslaagd.
+- **Migratie** naar WordPress getest met de Django-demodata: alle gegevens komen over, ook gekoppelde accounts, en oude wachtwoorden werken.
 - **Push**: de versleuteling en de VAPID-handtekening zijn gecontroleerd met de Python-bibliotheek `cryptography`. Nog niet getest op een echt toestel.
-- **Nog niet geïnstalleerd** op www.khzs.be. De plugin-zip maak je met `wordpress/bouw.sh`.
-- **Bekend, los van de plugin**: de Django-test `test_trainer_wijzigt_en_zwemmer_ziet_melding` faalt sinds de testwedstrijd (oktober 2026) voorbij is. De test is datumafhankelijk.
+- **Nog niet geïnstalleerd** op www.khzs.be. Claude had vanuit de cloudomgeving geen toegang tot die site. Maak de zip met `wordpress/bouw.sh` en upload hem via WordPress → Plugins.
+- **Niet bijgewerkt**: de PDF-handleidingen en filmpjes in `docs/` vermelden het koppelen en *Ik zwem zelf* nog niet. Opnieuw maken kan met `docs/build.py` en `docs/video.py`.
+
+## Verdergaan op een andere pc
+
+```bash
+git clone https://github.com/DinXke/khzs-inschrijvingen && cd khzs-inschrijvingen
+git checkout -b mijn-werk            # niet rechtstreeks op main werken
+# Django
+uv venv --python 3.12 .venv && uv pip install --python .venv -r requirements.txt
+.venv/bin/python manage.py migrate && .venv/bin/python manage.py test inschrijvingen
+# WordPress (vereist php, composer, mariadb-server)
+wordpress/tests/testsite.sh && KHZS_URL=http://localhost:8080 python3 wordpress/tests/test_e2e.py
+```
+
+Start Claude Code in de map van de repo. Claude leest dan automatisch `CLAUDE.md`, dat naar dit document verwijst. Vraag bijvoorbeeld: *"Lees wordpress/OVERDRACHT.md en ga verder met …"*.
 
 ## Mogelijke volgende stappen
 
@@ -52,6 +78,8 @@ Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist 
 - Groepen (A-groep, B-groep…) als gedeelde gegevens in de kern. Inschrijvingen kan dan een wedstrijd beperken tot een groep, en Trainers kan een groep aan een training koppelen.
 - RSVP of aanwezigheden voor zwemmers (afmelden voor een training, activiteiten).
 - Testen op echte toestellen: installeren op Android en iPhone, en pushmeldingen.
+- De PDF-handleidingen en filmpjes bijwerken met het koppelen van zwemmers en *Ik zwem zelf*.
+- Eventueel "gelezen" per ouder bijhouden in plaats van per melding.
 - Installatie op www.khzs.be: zip uploaden, permalinks controleren, zelf registreren eerst uitzetten, en daarna de migratie vanuit Django.
 
 ## Werken aan de plugin
