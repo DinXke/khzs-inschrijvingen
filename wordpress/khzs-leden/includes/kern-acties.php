@@ -15,7 +15,8 @@ function v_start(): void
 {
     vereist_login();
     $menu = menu();
-    naar(app_url($menu[0][1] ?? 'meldingen/'));
+    // Filter khzs_start: een module kan een andere startpagina kiezen (bv. Trainingen voor een trainer van de zwemschool).
+    naar(app_url(apply_filters('khzs_start', $menu[0][1] ?? 'meldingen/')));
 }
 
 function v_aanmelden(): void

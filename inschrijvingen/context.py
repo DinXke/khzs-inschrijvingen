@@ -2,7 +2,7 @@ from . import avg
 from .models import Profiel, Rolaanvraag
 from .regels import rol
 from . import ploegen
-from .rollen import heeft_rol, mag_rollen_beheren
+from .rollen import heeft_rol, mag_rollen_beheren, zonder_wedstrijden
 
 
 def rollen(request):
@@ -15,7 +15,8 @@ def rollen(request):
         "is_rolbeheerder": mag_rollen_beheren(u),
         "open_rolaanvragen": 0,
         "rolbeslissingen": [],
-        "ziet_ploegen": ploegen.ziet_alle_ploegen(u),
+        "ziet_ploegen": ploegen.ziet_ploegenmenu(u),
+        "zonder_wedstrijden": zonder_wedstrijden(u),
         "open_ploegaanvragen": 0,
         "ploegbeslissingen": [],
         "privacy_lezen": avg.moet_lezen(u),

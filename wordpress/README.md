@@ -37,20 +37,25 @@ Een account kan **meerdere rollen** hebben (bv. ouder én trainer); de rechten t
 |---|---|
 | Zwemmer | zijn of haar zwemmers inschrijven |
 | Ouder | hetzelfde als zwemmer: de eigen zwemmers inschrijven |
-| Trainer | inschrijvingen nakijken; in *Trainingen* aanduiden welke trainingen hij of zij geeft, afmelden, overnemen, eigen uren bekijken |
+| Trainer competitie | inschrijvingen nakijken, uitslagen; in *Trainingen* aanduiden welke trainingen hij of zij geeft, afmelden, overnemen, eigen uren bekijken; alle ploegen zien (sleutel `trainer`) |
+| Trainer zwemschool | enkel *Trainingen* (schema, aanwezigheid, uren, kalender) en de ploegen van de zwemschool; geen wedstrijden, nakijken of uitslagen (sleutel `trainer_zwemschool`) |
 | Bestuurder | leden en rollen beheren: rolaanvragen goedkeuren of afkeuren, rollen toekennen en afnemen (geen wedstrijden of inschrijvingen) |
 | Sportsecretaris | wedstrijden, export, rollen, trainingsrooster beheren, de planning van anderen corrigeren |
 | Beheerder | alles, plus backup (WordPress-beheerders zijn dit altijd) |
 
 **Rollen aanvragen**: bij het registreren of later via *Mijn rollen* (`/leden/rollen/`). Zwemmer en ouder krijg je meteen; trainer, sportsecretaris en bestuurder worden een aanvraag. Bestuurders, sportsecretarissen en beheerders zien de aanvragen bovenaan *Gebruikers* en kunnen goedkeuren, afkeuren (met reden) of een andere rol geven. Het lid krijgt een melding in de app en een pushmelding. Enkel een beheerder kan beheerders aanstellen of wijzigen.
 
-**Ploegen** (A-groep, B-groep, masters…) beheer je in de app onder *Ploegen* (`/leden/ploegen/`): bestuurders, sportsecretarissen en beheerders maken ploegen aan en duiden de trainers aan. De zwemmer of ouder kiest een ploeg bij de zwemmer; een trainer van die ploeg of het bestuur keurt goed of af. Trainers, bestuur en beheer zien alle ploegen, leden enkel de ploegen van hun zwemmers. Tabellen: `khzs_ploegen`, `khzs_ploeg_trainers`, `khzs_ploegleden`.
+**Twee soorten trainers.** Een trainer van de zwemschool is niet met wedstrijden bezig. Wie enkel die rol heeft (geen zwemmer, ouder of wedstrijdstaf), ziet geen menu *Wedstrijden* en start bij *Trainingen* (`zonder_wedstrijden()` in `includes/kern.php`). Wie beide doet, krijgt beide rollen. Bestaande trainers zijn trainer van de competitie: de sleutel `trainer` bleef dezelfde, enkel de naam veranderde. Wedstrijdrechten gaan via `STAF` (zonder zwemschool), de trainersmodule via `TR_STAF` (beide soorten).
+
+**Ploegen** (A-groep, B-groep, masters…) beheer je in de app onder *Ploegen* (`/leden/ploegen/`): bestuurders, sportsecretarissen en beheerders maken ploegen aan en duiden de trainers aan. De zwemmer of ouder kiest een ploeg bij de zwemmer; een trainer van die ploeg of het bestuur keurt goed of af. Een ploeg is van de **competitie** of van de **zwemschool** (kolom `soort`). Trainers van de competitie, bestuur en beheer zien alle ploegen; een trainer van de zwemschool ziet de ploegen van de zwemschool en de ploegen die hij of zij traint; leden enkel de ploegen van hun zwemmers. Tabellen: `khzs_ploegen`, `khzs_ploeg_trainers`, `khzs_ploegleden`.
 
 **Registratie in stappen**: het formulier vraagt enkel het account. Daarna volgt `/leden/welkom/`: zwem je zelf, heb je kinderen die zwemmen (met ploeg of koppelcode), help je mee bij de club. Een nieuw account start zonder rol; zwemmer of ouder volgt uit de antwoorden.
 
 De rollen staan in de user meta `khzs_rollen` (komma-gescheiden); `khzs_rol` houdt de hoofdrol bij. Een account met enkel `khzs_rol` (van vóór de rollen) houdt die rol. Aanvragen staan in de tabel `khzs_rolaanvragen`.
 
 **Penningmeester** staat los van de app-rol, want het kan ook een ouder zijn. Een beheerder duidt die aan bij *Gebruikers* in de app of op het WordPress-profiel. De penningmeester ziet **Verloning**: de tarieven en het overzicht per maand.
+
+**Bestuur** in de module Trainers: de penningmeester, de beheerder en (zodra de rollen er zijn) de bestuurder (functie `tr_is_bestuur()` in `modules/trainers/regels.php`). Het bestuur en het sportsecretariaat zien en wijzigen de schema's, aanwezigheden en uren van alle trainers. Wie in het bestuur zit en ook traint (en eventueel zelf zwemt), heeft bij *Trainingen* zijn of haar eigen trainingen én de knop *Overzicht trainers*. Voor de **eigen** trainingen gelden altijd de regels van een trainer: na uitbetaling corrigeert een ander lid van het bestuur of het secretariaat, zodat niemand zijn eigen uren achteraf goedkeurt.
 
 ## Zelf zwemmer
 
@@ -70,13 +75,40 @@ Een zwemmer kan bij meerdere accounts horen, bv. bij gescheiden ouders.
 
 ## Module Trainers
 
-- **Rooster** (*Trainingen → Trainingen beheren*, door het sportsecretariaat): vaste trainingen per week met naam, dag, uur en plaats, en een start- en einddatum. Afgelaste periodes (vakantie, zwembad dicht) voor één training of voor alle trainingen.
-- **Vaste trainers**: elke trainer duidt in *Trainingen* zelf aan welke trainingen hij of zij normaal geeft. Het secretariaat kan dat ook doen, met een begin- en einddatum.
-- **Afmelden en vervangen**:
+- **Rooster** (*Trainingen → Trainingen beheren*, door het bestuur en het sportsecretariaat): vaste trainingen per week met naam, dag, uur en plaats, een start- en einddatum, en optioneel de **ploegen** waarvoor de training is (een training zonder ploeg is voor iedereen).
+- **Seizoen**: op dezelfde pagina een begin en einde per seizoen (bv. 1/9/2026 – 30/6/2027).
+  - Buiten een seizoen zijn er geen trainingen: ze staan niet in de planning of bij *Mijn trainingen*, tellen niet voor de uren en de trainers krijgen geen vraag *Was je aanwezig?*. De planning toont *Buiten het seizoen*.
+  - Zonder seizoen lopen de trainingen het hele jaar door. Dagen vóór het begin van het eerste seizoen blijven zoals ze waren, zodat vroegere (en uitbetaalde) uren niet veranderen.
+  - Is het laatste seizoen voorbij, dan waarschuwt de beheerpagina om het volgende toe te voegen. Seizoenen mogen niet overlappen.
+- **Verlof en afgelast** (vakantie, verlof, zwembad dicht of een andere reden, met een periode en een optionele reden): voor alle trainingen, voor **een ploeg** (al haar trainingen) of voor één training.
+  - Een training voor meerdere ploegen gaat door zolang één van die ploegen traint; ze valt pas weg als al haar ploegen verlof hebben.
+  - Afgelaste trainingen blijven zichtbaar in de planning (met de reden), tellen nooit mee voor de uren en krijgen geen vraag *Was je aanwezig?*.
+  - De trainers van de komende trainingen die daardoor wegvallen, krijgen één pushmelding *Training afgelast*; wordt het verlof verwijderd, dan krijgen ze *Training gaat toch door*. Uit te zetten bij *Meldingen*.
+- **Eigen schema**: elke trainer duidt in *Trainingen* zelf aan welke trainingen hij of zij normaal geeft, met een datum *vanaf* (starten) of *niet meer vanaf* (stoppen).
+  - Een datum in het verleden kan tot het begin van vorige maand, maar niet in een maand die voor die trainer al uitbetaald is. Die voorbije trainingen moet de trainer daarna nog bevestigen.
+  - Het bestuur en het secretariaat kunnen het schema van elke trainer aanpassen, zonder grens in de tijd.
+- **Kalender** (*Trainingen → Kalender*, `/leden/trainers/kalender/`): de trainingen per **dag**, **week** (standaard) of **maand**, met wie ingepland is, wie zich afmeldde (doorstreept), wie vervangt (*Lies voor Tom*), *vervanger gezocht*, afgelaste trainingen en de bevestiging van aanwezigheid (✓ aanwezig, ✗ niet aanwezig, ? niet bevestigd).
+  - Een trainer ziet standaard de eigen trainingen en kan naar *Alle trainingen*. Het bestuur en het secretariaat zien standaard alles en filteren op een trainer of een ploeg.
+  - Een training openen (tik op het blokje) gaat naar de trainingspagina om te bevestigen, af te melden of aan te passen. In de dagweergave staan die knoppen meteen bij de training.
+  - Op de gsm staan de dagen van de week onder elkaar (lege dagen verborgen) en toont de maand per dag gekleurde streepjes; tik op een dag voor de dagweergave. Geen externe bibliotheken: eigen HTML en CSS (`views/kalender.php`, `views/_stijl.php`).
+- **Afmelden en vervangen** (één specifieke training):
   - Een trainer die niet kan, tikt *Kan niet* en geeft eventueel een reden. Collega's krijgen een pushmelding en zien de training bij *Vervanger gezocht*.
   - Wie *Ik neem over* tikt, wordt vervanger. De afgemelde trainer krijgt daarvan een melding.
   - Wie wil, kan ook *meehelpen* als extra trainer.
-- **Uren**: elke training tot en met vandaag waarop iemand aanwezig was, telt mee, behalve afgelaste. Trainers zien hun eigen uren en vergoeding.
+- **Was je aanwezig?**: na elke training krijgt elke ingeplande trainer een pushmelding met de knoppen *✓ Ja* en *✗ Nee*.
+  - Eén tik op een knop volstaat; de app hoeft niet open. Tik je op de melding zelf (of ondersteunt het toestel geen knoppen, zoals iPhone), dan opent een eenvoudig scherm met twee grote knoppen. Dat werkt ook zonder aangemeld te zijn: de melding bevat een persoonlijke sleutel die enkel voor die trainer en die training geldt, 60 dagen lang.
+  - Geen antwoord? Dan blijft de training op *niet bevestigd* en volgt er één herinnering, de volgende ochtend vanaf 8 uur (minstens 12 uur na de vraag, nooit 's nachts).
+  - In *Trainingen* staat bovenaan *Was je aanwezig?* met de open trainingen (en *Ik was overal aanwezig*), en onderaan de afgelopen 4 weken, waar de trainer een antwoord nog kan wijzigen.
+  - Achteraf erbij komen kan ook: op een voorbije training betekent *Ik was er ook*, *Ik heb overgenomen* of *Ik was er toch* meteen *aanwezig*.
+  - Een trainer wijzigt zijn of haar eigen voorbije trainingen zolang die maand voor hem of haar niet als uitbetaald gemarkeerd is. Daarna kan enkel het bestuur nog corrigeren.
+  - De vraag komt van een geplande taak die elk kwartier draait (WP-Cron). Een trainer kan ze uitzetten bij *Meldingen*.
+- **Uren**: enkel trainingen tot en met vandaag die als **aanwezig** bevestigd zijn, tellen mee; afgelaste nooit. *Niet aanwezig* telt niet. *Niet bevestigd* telt (nog) niet mee, maar staat apart in alle overzichten en in de Excel, tot de trainer of het bestuur ze bevestigt. Trainers zien hun eigen uren en vergoeding.
+  - Bij een installatie die al trainingen had vóór deze versie, tellen de trainingen vóór de dag van de update mee zonder bevestiging (optie `khzs_tr_bevestigen_vanaf`).
+- **Overzicht trainers** (bestuur en secretariaat, *Trainingen → Overzicht trainers*): per maand per trainer het schema, het aantal trainingen aanwezig, niet aanwezig en niet bevestigd, en de uren. Per trainer:
+  - alle trainingen van de maand met wie bevestigde en wanneer, met *Aanwezig* / *Niet aanwezig* per training en *Alle niet bevestigde als aanwezig bevestigen*
+  - het schema (vaste trainingen toevoegen of stoppen vanaf een datum)
+  - de wijzigingen die het bestuur en het secretariaat al deden
+- **Melding bij elke aanpassing door het bestuur**: verandert iemand anders iets aan de planning of aanwezigheid van een trainer, dan krijgt die trainer een pushmelding *Je planning is aangepast*. In de app staat bovenaan *Aangepast door het bestuur* met wat er veranderde, door wie en wanneer, en *Wijzigingen aan mijn planning* toont alles.
 - **Verloning** (penningmeester):
   - Een tarief per trainer, per uur of per training, met een datum *geldig vanaf*. Een nieuw tarief verandert niets aan vroegere trainingen.
   - Een overzicht per maand met trainingen, uren en bedrag per trainer, met detail per training.
@@ -168,7 +200,7 @@ De app heeft een privacyverklaring op `/leden/privacy/`, voor iedereen leesbaar 
 ## Verschillen met de Django-versie
 
 - Accounts en "wachtwoord vergeten" lopen via WordPress.
-- Geplande taken (herinneringen 08:00, backup 02:30) gebruiken WP-Cron. Op een rustige site stel je best een echte cron in die `wp-cron.php` oproept.
+- Geplande taken (herinneringen 08:00, backup 02:30, de vraag *Was je aanwezig?* elk kwartier) gebruiken WP-Cron. Op een rustige site stel je best een echte cron in die `wp-cron.php` oproept.
 - De backup bevat de gegevens van de app, niet de WordPress-accounts zelf.
 - Je werkt de plugin bij door een nieuwe zip te uploaden; de automatische updates via git in `deploy/` gelden niet.
 

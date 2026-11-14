@@ -144,7 +144,7 @@ def welkom(request):
     elif stap == "staf" and request.method == "POST":
         aangevraagd = []
         for r in request.POST.getlist("rollen"):
-            if r in (Profiel.TRAINER, Profiel.BESTUURDER, Profiel.SECRETARIS) and not rollen.heeft_rol(u, r):
+            if r in (Profiel.TRAINER, Profiel.TRAINER_ZWEMSCHOOL, Profiel.BESTUURDER, Profiel.SECRETARIS) and not rollen.heeft_rol(u, r):
                 try:
                     rollen.vraag_aan(u, r, request.POST.get("motivatie", ""))
                     aangevraagd.append(ROL_NAAM[r].lower())
@@ -165,11 +165,13 @@ def welkom(request):
 
 @login_required
 def start(request):
-    return redirect("wedstrijden")
+    return redirect("ploegen" if rollen.zonder_wedstrijden(request.user) else "wedstrijden")
 
 
 @login_required
 def wedstrijden(request):
+    if rollen.zonder_wedstrijden(request.user):
+        return redirect("ploegen")
     staf = is_staf(request.user)
     qs = Wedstrijd.objects.all()
     if not staf:

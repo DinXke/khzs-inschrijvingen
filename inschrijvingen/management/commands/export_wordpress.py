@@ -87,7 +87,7 @@ class Command(BaseCommand):
                                     toegekende_rol=a.toegekende_rol, reden=a.reden, behandeld_door=a.behandeld_door_id,
                                     behandeld_op=dt(a.behandeld_op), gelezen=int(a.gelezen), aangemaakt=dt(a.aangemaakt))
                                for a in Rolaanvraag.objects.all()]
-        tab["ploegen"] = [dict(id=x.pk, naam=x.naam, beschrijving=x.beschrijving, actief=int(x.actief), aangemaakt=dt(x.aangemaakt))
+        tab["ploegen"] = [dict(id=x.pk, naam=x.naam, beschrijving=x.beschrijving, soort=x.soort, actief=int(x.actief), aangemaakt=dt(x.aangemaakt))
                           for x in Ploeg.objects.all()]
         tab["ploeg_trainers"] = [dict(ploeg_id=x.ploeg_id, user_id=x.user_id) for x in Ploeg.trainers.through.objects.all()]
         tab["ploegleden"] = [dict(id=x.pk, zwemmer_id=x.zwemmer_id, ploeg_id=x.ploeg_id, status=x.status, aangevraagd_door=x.aangevraagd_door_id,

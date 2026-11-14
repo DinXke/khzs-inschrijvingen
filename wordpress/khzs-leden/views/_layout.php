@@ -1,6 +1,6 @@
 <?php namespace KHZS; defined('ABSPATH') || exit;
-$p = $pagina;
-$actief = fn(array $namen) => in_array($p, $namen, true) ? 'actief' : '';
+$_pagina = $pagina; // niet $p: dat is de ploeg in views/ploeg.php
+$actief = fn(array $namen) => in_array($_pagina, $namen, true) ? 'actief' : '';
 $items = is_user_logged_in() ? menu() : [];
 $ingelogd = is_user_logged_in();
 ?><!doctype html>

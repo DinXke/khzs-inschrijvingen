@@ -265,7 +265,7 @@ function menu(): array
 {
     $items = apply_filters('khzs_menu', [
         50 => ['Gebruikers', 'gebruikers/', ['gebruikers'], '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20c0-3 3-5 7-5s7 2 7 5M16 14c3 0 6 1.5 6 4.5"/>', fn() => mag_rollen_beheren()],
-        45 => ['Ploegen', 'ploegen/', ['ploegen', 'ploeg'], '<circle cx="7" cy="9" r="2.5"/><circle cx="17" cy="9" r="2.5"/><circle cx="12" cy="7" r="2.5"/><path d="M2 19c0-3 2-5 5-5M22 19c0-3-2-5-5-5M7 20c0-3 2-5 5-5s5 2 5 5"/>', fn() => ziet_alle_ploegen()],
+        45 => ['Ploegen', 'ploegen/', ['ploegen', 'ploeg'], '<circle cx="7" cy="9" r="2.5"/><circle cx="17" cy="9" r="2.5"/><circle cx="12" cy="7" r="2.5"/><path d="M2 19c0-3 2-5 5-5M22 19c0-3-2-5-5-5M7 20c0-3 2-5 5-5s5 2 5 5"/>', fn() => ziet_ploegenmenu()],
         80 => ['Meldingen', 'meldingen/', ['meldingen'], '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/>', fn() => true],
     ]);
     ksort($items);
@@ -282,7 +282,8 @@ function verwerk_verzoek(): void
     foreach (routes() as [$regex, $naam, $functie]) {
         if (preg_match('#^' . $regex . '$#', $pad, $m)) {
             $GLOBALS['khzs_route'] = $naam;
-            if (is_post() && !in_array($naam, ['push_abonneer', 'push_afmelden', 'push_test'], true)) {
+            // Routes zonder nonce: JSON (nonce in de header) en routes van modules met een eigen beveiliging (filter khzs_zonder_nonce).
+            if (is_post() && !in_array($naam, apply_filters('khzs_zonder_nonce', ['push_abonneer', 'push_afmelden', 'push_test']), true)) {
                 $nonce = $_POST['_khzs'] ?? '';
                 // Aanmelden/registreren mag ook zonder geldige nonce van een (verlopen) anonieme sessie.
                 if (!wp_verify_nonce($nonce, 'khzs') && !in_array($naam, ['login', 'registreren'], true)) {

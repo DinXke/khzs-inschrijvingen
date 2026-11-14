@@ -172,7 +172,7 @@ function v_welkom(): void
             }
         } elseif ($stap === 'staf') {
             $aangevraagd = [];
-            foreach (array_intersect([TRAINER, BESTUURDER, SECRETARIS], (array) ($_POST['rollen'] ?? [])) as $r) {
+            foreach (array_intersect([TRAINER, TRAINER_ZWEMSCHOOL, BESTUURDER, SECRETARIS], (array) ($_POST['rollen'] ?? [])) as $r) {
                 if (!heeft_rol([$r], $u->ID)) {
                     try {
                         vraag_rol_aan($u->ID, $r, post('motivatie'));
@@ -216,6 +216,9 @@ function v_zwemmer_ploeg($id): void
 function v_wedstrijden(): void
 {
     vereist_login();
+    if (zonder_wedstrijden()) {
+        naar(app_url(''));
+    }
     $staf = is_staf();
     $uid = get_current_user_id();
     $vandaag = vandaag()->format('Y-m-d');

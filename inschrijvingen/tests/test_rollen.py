@@ -60,7 +60,7 @@ class RollenTest(TestCase):
         self.assertEqual(url, "/rollen/")
         # melding in de app, tot het lid Mijn rollen opent
         self.client.force_login(self.lid)
-        self.assertContains(self.client.get("/wedstrijden/"), "Je aanvraag voor de rol trainer is goedgekeurd.")
+        self.assertContains(self.client.get("/wedstrijden/"), "Je aanvraag voor de rol trainer competitie is goedgekeurd.")
         self.client.get("/rollen/")
         self.assertNotContains(self.client.get("/wedstrijden/"), "is goedgekeurd")
         # nu trainer: rechten van de staf, en de eigen zwemmers blijven
@@ -123,7 +123,7 @@ class RollenTest(TestCase):
         r = self.client.post("/welkom/?stap=staf", {"rollen": [Profiel.TRAINER, Profiel.BEHEERDER], "motivatie": "B-groep"})
         self.assertEqual(r["Location"], "/welkom/?stap=klaar")
         self.assertEqual(list(Rolaanvraag.objects.filter(user=u).values_list("rol", "motivatie")), [(Profiel.TRAINER, "B-groep")])
-        self.assertContains(self.client.get("/welkom/?stap=klaar"), "Trainer (wacht)")
+        self.assertContains(self.client.get("/welkom/?stap=klaar"), "Trainer competitie (wacht)")
 
     def test_rechtstreeks_toevoegen_en_afnemen(self):
         a = self.aanvraag()
