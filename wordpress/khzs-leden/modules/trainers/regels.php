@@ -26,8 +26,9 @@
  * Trainingen vóór de optie khzs_tr_bevestigen_vanaf (bestaande installaties) tellen mee zonder bevestiging.
  * Gepresteerde uren = trainingen tot en met vandaag, niet afgelast, waarop de trainer ingepland stond en 'ja' bevestigde.
  *
- * Zwemmers (tr_zwemmers): een trainer duidt aan welke zwemmers op een training waren. Zwemmers en ouders bevestigen
- *   zelf niets en krijgen geen vraag; ze zien hun aanwezigheden ook niet in de app (enkel in Mijn gegevens, AVG).
+ * Zwemmers (tr_zwemmers): een trainer duidt aan welke zwemmers op een training waren, eventueel met te laat, vroeger
+ *   weg of ziek (TR_ZW_SOORT). Zwemmers en ouders bevestigen zelf niets en krijgen geen vraag; ze zien wel de
+ *   statistiek van zichzelf of van hun kinderen (tr_zw_mag_zwemmer).
  *   De lijst komt uit de ploegen van de training. Aanduiden mag eender welke trainer van de competitie voor de ploegen
  *   van de competitie, eender welke trainer van de zwemschool voor die van de zwemschool, en het bestuur, het
  *   secretariaat en de beheerder voor alles (tr_zw_mag_ploeg). Niet enkel wie op de training ingepland staat.
@@ -54,6 +55,9 @@ add_filter('khzs_voorkeuren', fn($v) => $v + [
 
 const TR_STATUS = ['ja' => 'aanwezig', 'nee' => 'niet aanwezig', 'open' => 'niet bevestigd', 'gepland' => 'gepland'];
 const TR_BRON = ['trainer' => 'zelf', 'melding' => 'via de melding', 'bestuur' => 'door het bestuur'];
+// Aanwezigheid van een zwemmer op een training. Te laat en vroeger weg tellen als aanwezig, ziek als afwezig.
+const TR_ZW_SOORT = ['aanwezig' => 'aanwezig', 'laat' => 'te laat', 'vroeger' => 'vroeger weg', 'ziek' => 'ziek', 'afwezig' => 'afwezig'];
+const TR_ZW_STATUS = ['laat', 'vroeger', 'ziek'];
 const TR_AFGELAST_SOORT = ['vakantie' => 'vakantie', 'verlof' => 'verlof', 'zwembad' => 'zwembad dicht', 'ander' => 'afgelast'];
 
 // ---------- rechten ----------
@@ -503,7 +507,8 @@ function tr_zw_telling(object $b, array $ploegen): ?array
 }
 
 /**
- * De lijst om aan te duiden: [ploeg_id => ['ploeg' => ploeg, 'zwemmers' => [zwemmer met ->aanwezig (null, 0 of 1)], 'laatst' => rij|null]].
+ * De lijst om aan te duiden: [ploeg_id => ['ploeg' => ploeg, 'zwemmers' => [zwemmer met ->aanwezig (null, 0 of 1) en ->status],
+ * 'laatst' => rij|null]].
  * Per ploeg de huidige zwemmers, plus wie al aangeduid was maar intussen niet meer in de ploeg zit. Een zwemmer in
  * twee ploegen van dezelfde training staat één keer, onder de eerste ploeg.
  */
@@ -531,6 +536,7 @@ function tr_zw_lijst(object $b, array $ploegen): array
             }
             $gezien[$zid] = true;
             $z->aanwezig = isset($bestaand[$zid]) ? (int) $bestaand[$zid]->aanwezig : null;
+            $z->status = $bestaand[$zid]->status ?? '';
             $lijst[] = $z;
         }
         usort($lijst, fn($x, $y) => strcasecmp("$x->voornaam $x->naam", "$y->voornaam $y->naam"));
@@ -545,17 +551,21 @@ function tr_zw_lijst(object $b, array $ploegen): array
     return $uit;
 }
 
-/** Bewaart de hele lijst: wie in $aanwezig staat was er (1), de rest niet (0). Geeft [aanwezig, totaal] terug. */
-function tr_zw_bewaar(object $b, array $lijst, array $aanwezig, int $door): array
+/**
+ * Bewaart de hele lijst: wie in $aanwezig staat was er (1), de rest niet (0). $status = [zwemmer_id => laat|vroeger|ziek]:
+ * te laat en vroeger weg zetten de zwemmer op aanwezig, ziek op afwezig. Geeft [aanwezig, totaal] terug.
+ */
+function tr_zw_bewaar(object $b, array $lijst, array $aanwezig, int $door, array $status = []): array
 {
     $aanwezig = array_flip(array_map('intval', $aanwezig));
     $n = [0, 0];
     foreach ($lijst as $id => $l) {
         foreach ($l['zwemmers'] as $z) {
-            $ja = isset($aanwezig[(int) $z->id]) ? 1 : 0;
-            db()->query(db()->prepare("INSERT INTO " . t('tr_zwemmers') . " (moment_id, datum, zwemmer_id, ploeg_id, aanwezig, door_id, op) VALUES (%d, %s, %d, %d, %d, %d, %s)"
-                . " ON DUPLICATE KEY UPDATE ploeg_id=VALUES(ploeg_id), aanwezig=VALUES(aanwezig), door_id=VALUES(door_id), op=VALUES(op)",
-                $b->moment->id, $b->datum, $z->id, $id, $ja, $door, nu_sql()));
+            $st = in_array($status[(int) $z->id] ?? '', TR_ZW_STATUS, true) ? $status[(int) $z->id] : '';
+            $ja = $st === 'ziek' ? 0 : ($st !== '' || isset($aanwezig[(int) $z->id]) ? 1 : 0);
+            db()->query(db()->prepare("INSERT INTO " . t('tr_zwemmers') . " (moment_id, datum, zwemmer_id, ploeg_id, aanwezig, status, door_id, op)"
+                . " VALUES (%d, %s, %d, %d, %d, %s, %d, %s) ON DUPLICATE KEY UPDATE ploeg_id=VALUES(ploeg_id), aanwezig=VALUES(aanwezig),"
+                . " status=VALUES(status), door_id=VALUES(door_id), op=VALUES(op)", $b->moment->id, $b->datum, $z->id, $id, $ja, $st, $door, nu_sql()));
             $n[0] += $ja;
             $n[1]++;
         }
@@ -572,46 +582,172 @@ function tr_zw_wis(object $b, array $ploegen): void
     }
 }
 
-function tr_procent(int $deel, int $totaal): string
+/** aanwezig, laat, vroeger, ziek of afwezig (een sleutel van TR_ZW_SOORT) voor een rij uit tr_zwemmers. */
+function tr_zw_soort(object $r): string
 {
-    return $totaal ? round(100 * $deel / $totaal) . ' %' : '—';
+    if (in_array($r->status ?? '', TR_ZW_STATUS, true)) {
+        return $r->status;
+    }
+    return (int) $r->aanwezig ? 'aanwezig' : 'afwezig';
 }
 
 /**
- * Aanwezigheid van zwemmers in [van, tot] voor de ploegen $ploeg_ids. Enkel aangeduide trainingen tellen mee.
- * Geeft ['zwemmers' => [zid => [naam, ploegen[], aanwezig, afwezig]], 'ploegen' => [pid => [naam, soort, trainingen, aanwezig, totaal]],
- * 'detail' => rijen uit tr_zwemmers met voornaam, znaam, mnaam, start en einde].
+ * Rijen uit tr_zwemmers in [van, tot], met zwemmer, training en ->soort. Beperkt tot de ploegen $ploeg_ids (null = alle)
+ * en eventueel tot één zwemmer. Chronologisch.
  */
-function tr_zw_overzicht(string $van, string $tot, array $ploeg_ids): array
+function tr_zw_rijen(string $van, string $tot, ?array $ploeg_ids = null, ?int $zwemmer = null): array
 {
-    $uit = ['zwemmers' => [], 'ploegen' => [], 'detail' => []];
-    if (!$ploeg_ids) {
-        return $uit;
+    if ($ploeg_ids === []) {
+        return [];
     }
+    $sql = db()->prepare("SELECT a.*, z.voornaam, z.naam AS znaam, m.naam AS mnaam, m.start, m.einde, m.weekdag FROM " . t('tr_zwemmers') . " a JOIN "
+        . t('zwemmers') . " z ON z.id=a.zwemmer_id LEFT JOIN " . t('tr_momenten') . " m ON m.id=a.moment_id WHERE a.datum BETWEEN %s AND %s", $van, $tot);
+    if ($ploeg_ids !== null) {
+        $sql .= " AND a.ploeg_id IN (" . in_lijst($ploeg_ids) . ")";
+    }
+    if ($zwemmer !== null) {
+        $sql .= db()->prepare(" AND a.zwemmer_id=%d", $zwemmer);
+    }
+    $rijen = db()->get_results("$sql ORDER BY a.datum, m.start, z.voornaam, z.naam");
+    foreach ($rijen as $r) {
+        $r->soort = tr_zw_soort($r);
+    }
+    return $rijen;
+}
+
+/** Lege telling: één teller per soort plus totaal en het aantal verschillende trainingen. */
+function tr_zw_leeg(): array
+{
+    return array_fill_keys(array_keys(TR_ZW_SOORT), 0) + ['totaal' => 0, 'trainingen' => 0, '_t' => []];
+}
+
+function tr_zw_tel_bij(array &$t, object $r): void
+{
+    $t[$r->soort]++;
+    $t['totaal']++;
+    if (!isset($t['_t']["$r->moment_id|$r->datum"])) {
+        $t['_t']["$r->moment_id|$r->datum"] = true;
+        $t['trainingen']++;
+    }
+}
+
+/** Aantal keer er (aanwezig, te laat of vroeger weg). */
+function tr_zw_er(array $t): int
+{
+    return $t['aanwezig'] + $t['laat'] + $t['vroeger'];
+}
+
+/** Percentage aanwezig (te laat en vroeger weg tellen mee), of zonder de trainingen waarop de zwemmer ziek was. */
+function tr_zw_pct(array $t, bool $zonder_ziek = false): ?float
+{
+    $noemer = $t['totaal'] - ($zonder_ziek ? $t['ziek'] : 0);
+    return $noemer > 0 ? 100 * tr_zw_er($t) / $noemer : null;
+}
+
+function tr_zw_procent(array $t, bool $zonder_ziek = false): string
+{
+    $p = tr_zw_pct($t, $zonder_ziek);
+    return $p === null ? '—' : round($p) . ' %';
+}
+
+/**
+ * Statistiek van een reeks rijen (tr_zw_rijen): totaal, per ploeg, per zwemmer, per maand, per training, per weekdag
+ * en de verdeling van de zwemmers volgens hun percentage. Elke telling is tr_zw_leeg() met extra velden (naam…).
+ */
+function tr_zw_stats(array $rijen): array
+{
     $alle = tr_ploegen_per_id();
-    $rijen = db()->get_results(db()->prepare("SELECT a.*, z.voornaam, z.naam AS znaam, m.naam AS mnaam, m.start, m.einde FROM " . t('tr_zwemmers') . " a JOIN "
-        . t('zwemmers') . " z ON z.id=a.zwemmer_id LEFT JOIN " . t('tr_momenten') . " m ON m.id=a.moment_id WHERE a.datum BETWEEN %s AND %s AND a.ploeg_id IN ("
-        . in_lijst($ploeg_ids) . ") ORDER BY a.datum, m.start, z.voornaam, z.naam", $van, $tot));
-    $trainingen = [];
+    $s = ['totaal' => tr_zw_leeg(), 'ploegen' => [], 'zwemmers' => [], 'maanden' => [], 'momenten' => [], 'weekdagen' => [], 'verdeling' => [],
+        'detail' => $rijen];
     foreach ($rijen as $r) {
         $zid = (int) $r->zwemmer_id;
         $pid = (int) $r->ploeg_id;
-        $ja = (int) $r->aanwezig;
-        $uit['zwemmers'][$zid] ??= ['naam' => trim("$r->voornaam $r->znaam"), 'ploegen' => [], 'aanwezig' => 0, 'afwezig' => 0];
-        $uit['zwemmers'][$zid]['ploegen'][$pid] = $alle[$pid]->naam ?? '?';
-        $uit['zwemmers'][$zid][$ja ? 'aanwezig' : 'afwezig']++;
-        $uit['ploegen'][$pid] ??= ['naam' => $alle[$pid]->naam ?? '?', 'soort' => $alle[$pid]->soort ?? '', 'trainingen' => 0, 'aanwezig' => 0, 'totaal' => 0];
-        if (!isset($trainingen["$pid|$r->moment_id|$r->datum"])) {
-            $trainingen["$pid|$r->moment_id|$r->datum"] = true;
-            $uit['ploegen'][$pid]['trainingen']++;
-        }
-        $uit['ploegen'][$pid]['aanwezig'] += $ja;
-        $uit['ploegen'][$pid]['totaal']++;
-        $uit['detail'][] = $r;
+        tr_zw_tel_bij($s['totaal'], $r);
+        $s['ploegen'][$pid] ??= tr_zw_leeg() + ['naam' => $alle[$pid]->naam ?? '?', 'soort' => $alle[$pid]->soort ?? ''];
+        tr_zw_tel_bij($s['ploegen'][$pid], $r);
+        $s['zwemmers'][$zid] ??= tr_zw_leeg() + ['naam' => trim("$r->voornaam $r->znaam"), 'ploegen' => []];
+        $s['zwemmers'][$zid]['ploegen'][$pid] = $alle[$pid]->naam ?? '?';
+        tr_zw_tel_bij($s['zwemmers'][$zid], $r);
+        $s['maanden'][substr($r->datum, 0, 7)] ??= tr_zw_leeg();
+        tr_zw_tel_bij($s['maanden'][substr($r->datum, 0, 7)], $r);
+        $mk = (int) $r->moment_id;
+        $s['momenten'][$mk] ??= tr_zw_leeg() + ['naam' => (string) $r->mnaam, 'wanneer' => $r->weekdag ? ucfirst(TR_DAGEN[(int) $r->weekdag]) . ' ' . substr($r->start, 0, 5) : ''];
+        tr_zw_tel_bij($s['momenten'][$mk], $r);
+        $wd = (int) (new \DateTimeImmutable($r->datum))->format('N');
+        $s['weekdagen'][$wd] ??= tr_zw_leeg();
+        tr_zw_tel_bij($s['weekdagen'][$wd], $r);
     }
-    uasort($uit['zwemmers'], fn($a, $b) => strcasecmp($a['naam'], $b['naam']));
-    uasort($uit['ploegen'], fn($a, $b) => strcasecmp($a['naam'], $b['naam']));
-    return $uit;
+    ksort($s['maanden']);
+    ksort($s['weekdagen']);
+    uasort($s['ploegen'], fn($a, $b) => strcasecmp($a['naam'], $b['naam']));
+    uasort($s['zwemmers'], fn($a, $b) => strcasecmp($a['naam'], $b['naam']));
+    uasort($s['momenten'], fn($a, $b) => strcasecmp($a['naam'], $b['naam']));
+    $s['verdeling'] = ['90 % of meer' => 0, '75 tot 90 %' => 0, '50 tot 75 %' => 0, 'minder dan 50 %' => 0];
+    foreach ($s['zwemmers'] as $z) {
+        $p = tr_zw_pct($z) ?? 0;
+        $s['verdeling'][$p >= 90 ? '90 % of meer' : ($p >= 75 ? '75 tot 90 %' : ($p >= 50 ? '50 tot 75 %' : 'minder dan 50 %'))]++;
+    }
+    return $s;
+}
+
+/**
+ * Reeksen van één zwemmer (rijen chronologisch): huidige en langste reeks trainingen na elkaar aanwezig (ziek onderbreekt
+ * niet en telt niet mee), en de laatste datum dat de zwemmer er was.
+ */
+function tr_zw_reeksen(array $rijen): array
+{
+    $huidig = $langst = 0;
+    $laatst = null;
+    foreach ($rijen as $r) {
+        if ($r->soort === 'ziek') {
+            continue;
+        }
+        if ($r->soort === 'afwezig') {
+            $huidig = 0;
+            continue;
+        }
+        $huidig++;
+        $langst = max($langst, $huidig);
+        $laatst = $r->datum;
+    }
+    return ['huidig' => $huidig, 'langst' => $langst, 'laatst' => $laatst];
+}
+
+/**
+ * Mag dit account de aanwezigheden van deze zwemmer zien? De zwemmer zelf en de gekoppelde accounts (ouders) altijd;
+ * trainers en bestuur als ze een ploeg van de zwemmer mogen zien. Geeft null (geen toegang), [] (alles) of de
+ * ploeg-id's waartoe de trainer zich moet beperken.
+ */
+function tr_zw_mag_zwemmer(object $z, $user = null): ?array
+{
+    $u = gebruiker($user);
+    if (!$u) {
+        return null;
+    }
+    if (heeft_account($z, (int) $u->ID) || tr_mag_beheren($u)) {
+        return [];
+    }
+    $ids = array_map('intval', db()->get_col(db()->prepare("SELECT ploeg_id FROM " . t('ploegleden') . " WHERE zwemmer_id=%d UNION SELECT DISTINCT ploeg_id FROM "
+        . t('tr_zwemmers') . " WHERE zwemmer_id=%d", $z->id, $z->id)));
+    $mag = array_values(array_intersect($ids, array_keys(tr_zw_ploegen($u))));
+    return $mag ?: null;
+}
+
+/** Standaardperiode: het lopende seizoen, anders de laatste drie maanden; ?van= en ?tot= overschrijven. */
+function tr_zw_periode(): array
+{
+    $vandaag = vandaag()->format('Y-m-d');
+    $van = dag(get('van'));
+    $tot = dag(get('tot'));
+    if (!$van) {
+        $seizoen = current(array_filter(tr_seizoenen(), fn($s) => $s->van <= $vandaag && $s->tot >= $vandaag));
+        $van = new \DateTimeImmutable($seizoen ? $seizoen->van : vandaag()->modify('-3 months')->format('Y-m-d'));
+    }
+    $tot ??= vandaag();
+    if ($tot < $van) {
+        [$van, $tot] = [$tot, $van];
+    }
+    return [$van->format('Y-m-d'), $tot->format('Y-m-d')];
 }
 
 // ---------- vraag na de training (pushmelding met Ja/Nee) ----------

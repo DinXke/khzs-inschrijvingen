@@ -9,7 +9,7 @@ add_filter('khzs_tabellen', fn($t) => array_merge($t, ['tr_momenten', 'tr_vast',
     'tr_bevestigingen', 'tr_log', 'tr_moment_ploegen', 'tr_seizoenen', 'tr_zwemmers']));
 
 /** Versie van de tabellen van deze module; los van DB_VERSIE van de kern, zodat de module zelf kan bijwerken. */
-const TR_DB_VERSIE = '4';
+const TR_DB_VERSIE = '5';
 
 add_action('plugins_loaded', function () {
     if (get_option('khzs_tr_db_versie') === TR_DB_VERSIE) {
@@ -42,12 +42,13 @@ add_action('khzs_ploeg_verwijderd', function (int $ploeg_id) {
 
 add_action('khzs_zwemmer_verwijderd', fn(int $id) => db()->delete(t('tr_zwemmers'), ['zwemmer_id' => $id]));
 
-// AVG: de aanwezigheden van een zwemmer horen bij het recht op inzage (Mijn gegevens), ook al tonen we ze niet in de app.
+// AVG: de aanwezigheden van een zwemmer horen bij het recht op inzage (Mijn gegevens).
 add_filter('khzs_mijn_zwemmer', function (array $d, object $z) {
-    $rijen = db()->get_results(db()->prepare("SELECT a.datum, a.aanwezig, m.naam FROM " . t('tr_zwemmers') . " a LEFT JOIN " . t('tr_momenten')
+    $rijen = db()->get_results(db()->prepare("SELECT a.datum, a.aanwezig, a.status, m.naam FROM " . t('tr_zwemmers') . " a LEFT JOIN " . t('tr_momenten')
         . " m ON m.id=a.moment_id WHERE a.zwemmer_id=%d ORDER BY a.datum", $z->id));
     if ($rijen) {
-        $d['aanwezigheid_op_trainingen'] = array_map(fn($r) => ['datum' => $r->datum, 'training' => $r->naam, 'aanwezig' => (bool) $r->aanwezig], $rijen);
+        $d['aanwezigheid_op_trainingen'] = array_map(fn($r) => ['datum' => $r->datum, 'training' => $r->naam,
+            'aanwezigheid' => TR_ZW_SOORT[tr_zw_soort($r)]], $rijen);
     }
     return $d;
 }, 10, 2);
@@ -202,6 +203,7 @@ function schema_trainers(string $c): array
 ) $c;",
         // Aanwezigheid van zwemmers op een training, aangeduid door een trainer (zwemmers bevestigen zelf niets).
         // ploeg_id: de ploeg waaronder de zwemmer op de lijst stond (voor de overzichten per ploeg en de rechten).
+        // status: leeg, of laat / vroeger (aanwezig = 1) of ziek (aanwezig = 0); zie TR_ZW_SOORT.
         "CREATE TABLE " . t('tr_zwemmers') . " (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   moment_id bigint(20) unsigned NOT NULL,
@@ -209,6 +211,7 @@ function schema_trainers(string $c): array
   zwemmer_id bigint(20) unsigned NOT NULL,
   ploeg_id bigint(20) unsigned NOT NULL DEFAULT 0,
   aanwezig tinyint(1) NOT NULL DEFAULT 1,
+  status varchar(10) NOT NULL DEFAULT '',
   door_id bigint(20) unsigned NULL,
   op datetime NULL,
   PRIMARY KEY  (id),

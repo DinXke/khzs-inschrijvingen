@@ -19,7 +19,8 @@ $_totaal = array_sum(array_map(fn($l) => count($l['zwemmers']), $zw_lijst));
     <input type="hidden" name="moment" value="<?= (int) $m->id ?>"><input type="hidden" name="datum" value="<?= esc_attr($datum) ?>">
     <p class="klein" style="margin-top:0"><?php if ($_aangeduid): $_l = array_reduce($_aangeduid, fn($c, $l) => !$c || $l['laatst']->op > $c->op ? $l['laatst'] : $c); ?>
       Aangeduid door <?= e(tr_voornaam((int) $_l->door_id)) ?> op <?= e(datum($_l->op, 'j/m H:i')) ?>. Pas aan en bewaar opnieuw als het niet klopt.
-    <?php else: ?>Nog niet aangeduid. Iedereen staat aangevinkt: vink af wie er niet was en bewaar.<?php endif; ?></p>
+    <?php else: ?>Nog niet aangeduid. Iedereen staat aangevinkt: vink af wie er niet was en bewaar.<?php endif; ?>
+      Te laat, vroeger weg of ziek? Kies het naast de naam.</p>
     <div class="rij tr-zw-knoppen">
       <button type="button" class="mini secundair" data-zw="alle">✓ Iedereen aanwezig</button>
       <button type="button" class="mini secundair" data-zw="geen">Niemand</button>
@@ -28,8 +29,11 @@ $_totaal = array_sum(array_map(fn($l) => count($l['zwemmers']), $zw_lijst));
       <?php if (count($zw_lijst) > 1): ?><h3 class="tr-zw-ploeg"><?= e($_l['ploeg']->naam) ?> <span class="klein">(<?= count($_l['zwemmers']) ?>)</span></h3><?php endif; ?>
       <div class="tr-zw-lijst">
       <?php foreach ($_l['zwemmers'] as $_z): ?>
-        <label class="tr-zw"><input type="checkbox" name="zwemmer[]" value="<?= (int) $_z->id ?>"<?= $_z->aanwezig !== 0 ? ' checked' : '' ?>>
+        <div class="tr-zw-rij"><label class="tr-zw"><input type="checkbox" name="zwemmer[]" value="<?= (int) $_z->id ?>"<?= $_z->aanwezig !== 0 ? ' checked' : '' ?>>
           <span><?= e(trim("$_z->voornaam $_z->naam")) ?></span></label>
+          <select name="status[<?= (int) $_z->id ?>]" aria-label="<?= esc_attr("Bijzonderheid voor $_z->voornaam") ?>" class="<?= $_z->status ? 'gekozen st-' . e($_z->status) : '' ?>">
+            <option value="">—</option><?php foreach (TR_ZW_STATUS as $_s): ?><option value="<?= $_s ?>"<?= $_z->status === $_s ? ' selected' : '' ?>><?= e(TR_ZW_SOORT[$_s]) ?></option><?php endforeach; ?>
+          </select></div>
       <?php endforeach; ?>
       </div>
     <?php endforeach; ?>
@@ -47,6 +51,14 @@ $_totaal = array_sum(array_map(fn($l) => count($l['zwemmers']), $zw_lijst));
     function tel() { var n = 0; vakjes.forEach(function (v) { if (v.checked) n++; }); teller.textContent = '(' + n + '/' + vakjes.length + ' aanwezig)'; }
     f.querySelectorAll('[data-zw]').forEach(function (k) {
       k.addEventListener('click', function () { var aan = k.dataset.zw === 'alle'; vakjes.forEach(function (v) { v.checked = aan; }); tel(); });
+    });
+    // Te laat of vroeger weg = er geweest; ziek = niet aanwezig (de server doet hetzelfde).
+    f.querySelectorAll('.tr-zw-rij select').forEach(function (s) {
+      s.addEventListener('change', function () {
+        var v = s.closest('.tr-zw-rij').querySelector('input');
+        if (s.value) { v.checked = s.value !== 'ziek'; }
+        s.className = s.value ? 'gekozen st-' + s.value : '';
+      });
     });
     f.addEventListener('change', tel); tel();
   })();

@@ -1651,6 +1651,72 @@ class ZwemmersAanwezigTest(TrainersBasis):
         hulp("eval", f="verwijder_zwemmer", args=[self.zw["Noor"]])
         self.assertEqual(int(een(f"SELECT COUNT(*) FROM {{p}}tr_zwemmers WHERE zwemmer_id={self.zw['Noor']}")), 0)
 
+    def status(self, naam, datum="2026-09-07"):
+        r = sql(f"SELECT aanwezig, status FROM {{p}}tr_zwemmers WHERE zwemmer_id={self.zw[naam]} AND datum='{datum}'")[0]
+        return int(r["aanwezig"]), r["status"]
+
+    def test_statussen_en_statistiek(self):
+        # Lore zwemt zelf (eigen account) in de A-ploeg; een ander gezin heeft niets met deze zwemmers te maken.
+        zelf = gebruiker("zelf@khzs.be", "zwemmer")
+        self.zw["Lore"] = zwemmer(zelf, voornaam="Lore", naam="Test")
+        exe(f"INSERT INTO {{p}}ploegleden (zwemmer_id, ploeg_id, status, aangemaakt) VALUES ({self.zw['Lore']}, {self.pa}, 'goedgekeurd', NOW())")
+        gebruiker("ander@khzs.be", "ouder")
+        zk, ander = Klant().login("zelf@khzs.be"), Klant().login("ander@khzs.be")
+        for k in (self.t, self.l, self.z, self.b, self.o, zk, ander):
+            k.vandaag = "2026-09-14"
+        # 7/9: Mila vroeger weg, Jules te laat, Kobe ziek (ook al stond het vinkje aan), Lore aanwezig.
+        ids = [self.zw[n] for n in ("Mila", "Kobe", "Lore")]
+        r = self.zwemmers(self.l, ids, **{f"status[{self.zw['Mila']}]": "vroeger", f"status[{self.zw['Jules']}]": "laat",
+                                          f"status[{self.zw['Kobe']}]": "ziek", f"status[{self.zw['Lore']}]": "onzin"})
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual([self.status(n) for n in ("Mila", "Jules", "Kobe", "Lore")], [(1, "vroeger"), (1, "laat"), (0, "ziek"), (1, "")])
+        r = self.l.get(f"trainers/training/{self.m}/2026-09-07/")
+        self.assertContains(r, 'value="laat" selected')
+        self.assertContains(r, "gekozen st-ziek")
+        # 14/9: Kobe en Lore aanwezig, Mila en Jules gewoon afwezig.
+        self.zwemmers(self.l, [self.zw["Kobe"], self.zw["Lore"]], datum="2026-09-14")
+
+        # Statistiek voor trainers: totalen, per maand, per training, per weekdag, verdeling en per zwemmer.
+        r = self.l.get("trainers/zwemmers/", van="2026-09-01", tot="2026-09-30")
+        t = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", r.text))
+        for tekst in ("Per maand", "Per training", "Per weekdag", "Verdeling van de zwemmers", "Per zwemmer", "keer te laat", "zonder ziek"):
+            self.assertIn(tekst, t)
+        self.assertIn("september 2026", t)
+        self.assertIn(f"aanwezigheid/{self.zw['Kobe']}/", r.text)
+        self.assertIn("tr-zw-balk", r.text)
+        # Kobe: 1 van 2 (50 %), zonder de ziekte 1 van 1 (100 %).
+        rij = re.search(r"Kobe Test.*?</tr>", r.text, re.S).group(0)
+        self.assertIn("50 %", rij)
+        self.assertIn("100 %", rij)
+        r = self.l.get("trainers/zwemmers/export/", van="2026-09-01", tot="2026-09-30")
+        with zipfile.ZipFile(io.BytesIO(r.content)) as zf:
+            alles = "".join(zf.read(n).decode() for n in zf.namelist() if n.endswith(".xml"))
+        for tekst in ("Per maand", "Per training", "Te laat", "Vroeger weg", "Aanwezig zonder ziek (%)", "ziek"):
+            self.assertIn(tekst, alles)
+
+        # De ouder ziet de statistiek van de eigen kinderen: kort op de pagina van de zwemmer, volledig apart.
+        r = self.o.get(f"zwemmers/{self.zw['Mila']}/")
+        self.assertContains(r, "Trainingen")
+        self.assertContains(r, f"aanwezigheid/{self.zw['Mila']}/")
+        r = self.o.get(f"aanwezigheid/{self.zw['Mila']}/")
+        self.assertEqual(r.status_code, 200, r.text[:1500])
+        t = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", r.text))
+        self.assertIn("Aanwezigheid Mila Test", t)
+        self.assertIn("vroeger weg", t)
+        self.assertIn("50 %", t)
+        self.assertIn("Laatst aanwezig", t)
+        self.assertIn("Gemiddelde van A-ploeg", t)
+        self.assertNotIn("Kobe Test", t.split("Aanwezigheid Mila Test", 1)[1])  # geen andere zwemmers in de statistiek
+        # De zwemmer zelf: enkel de eigen statistiek, niet het overzicht van de trainers.
+        self.assertEqual(zk.get(f"aanwezigheid/{self.zw['Lore']}/").status_code, 200)
+        self.assertEqual(zk.get(f"aanwezigheid/{self.zw['Mila']}/").status_code, 403)
+        self.assertEqual(zk.get("trainers/zwemmers/").status_code, 403)
+        # Een ander gezin en een trainer van de andere soort: geen toegang. De trainer van de competitie wel.
+        self.assertEqual(ander.get(f"aanwezigheid/{self.zw['Mila']}/").status_code, 403)
+        self.assertEqual(self.z.get(f"aanwezigheid/{self.zw['Mila']}/").status_code, 403)
+        self.assertEqual(self.l.get(f"aanwezigheid/{self.zw['Mila']}/").status_code, 200)
+        self.assertEqual(self.b.get(f"aanwezigheid/{self.zw['Mila']}/").status_code, 200)
+
 
 class RollenTest(Basis):
     """Meerdere rollen per account: aanvragen, goedkeuren, afkeuren, een andere rol geven (zoals test_rollen.py in Django)."""
@@ -2162,8 +2228,20 @@ class DemoTest(Basis):
         t = self.tekst(DemoKlant().login("nina").get("trainers/zwemmers/"))
         self.assertIn("Noor Gebruiker", t)
         self.assertNotIn("Lina Gebruiker", t)
-        self.assertEqual(DemoKlant().login("ouder", "ouder").get("trainers/zwemmers/").status_code, 403)
+        o = DemoKlant().login("ouder", "ouder")
+        self.assertEqual(o.get("trainers/zwemmers/").status_code, 403)
         self.assertEqual(self.d.get("trainers/zwemmers/export/").status_code, 200)
+        # Te laat, vroeger weg en ziek komen voor; de ouder ziet de statistiek van Finn, niet die van een ander kind.
+        for st in ("laat", "vroeger", "ziek"):
+            self.assertGreater(int(een(f"SELECT COUNT(*) FROM wp_khzsdemo_tr_zwemmers WHERE status='{st}'")), 0, st)
+        finn = een("SELECT id FROM wp_khzsdemo_zwemmers WHERE voornaam='Finn'")
+        lina = een("SELECT id FROM wp_khzsdemo_zwemmers WHERE voornaam='Lina'")
+        self.assertIn(f"aanwezigheid/{finn}/", o.get(f"zwemmers/{finn}/").text)
+        t = self.tekst(o.get(f"aanwezigheid/{finn}/"))
+        self.assertIn("Aanwezigheid Finn Bosmans", t)
+        self.assertIn("Per maand", t)
+        self.assertEqual(o.get(f"aanwezigheid/{lina}/").status_code, 403)
+        self.assertIn("Per weekdag", self.tekst(self.d.get("trainers/zwemmers/")))
 
     def test_demo_uit(self):
         # Zonder KHZS_DEMO bestaat de demo niet, ook niet via een oude rewrite-regel (nooit de echte app op dit adres).

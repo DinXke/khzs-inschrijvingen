@@ -49,7 +49,7 @@
 .tr-k-ploegen{margin:-.4rem 0 .4rem 4rem}
 .tr-zw-knoppen{gap:.4rem;margin:.4rem 0 .6rem}
 .tr-zw-ploeg{font-size:1rem;margin:.9rem 0 .3rem}
-.tr-zw-lijst{display:grid;grid-template-columns:repeat(auto-fill,minmax(12rem,1fr));gap:.35rem}
+.tr-zw-lijst{display:grid;grid-template-columns:repeat(auto-fill,minmax(16rem,1fr));gap:.35rem}
 .tr-zw{display:flex;align-items:center;gap:.6rem;min-height:2.8rem;padding:.35rem .6rem;border:1px solid var(--lijn);border-radius:10px;cursor:pointer;margin:0;font-weight:500}
 .tr-zw input{width:1.35rem;height:1.35rem;margin:0;flex:none;accent-color:var(--ok)}
 .tr-zw:has(input:checked){background:color-mix(in srgb,var(--ok) 12%,transparent);border-color:var(--ok)}
@@ -57,6 +57,30 @@
 .tr-zw-bewaar{position:sticky;bottom:0;padding:.6rem 0 .2rem;background:var(--kaart,#fff);margin-top:.6rem}
 .tr-zw-bewaar button{width:100%}
 .tr-zw-telling{font-size:.78rem;white-space:nowrap}
+/* Aanwezigheid van zwemmers: vijf soorten, eigen kleuren (gevalideerd op licht en donker; ziek bewust neutraal grijs). */
+:root{--zw-aanwezig:#157a46;--zw-laat:#b07d00;--zw-vroeger:#2f6fd6;--zw-ziek:#98a6ad;--zw-afwezig:#b42318}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--zw-aanwezig:#2a9460;--zw-laat:#b8860f;--zw-vroeger:#5b8cf0;--zw-ziek:#6b7c84;--zw-afwezig:#dd5547}}
+:root[data-theme="dark"]{--zw-aanwezig:#2a9460;--zw-laat:#b8860f;--zw-vroeger:#5b8cf0;--zw-ziek:#6b7c84;--zw-afwezig:#dd5547}
+.st-aanwezig{--zw:var(--zw-aanwezig)}.st-laat{--zw:var(--zw-laat)}.st-vroeger{--zw:var(--zw-vroeger)}.st-ziek{--zw:var(--zw-ziek)}.st-afwezig{--zw:var(--zw-afwezig)}
+.tr-zw-balk{display:flex;gap:2px;height:.7rem;margin:.5rem 0 .3rem;min-width:6rem}
+.tr-zw-balk>span{background:var(--zw);min-width:3px}
+.tr-zw-balk>span:first-child{border-radius:4px 0 0 4px}.tr-zw-balk>span:last-child{border-radius:0 4px 4px 0}.tr-zw-balk>span:only-child{border-radius:4px}
+.tr-zw-balk.leeg{background:var(--lijn);border-radius:4px}
+.tr-zw-legende{display:flex;flex-wrap:wrap;gap:.3rem .9rem;margin:.2rem 0 0}
+.tr-zw-legende i,.tr-zw-tijdlijn i{display:inline-block;width:.75rem;height:.75rem;border-radius:3px;background:var(--zw);vertical-align:-.1rem;margin-right:.3rem}
+.tr-zw-tabel td,.tr-zw-tabel th{vertical-align:middle}
+.tr-zw-tabel .tr-zw-balkkol{min-width:7rem;width:30%}
+.tr-zw-num{text-align:right;font-variant-numeric:tabular-nums}
+.tr-zw-pct,.tr-zw-tabel td{white-space:nowrap}.tr-zw-tabel td:first-child{white-space:normal;min-width:7rem}
+.tr-zw-pct.hoog{color:var(--ok)}.tr-zw-pct.midden{color:var(--wacht)}.tr-zw-pct.laag{color:var(--fout)}
+.tr-zw-verdeling{display:grid;grid-template-columns:8.5rem 1fr 2rem;gap:.6rem;align-items:center;padding:.25rem 0}
+.tr-zw-staaf{background:var(--bg);border-radius:4px;height:.8rem}.tr-zw-staaf i{display:block;height:100%;border-radius:4px;background:var(--accent,#0e6b73)}
+.tr-zw-verdeling strong{text-align:right;font-variant-numeric:tabular-nums}
+.tr-zw-tijdlijn{display:flex;flex-wrap:wrap;gap:3px}.tr-zw-tijdlijn i{margin:0;width:.9rem;height:.9rem}
+.tr-zw-label{font-size:.8rem;font-weight:700;padding:.15rem .5rem;border-radius:999px;border:2px solid var(--zw)}
+.tr-zw-rij{display:flex;gap:.3rem;align-items:stretch}.tr-zw-rij .tr-zw{flex:1;min-width:0}
+.tr-zw-rij select{width:auto;max-width:7.5rem;margin:0;padding:.2rem .3rem;font-size:.8rem;border-radius:10px}
+.tr-zw-rij select.gekozen{border:2px solid var(--zw);font-weight:700}
 @media (max-width:760px){
   .tr-k-week{grid-template-columns:1fr}
   .tr-k-kol{min-height:0}.tr-k-kol.leeg{display:none}

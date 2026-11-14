@@ -26,6 +26,7 @@ add_filter('khzs_routes', fn($r) => array_merge($r, [
     ['trainers/zwemmers', 'tr_zwemmers', 'v_tr_zwemmers'],
     ['trainers/zwemmers/actie', 'tr_zwemmers_actie', 'v_tr_zwemmers_actie'],
     ['trainers/zwemmers/export', 'tr_zwemmers_export', 'v_tr_zwemmers_export'],
+    ['aanwezigheid/(\d+)', 'zwemmer', 'v_tr_zwemmer_stats'],
 ]));
 
 // Antwoorden vanuit de pushmelding: de service worker heeft geen nonce; het token in het bericht beveiligt het verzoek.
@@ -37,6 +38,18 @@ add_filter('khzs_menu', fn($m) => $m + [
     40 => ['Verloning', 'trainers/uren/', ['tr_uren', 'tr_tarieven'],
         '<rect x="2" y="6" width="20" height="13" rx="2"/><circle cx="12" cy="12.5" r="2.5"/><path d="M6 9.5h.01M18 15.5h.01"/>', fn() => is_penningmeester()],
 ]);
+
+// Op de pagina van een zwemmer: kort de aanwezigheid op trainingen, met een link naar de statistiek.
+add_action('khzs_zwemmer_pagina', function (object $z) {
+    if (tr_zw_mag_zwemmer($z) === null) {
+        return;
+    }
+    [$van, $tot] = tr_zw_periode();
+    $rijen = tr_zw_rijen($van, $tot, tr_zw_mag_zwemmer($z) ?: null, (int) $z->id);
+    if ($rijen) {
+        include __DIR__ . '/views/_zwemmer_kaart.php';
+    }
+});
 
 // Een trainer van de zwemschool zonder wedstrijdzaken start bij Trainingen.
 add_filter('khzs_start', fn($s) => zonder_wedstrijden() ? 'trainers/' : $s);

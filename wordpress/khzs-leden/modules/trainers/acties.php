@@ -297,26 +297,10 @@ function v_tr_zwemmers_actie(): void
         flash('De aanwezigheid van de zwemmers is gewist.');
         naar($terug);
     }
-    [$ja, $totaal] = tr_zw_bewaar($b, tr_zw_lijst($b, $ploegen), (array) ($_POST['zwemmer'] ?? []), get_current_user_id());
+    [$ja, $totaal] = tr_zw_bewaar($b, tr_zw_lijst($b, $ploegen), (array) ($_POST['zwemmer'] ?? []), get_current_user_id(),
+        array_map('strval', (array) ($_POST['status'] ?? [])));
     flash("Bewaard: $ja van de $totaal zwemmers aanwezig op " . tr_moment_tekst($m, $datum) . '.');
     naar($terug);
-}
-
-/** Periode voor het overzicht van de zwemmers: standaard het lopende seizoen, anders de laatste drie maanden. */
-function tr_zw_periode(): array
-{
-    $vandaag = vandaag()->format('Y-m-d');
-    $van = dag(get('van'));
-    $tot = dag(get('tot'));
-    if (!$van) {
-        $seizoen = current(array_filter(tr_seizoenen(), fn($s) => $s->van <= $vandaag && $s->tot >= $vandaag));
-        $van = new \DateTimeImmutable($seizoen ? $seizoen->van : vandaag()->modify('-3 months')->format('Y-m-d'));
-    }
-    $tot ??= vandaag();
-    if ($tot < $van) {
-        [$van, $tot] = [$tot, $van];
-    }
-    return [$van->format('Y-m-d'), $tot->format('Y-m-d')];
 }
 
 /** Welke ploegen het overzicht toont: de zichtbare, of één ervan (?ploeg=). */
@@ -327,7 +311,10 @@ function tr_zw_gekozen(): array
     return $ploeg && isset($mag[$ploeg]) ? [$ploeg => $mag[$ploeg]] : $mag;
 }
 
-/** Overzicht: aanwezigheid per zwemmer en per ploeg over een periode, met een percentage. Enkel voor trainers en bestuur. */
+/**
+ * Statistiek van de aanwezigheid van zwemmers voor trainers en bestuur: totalen, per ploeg, per maand, per training,
+ * per weekdag, de verdeling en per zwemmer, over een periode en voor één of alle zichtbare ploegen.
+ */
 function v_tr_zwemmers(): void
 {
     tr_vereist_trainer();
@@ -339,8 +326,17 @@ function v_tr_zwemmers(): void
     $ploeg = (int) get('ploeg');
     $ploeg = isset($mag[$ploeg]) ? $ploeg : 0;
     toon('trainers/zwemmers', ['van' => $van, 'tot' => $tot, 'ploeg' => $ploeg, 'ploegen' => $mag,
-        'o' => tr_zw_overzicht($van, $tot, array_keys(tr_zw_gekozen()))], 'Aanwezigheid zwemmers');
+        's' => tr_zw_stats(tr_zw_rijen($van, $tot, array_keys(tr_zw_gekozen())))], 'Aanwezigheid zwemmers');
 }
+
+/** Kolommen van een telling voor de Excel: aanwezig, te laat, vroeger weg, ziek, afwezig, totaal, %, % zonder ziek. */
+function tr_zw_xlsx_cijfers(array $t): array
+{
+    $pct = fn($p) => $p === null ? '' : round($p, 1);
+    return [$t['aanwezig'], $t['laat'], $t['vroeger'], $t['ziek'], $t['afwezig'], $t['totaal'], $pct(tr_zw_pct($t)), $pct(tr_zw_pct($t, true))];
+}
+
+const TR_ZW_XLSX_KOP = ['Aanwezig', 'Te laat', 'Vroeger weg', 'Ziek', 'Afwezig', 'Totaal', 'Aanwezig (%)', 'Aanwezig zonder ziek (%)'];
 
 function v_tr_zwemmers_export(): void
 {
@@ -350,27 +346,72 @@ function v_tr_zwemmers_export(): void
         geen_toegang();
     }
     [$van, $tot] = tr_zw_periode();
-    $o = tr_zw_overzicht($van, $tot, array_keys($gekozen));
+    $s = tr_zw_stats(tr_zw_rijen($van, $tot, array_keys($gekozen)));
     $utc = new \DateTimeZone('UTC');
-    $per_zwemmer = [['Zwemmer', 'Ploeg', 'Aanwezig', 'Afwezig', 'Trainingen', 'Aanwezig (%)']];
-    foreach ($o['zwemmers'] as $z) {
-        $n = $z['aanwezig'] + $z['afwezig'];
-        $per_zwemmer[] = [$z['naam'], implode(', ', $z['ploegen']), $z['aanwezig'], $z['afwezig'], $n, $n ? round(100 * $z['aanwezig'] / $n, 1) : 0];
+    $per_zwemmer = [['Zwemmer', 'Ploeg', ...TR_ZW_XLSX_KOP]];
+    foreach ($s['zwemmers'] as $z) {
+        $per_zwemmer[] = [$z['naam'], implode(', ', $z['ploegen']), ...tr_zw_xlsx_cijfers($z)];
     }
-    $per_ploeg = [['Ploeg', 'Soort', 'Aangeduide trainingen', 'Aanwezigheden', 'Mogelijke aanwezigheden', 'Aanwezig (%)']];
-    foreach ($o['ploegen'] as $p) {
-        $per_ploeg[] = [$p['naam'], PL_SOORT[$p['soort']] ?? $p['soort'], $p['trainingen'], $p['aanwezig'], $p['totaal'],
-            $p['totaal'] ? round(100 * $p['aanwezig'] / $p['totaal'], 1) : 0];
+    $per_ploeg = [['Ploeg', 'Soort', 'Trainingen', ...TR_ZW_XLSX_KOP]];
+    foreach ($s['ploegen'] as $p) {
+        $per_ploeg[] = [$p['naam'], PL_SOORT[$p['soort']] ?? $p['soort'], $p['trainingen'], ...tr_zw_xlsx_cijfers($p)];
     }
-    $detail = [['Datum', 'Training', 'Uur', 'Ploeg', 'Zwemmer', 'Aanwezig']];
+    $per_maand = [['Maand', 'Trainingen', ...TR_ZW_XLSX_KOP]];
+    foreach ($s['maanden'] as $m => $t) {
+        $per_maand[] = [tr_maandnaam($m), $t['trainingen'], ...tr_zw_xlsx_cijfers($t)];
+    }
+    $per_training = [['Training', 'Wanneer', 'Trainingen', ...TR_ZW_XLSX_KOP]];
+    foreach ($s['momenten'] as $t) {
+        $per_training[] = [$t['naam'], $t['wanneer'], $t['trainingen'], ...tr_zw_xlsx_cijfers($t)];
+    }
+    $detail = [['Datum', 'Training', 'Uur', 'Ploeg', 'Zwemmer', 'Aanwezigheid']];
     $alle = tr_ploegen_per_id();
-    foreach ($o['detail'] as $r) {
+    foreach ($s['detail'] as $r) {
         $detail[] = [new \DateTimeImmutable($r->datum, $utc), (string) $r->mnaam, $r->start ? substr($r->start, 0, 5) . '–' . substr($r->einde, 0, 5) : '',
-            $alle[(int) $r->ploeg_id]->naam ?? '', trim("$r->voornaam $r->znaam"), (int) $r->aanwezig ? 'ja' : 'nee'];
+            $alle[(int) $r->ploeg_id]->naam ?? '', trim("$r->voornaam $r->znaam"), TR_ZW_SOORT[$r->soort]];
     }
     download(maak_xlsx([['naam' => 'Per zwemmer', 'rijen' => $per_zwemmer], ['naam' => 'Per ploeg', 'rijen' => $per_ploeg],
+        ['naam' => 'Per maand', 'rijen' => $per_maand], ['naam' => 'Per training', 'rijen' => $per_training],
         ['naam' => 'Detail', 'rijen' => $detail, 'datumkolommen' => [0]]]),
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', "aanwezigheid_zwemmers_{$van}_$tot.xlsx");
+}
+
+/**
+ * Statistiek van één zwemmer: voor de zwemmer zelf, de ouders (gekoppelde accounts), en trainers en bestuur die een
+ * ploeg van de zwemmer mogen zien (die zien enkel de trainingen van die ploegen).
+ */
+function v_tr_zwemmer_stats($id): void
+{
+    vereist_login();
+    $z = pl_zwemmer((int) $id) ?: niet_gevonden();
+    $beperk = tr_zw_mag_zwemmer($z);
+    if ($beperk === null) {
+        geen_toegang('Je kunt de aanwezigheid van deze zwemmer niet bekijken.');
+    }
+    [$van, $tot] = tr_zw_periode();
+    $rijen = tr_zw_rijen($van, $tot, $beperk ?: null, (int) $z->id);
+    $s = tr_zw_stats($rijen);
+    // Ter vergelijking: het gemiddelde van de ploegen waarin de zwemmer op de lijst stond.
+    $ploegen = array_keys($s['ploegen']);
+    $ploeg = $ploegen ? tr_zw_stats(tr_zw_rijen($van, $tot, $ploegen))['ploegen'] : [];
+    toon('trainers/zwemmer_stats', ['z' => $z, 'van' => $van, 'tot' => $tot, 's' => $s, 'reeksen' => tr_zw_reeksen($rijen),
+        'ploeg' => $ploeg, 'staf' => !heeft_account($z, get_current_user_id())], "Aanwezigheid {$z->voornaam}");
+}
+
+/** Gestapelde balk (100 %) van een telling, met een tooltip per stuk. Kleur volgt de soort, nooit de rang. */
+function tr_zw_balk(array $t): string
+{
+    if (!$t['totaal']) {
+        return '<span class="tr-zw-balk leeg"></span>';
+    }
+    $h = '<span class="tr-zw-balk" role="img" aria-label="' . esc_attr(implode(', ', array_filter(array_map(fn($k) => $t[$k] ? $t[$k] . ' ' . TR_ZW_SOORT[$k] : '',
+        array_keys(TR_ZW_SOORT))))) . '">';
+    foreach (array_keys(TR_ZW_SOORT) as $k) {
+        if ($t[$k]) {
+            $h .= '<span class="st-' . $k . '" style="flex-grow:' . (int) $t[$k] . '" title="' . esc_attr(TR_ZW_SOORT[$k] . ': ' . $t[$k]) . '"></span>';
+        }
+    }
+    return $h . '</span>';
 }
 
 /**
