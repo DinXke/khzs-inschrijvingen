@@ -1607,7 +1607,7 @@ class DemoTest(Basis):
             "trainer": (["Wedstrijden", "Zwemmers", "Trainingen"], ["Verloning", "Gebruikers", "Backup"], "Competitie 2"),
             "zwemmer": (["Wedstrijden", "Profiel"], ["Trainingen", "Verloning", "Gebruikers"], "Lore Daems"),
             "ouder": (["Wedstrijden", "Profiel"], ["Trainingen", "Verloning", "Gebruikers"], "Finn Bosmans"),
-            "bestuur": (["Wedstrijden", "Profiel", "Verloning"], ["Trainingen", "Gebruikers", "Backup"], None),
+            "bestuur": (["Wedstrijden", "Profiel", "Verloning", "Trainingen", "Ploegen", "Gebruikers"], ["Backup"], None),
         }
         for login, (wel, niet, inhoud) in verwacht.items():
             with self.subTest(login):
