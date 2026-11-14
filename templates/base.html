@@ -24,6 +24,7 @@
   <nav>
     <a href="{% url 'wedstrijden' %}" class="{% if p in 'wedstrijden wedstrijd nakijken instellingen upload' %}actief{% endif %}">Wedstrijden</a>
     <a href="{% url 'zwemmers' %}" class="{% if p in 'zwemmers zwemmer zwemmer_nieuw' %}actief{% endif %}">{% if is_staf %}Zwemmers{% else %}Mijn zwemmers{% endif %}</a>
+    {% if ziet_ploegen %}<a href="{% url 'ploegen' %}" class="{% if p in 'ploegen ploeg' %}actief{% endif %}">Ploegen{% if open_ploegaanvragen %} <span class="badge wacht" title="Ploegaanvragen">{{ open_ploegaanvragen }}</span>{% endif %}</a>{% endif %}
     {% if is_rolbeheerder %}<a href="{% url 'gebruikers' %}" class="{% if p == 'gebruikers' %}actief{% endif %}">Gebruikers{% if open_rolaanvragen %} <span class="badge wacht" title="Rolaanvragen">{{ open_rolaanvragen }}</span>{% endif %}</a>{% endif %}
     {% if is_beheerder %}<a href="{% url 'backups' %}" class="{% if p == 'backups' %}actief{% endif %}">Backup</a><a href="/beheer/">Beheer</a>{% endif %}
     <a href="{% url 'uitleg' %}" class="{% if p == 'uitleg' %}actief{% endif %}">Uitleg</a>
@@ -34,6 +35,7 @@
 </header>
 <main class="{% block mainklasse %}{% endblock %}">
   {% for m in messages %}<div class="melding {{ m.tags }}">{{ m }}</div>{% endfor %}
+  {% for l in ploegbeslissingen %}<div class="melding {% if l.status == 'afgekeurd' %}error{% else %}success{% endif %}">{{ l.zwemmer.voornaam }}: {% if l.status == 'afgekeurd' %}aanvraag voor {{ l.ploeg }} afgekeurd{% else %}zit nu in {{ l.ploeg }}{% endif %}. <a href="{% url 'zwemmer' l.zwemmer.pk %}">Bekijk</a></div>{% endfor %}
   {% for a in rolbeslissingen %}<div class="melding {% if a.status == 'afgekeurd' %}error{% else %}success{% endif %}">{{ a.beslissing }} <a href="{% url 'mijn_rollen' %}">Mijn rollen</a></div>{% endfor %}
   {% block inhoud %}{% endblock %}
 </main>

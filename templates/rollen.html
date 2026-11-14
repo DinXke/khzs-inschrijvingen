@@ -1,8 +1,8 @@
 {% extends "base.html" %}{% block titel %}Mijn rollen{% endblock %}{% block mainklasse %}smal{% endblock %}
 {% block inhoud %}
-<h1>Mijn rollen</h1>
+<div class="rij tussen"><h1>Mijn rollen</h1><a class="knop secundair" href="{% url 'welkom' %}">Stappenplan</a></div>
 <div class="kaart">
-  <div class="rollen">{% for k, l in eigen %}<span class="badge rol">{{ l }}</span>{% endfor %}</div>
+  <div class="rollen">{% for k, l in eigen %}<span class="badge rol">{{ l }}</span>{% empty %}<span class="klein">Nog geen rol. Voeg je zwemmers toe of vraag hieronder een rol aan.</span>{% endfor %}</div>
 </div>
 {% if aanvraagbaar %}
 <form method="post" class="kaart">{% csrf_token %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}{% block titel %}Welkom{% endblock %}{% block mainklasse %}smal{% endblock %}
+{% block inhoud %}
+{% if stap != "klaar" %}<p class="klein">Stap {{ nr }} van 3 · <a href="{% url 'welkom' %}?stap={{ volgende }}">Overslaan</a></p>{% endif %}
+
+{% if stap == "zelf" %}
+<h1>Zwem je zelf?</h1>
+{% if zelf_ontbreekt %}
+<p class="klein">Bijvoorbeeld bij de masters. Vul dan je gegevens aan; je naam staat er al.</p>
+<form method="post" class="kaart">{% csrf_token %}{% include "_form.html" %}
+  <p><button class="vol">Ja, voeg mij toe als zwemmer</button></p></form>
+{% else %}<div class="kaart"><p>Je staat al bij je zwemmers.</p></div>{% endif %}
+<p><a class="knop secundair vol" href="{% url 'welkom' %}?stap=kinderen">{% if zelf_ontbreekt %}Nee, ik zwem niet zelf{% else %}Volgende{% endif %}</a></p>
+
+{% elif stap == "kinderen" %}
+<h1>Heb je kinderen die zwemmen?</h1>
+{% if kinderen %}<div class="kaart">{% for z in kinderen %}<div class="rij tussen" style="padding:.3rem 0"><strong>{{ z.voornaam }} {{ z.naam }}</strong>
+  <span>{% for l in z.ploeglidmaatschappen.all %}<span class="badge {% if l.status == 'goedgekeurd' %}ok{% elif l.status == 'open' %}wacht{% else %}fout{% endif %}">{{ l.ploeg }}</span> {% endfor %}</span></div>{% endfor %}</div>{% endif %}
+<details class="kaart" {% if not kinderen or form.errors %}open{% endif %}><summary><strong>{% if kinderen %}+ Nog een kind toevoegen{% else %}Ja, een kind toevoegen{% endif %}</strong></summary>
+  <form method="post">{% csrf_token %}<input type="hidden" name="actie" value="kind">{% include "_form.html" %}
+    <p><button class="vol">Kind toevoegen</button></p></form></details>
+<details class="kaart" {% if koppel_fout %}open{% endif %}><summary><strong>Mijn kind staat al bij de andere ouder</strong></summary>
+  <p class="klein">Vraag de andere ouder om een koppelcode (bij de zwemmer → ‘Koppelcode maken’) en vul ze hier in.</p>
+  <form method="post">{% csrf_token %}<input type="hidden" name="actie" value="koppel">
+    <div class="veld"><label for="code">Koppelcode</label><input id="code" name="code" placeholder="bv. K7QM-2PXA" autocomplete="off" autocapitalize="characters" required>
+      {% if koppel_fout %}<ul class="errorlist"><li>{{ koppel_fout }}</li></ul>{% endif %}</div>
+    <p><button class="vol secundair">Koppelen</button></p></form></details>
+<p><a class="knop vol {% if not kinderen %}secundair{% endif %}" href="{% url 'welkom' %}?stap=staf">{% if kinderen %}Volgende{% else %}Nee, volgende{% endif %}</a></p>
+
+{% elif stap == "staf" %}
+<h1>Help je mee bij de club?</h1>
+<form method="post" class="kaart">{% csrf_token %}
+  <p class="klein">Ben je trainer, bestuurder of sportsecretaris? Duid het aan. Het bestuur keurt je aanvraag goed; je krijgt daarna een melding.</p>
+  <div class="veld">
+    <label><input type="checkbox" name="rollen" value="trainer"> Trainer</label>
+    <label><input type="checkbox" name="rollen" value="bestuurder"> Bestuurder</label>
+    <label><input type="checkbox" name="rollen" value="secretaris"> Sportsecretaris</label></div>
+  <div class="veld"><label for="motivatie">Toelichting (optioneel)</label><input type="text" id="motivatie" name="motivatie" maxlength="300" placeholder="bv. trainer van de B-groep"></div>
+  <p><button class="vol">Aanvragen</button></p>
+</form>
+<p><a class="knop secundair vol" href="{% url 'welkom' %}?stap=klaar">Nee, volgende</a></p>
+
+{% else %}
+<h1>Klaar!</h1>
+<div class="kaart">
+  <p><b>Je rollen:</b> {% for r in eigen_rollen %}<span class="badge rol">{{ r }}</span> {% empty %}<span class="klein">nog geen</span>{% endfor %}
+    {% for a in open_rollen %}<span class="badge wacht">{{ a.get_rol_display }} (wacht)</span> {% endfor %}</p>
+  {% if zwemmers %}<p><b>Je zwemmers:</b></p>{% for z in zwemmers %}<div class="rij tussen" style="padding:.2rem 0"><span>{{ z.voornaam }} {{ z.naam }}</span>
+    <span>{% for l in z.ploeglidmaatschappen.all %}<span class="badge {% if l.status == 'goedgekeurd' %}ok{% elif l.status == 'open' %}wacht{% else %}fout{% endif %}">{{ l.ploeg }}{% if l.status == 'open' %} (wacht){% endif %}</span> {% endfor %}</span></div>{% endfor %}{% endif %}
+  <p class="help">Dit kan je later altijd aanpassen: zwemmers en ploegen bij <i>Mijn zwemmers</i>, rollen bij <i>Mijn rollen</i>.</p>
+</div>
+<p><a class="knop vol" href="{% url 'wedstrijden' %}">Naar de wedstrijden</a></p>
+{% endif %}
+{% endblock %}
