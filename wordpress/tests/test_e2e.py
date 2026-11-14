@@ -2587,6 +2587,25 @@ class DemoTest(Basis):
         self.assertNotIn("Competitie 2", o)
         self.assertNotIn("Trainers en bestuur", o)
 
+    def test_nieuwe_module_in_bestaande_demo(self):
+        # Een demo van vóór de communicatiemodule: haar tabellen ontbreken, terwijl de module op de echte site al geïnstalleerd is.
+        for tab in ("secties", "kanalen", "berichten", "vermeldingen", "status", "wedstrijdzwemmers", "aankondigingen", "rsvp"):
+            exe(f"DROP TABLE IF EXISTS wp_khzsdemo_com_{tab}")
+        exe("DELETE FROM wp_options WHERE option_name='khzs_demo_tr_db_versie'")
+        hulp("cache")
+        try:
+            demo_terugzetten()  # zoals update.sh na een nieuwe versie
+            self.assertGreaterEqual(demo_aantal("com_berichten"), 20)
+            # Een nieuwe sectie staat meteen tussen de keuzes voor een nieuw kanaal (na het terugzetten: opnieuw aanmelden).
+            d = DemoKlant().login()
+            d.post("berichten/beheer/", {"actie": "sectie", "naam": "Ouderwerking", "soort": "algemeen"})
+            sid = een("SELECT id FROM wp_khzsdemo_com_secties WHERE naam='Ouderwerking'")
+            self.assertIsNotNone(sid)
+            keuze = re.search(r'<select name="sectie_id".*?</select>', d.get("berichten/beheer/").text, re.S).group(0)
+            self.assertIn(f'<option value="{sid}">Ouderwerking</option>', keuze)
+        finally:
+            demo_terugzetten()
+
     def test_demo_uit(self):
         # Zonder KHZS_DEMO bestaat de demo niet, ook niet via een oude rewrite-regel (nooit de echte app op dit adres).
         r = requests.get(DEMO + "aanmelden/", headers={"X-KHZS-Demo-Uit": "1"})

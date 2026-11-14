@@ -247,6 +247,8 @@ Daarna nog drie bijsturingen:
   - lukt dat niet, terug naar de vorige commit.
 
   Ook de plugin zelf bouwt de demo opnieuw op als `demo_code_versie()` verandert (VERSIE, DB_VERSIE of `demo-data.php`). Dat werkt dus ook met de automatische updates via releases (`wordpress/auto-update`).
+
+  `demo_terugzetten()` maakt de tabellen ook opnieuw aan als de tabelversie van een module verandert (`demo_module_versies()`, optie `khzs_demo_tr_db_versie`). Zonder dat kreeg een demo die al bestond geen tabellen voor de communicatiemodule. Dan verscheen een nieuwe sectie bijvoorbeeld niet bij *Nieuw kanaal* (test `test_nieuwe_module_in_bestaande_demo`).
 - **App (PWA)**: installeerbaar als *KHZS Leden Demo* (de opties voor de app-naam worden in de demo overschreven).
   - `asset()` kiest in de demo de iconen uit `assets/img/demo/`, met een oranje lint "DEMO" (`tools/logo/maak_demo_iconen.py`).
   - Pushmeldingen blijven uit.
