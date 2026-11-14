@@ -11,11 +11,11 @@ function alle_tabellen(): array
     return apply_filters('khzs_tabellen', ['zwemmers', 'zwemmer_accounts', 'push']);
 }
 
-/** Volledige tabelnaam, bv. t('zwemmers') → wp_khzs_zwemmers. */
+/** Volledige tabelnaam, bv. t('zwemmers') → wp_khzs_zwemmers (in de demo: wp_khzsdemo_zwemmers). */
 function t(string $naam): string
 {
     global $wpdb;
-    return $wpdb->prefix . 'khzs_' . $naam;
+    return $wpdb->prefix . (is_demo() ? DEMO_PREFIX : 'khzs_') . $naam;
 }
 
 function db(): \wpdb

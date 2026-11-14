@@ -132,7 +132,7 @@ function push_achtergrond(array $ids, array $bericht): void
 /** Stuurt een melding naar alle toestellen van deze gebruikers. Geeft het aantal toestellen terug. */
 function stuur(array $user_ids, string $titel, string $tekst, string $url = '', bool $achtergrond = true): int
 {
-    if (!$user_ids) {
+    if (!$user_ids || is_demo()) {
         return 0;
     }
     $ids = array_map('intval', db()->get_col("SELECT id FROM " . t('push') . " WHERE user_id IN (" . in_lijst($user_ids) . ")"));

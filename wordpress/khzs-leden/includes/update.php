@@ -15,6 +15,11 @@ const UPDATE_REPO = 'DinXke/khzs-inschrijvingen'; // GitHub verwijst door na het
 const UPDATE_TAG = 'plugin-v';
 const UPDATE_ZIP = 'khzs-leden.zip';
 
+// De demo volgt zelf een git-tak (wordpress/demo/); een update via WordPress zou die checkout overschrijven.
+if (demo_aan()) {
+    return;
+}
+
 function plugin_bestand(): string
 {
     return plugin_basename(KHZS_PAD . 'khzs-leden.php');
