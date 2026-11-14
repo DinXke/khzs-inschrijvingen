@@ -51,6 +51,31 @@ Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist 
    - Bij registratie vult het vinkje *Ik zwem zelf* het eerste zwemmerblok met de eigen naam. Dat gebeurt enkel met JavaScript; de server verandert niet.
    - Bij *Mijn zwemmers* opent de knop *+ Mezelf* het formulier met de naam al ingevuld. De knop verdwijnt zodra er een zwemmer met de naam van het account bestaat.
 
+## Trainers: eigen schema, aanwezigheid bevestigen, bestuur past aan (branch `wordpress/trainers-aanwezigheid`)
+
+Vraag van de eigenaar: trainers geven zelf hun gewone schema in, krijgen na de training een melding met de vraag of ze aanwezig waren, kunnen achteraf nog het schema of één training aanpassen; bestuurders zien alles, passen desnoods aan, en de trainer krijgt daarvan een melding en ziet het in de app.
+
+Gekozen werking (details in `wordpress/README.md`, *Module Trainers*):
+- **Schema**: blijft `tr_vast` (vaste trainer per moment, met periode). De trainer kiest nu zelf een datum *vanaf* of *niet meer vanaf*, ook in het verleden tot het begin van vorige maand, maar niet in een uitbetaalde maand.
+- **Aanwezigheid**: nieuwe tabel `tr_bevestigingen` (moment, datum, trainer, `aanwezig` 1/0/NULL, door wie, bron, gevraagd, herinnerd).
+  - Geplande taak `khzs_tr_vragen` elk kwartier (eigen cron-interval `khzs_kwartier`): na het einde van de training een webpush *Was je aanwezig?* met de knoppen Ja/Nee; kijkt 2 dagen terug. Eén herinnering na minstens 12 uur, enkel tussen 8 en 21 uur.
+  - Antwoorden met één tik: de service worker post naar `/leden/trainers/bevestig/` met een HMAC-token (trainer + training, 60 dagen geldig). Geen nonce nodig, ook geen aanmelding. Tik op de melding zelf → eenvoudig scherm met twee knoppen.
+  - **Uren tellen enkel wat als aanwezig bevestigd is.** Niet bevestigd telt niet mee, maar staat apart (overzicht, verloning, Excel-kolom *Niet bevestigd*) tot de trainer of het bestuur bevestigt. Zo betaalt de club niets uit wat niemand bevestigde, en ziet de penningmeester wat er nog openstaat.
+  - Bestaande installaties met planning: trainingen vóór de dag van de update tellen mee zonder bevestiging (optie `khzs_tr_bevestigen_vanaf`, eenmalig gezet bij de update).
+  - Een trainer wijzigt eigen voorbije trainingen tot de maand voor hem of haar *uitbetaald* is; daarna enkel het bestuur (met de bestaande waarschuwing *gewijzigd na uitbetaling*).
+  - Bestuurders die ook trainer (en zwemmer) zijn: voor hun **eigen** trainingen en schema gelden de trainersregels (`tr_mag_bevestigen()`, `v_tr_actie()`, `v_tr_vast()`), zodat niemand zijn eigen uren na uitbetaling wijzigt. Ze krijgen geen melding over hun eigen wijzigingen. Getest in `test_bestuurder_die_ook_trainer_is`.
+- **Bestuur**: functie `tr_is_bestuur()` in `modules/trainers/regels.php`: `heeft_rol([BESTUURDER, BEHEERDER])` als die helper en rol bestaan (PR #7, `feature/rollen`), en altijd `is_penningmeester()` (penningmeester-vlag of beheerder). Zonder #7 valt hij dus terug op penningmeester en beheerder; na het samenvoegen van #7 werkt de rol *bestuurder* zonder verdere aanpassing. `tr_mag_beheren()` = bestuur of sportsecretariaat; dat bepaalt wie alles ziet en aanpast.
+  - Nieuw scherm `/leden/trainers/overzicht/`: per maand per trainer schema, aanwezig, niet aanwezig, niet bevestigd en uren; per trainer de trainingen met Ja/Nee, *alles bevestigen*, het schema en het logboek. Een bestuurder zonder trainersrol komt via *Trainingen* meteen op dit overzicht.
+- **Melding bij aanpassing**: nieuwe tabel `tr_log`. Elke wijziging door iemand anders dan de trainer zelf (schema, afmelden, toevoegen, schrappen, aanwezigheid) komt in het logboek en stuurt de push *Je planning is aangepast*. De trainer ziet *Aangepast door het bestuur* bovenaan *Trainingen*, en alles op `/leden/trainers/wijzigingen/` (wordt dan gelezen).
+- **Nieuwe pushvoorkeuren**: `push_aanwezig` en `push_aanpassing` (standaard aan, enkel voor staf).
+- **Buiten `modules/trainers/`** (klein, let op bij samenvoegen met andere branches):
+  - `includes/app.php`: filter `khzs_zonder_nonce` voor POST-routes met een eigen beveiliging (hier het token).
+  - `views/sw.js.php`: meldingen met knoppen (`acties`: actie, titel, post, velden) en `tag`; bij een tik op een knop post de service worker en toont een bevestiging, anders opent het antwoordscherm. Algemeen bruikbaar voor andere modules.
+  - De tabellen worden aangemaakt via een eigen versie `TR_DB_VERSIE` in `modules/trainers/db.php`, zodat `DB_VERSIE` in `khzs-leden.php` niet hoeft te veranderen.
+- **Tests**: `TrainersTest` gebruikt nu een gedeelde basis `TrainersBasis`; nieuw is `AanwezigheidTest` (4 scenario's: bestuurder die ook trainer is, vraag en antwoord vanuit de melding met herinnering, bestuur past aan met melding en logboek, trainer past eigen schema en voorbije training aan met de grens *uitbetaald*). Getest op een Docker-testsite (`mariadb:11`, `wordpress:php8.2`).
+- **Niet getest op een echt toestel**: de knoppen in de melding (Android/Chrome en desktop ondersteunen ze; iPhone toont geen knoppen en opent dan het scherm).
+- **Bewust niet gedaan**: een wijziging aan het rooster zelf (uur, afgelasting) geeft geen persoonlijke melding; wettelijke plafonds blijven buiten de plugin.
+
 ## Stand van zaken (14/11/2026, eind van de dag)
 
 - **Alles staat op `main`**, samengevoegd op vraag van de eigenaar via vijf pull requests:

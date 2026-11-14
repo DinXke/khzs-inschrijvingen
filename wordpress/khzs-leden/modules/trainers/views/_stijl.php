@@ -12,7 +12,10 @@
 .tr-kannie[open] form{margin-top:.4rem;width:100%}
 .tr-dag{margin:1.2rem 0 .4rem;text-transform:capitalize}
 .tr-week{display:flex;gap:.5rem;align-items:center;justify-content:space-between;flex-wrap:wrap}
-.tr-cijfers{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-top:.4rem}
+.tr-cijfers{display:grid;grid-template-columns:repeat(auto-fit,minmax(5.5rem,1fr));gap:.5rem;margin-top:.4rem}
 .tr-cijfers .klein{display:block;line-height:1.2}
 .tr-getal{font-size:1.6rem;font-weight:800;color:var(--accent,#0e6b73);display:block}
+.tr-nieuw .tr-info>span:first-child{font-weight:700}
+.tr-bev-open .tr-datum{outline:2px solid var(--wacht);outline-offset:-2px}
+.tr-merk{font-size:.75rem;margin-left:.15rem}.tr-merk.ja{color:var(--ok)}.tr-merk.nee{color:var(--fout)}.tr-merk.open{color:var(--wacht)}
 </style>

@@ -542,6 +542,22 @@ function demo_vul_trainers(object $c): void
     $wijz($groep4[1], $d, 'jasper', 'vervanger', 'elise');
     $wijz($kern[0], $volgende($kern[0], 5), 'demo', 'extra');
 
+    // Aanwezigheid bevestigd voor alle voorbije trainingen, behalve de laatste twee dagen: die staan nog open
+    // ('Was je aanwezig?'). Enkel bevestigde trainingen tellen mee voor de uren.
+    $bevestig = function (string $van, string $tot) use ($nu) {
+        foreach ($van <= $tot ? tr_trainingen($van, $tot) : [] as $b) {
+            if ($b->afgelast) {
+                continue;
+            }
+            foreach (array_keys($b->aanwezig) as $uid) {
+                db()->query(db()->prepare("INSERT IGNORE INTO " . t('tr_bevestigingen')
+                    . " (moment_id, datum, user_id, aanwezig, door_id, bron, op) VALUES (%d, %s, %d, 1, %d, 'trainer', %s)",
+                    $b->moment->id, $b->datum, $uid, $uid, $nu));
+            }
+        }
+    };
+    $bevestig($seizoen, $v->modify('-3 days')->format('Y-m-d'));
+
     // Tarieven: competitietrainers per uur, lesgevers per training. Eén trainer kreeg een nieuw tarief.
     $tarief = fn(string $wie, string $soort, int $cent, string $vanaf, string $opm = '') => db()->insert(t('tr_tarieven'),
         ['user_id' => $u[$wie], 'soort' => $soort, 'bedrag_cent' => $cent, 'geldig_vanaf' => $vanaf, 'opmerking' => $opm, 'aangemaakt' => $nu]);
@@ -571,5 +587,6 @@ function demo_vul_trainers(object $c): void
     $d = $volgende($beloften[1], -40);
     if ($d >= $seizoen && substr($d, 0, 7) < $deze) {
         $wijz($beloften[1], $d, 'wout', 'extra');
+        $bevestig($d, $d);
     }
 }
