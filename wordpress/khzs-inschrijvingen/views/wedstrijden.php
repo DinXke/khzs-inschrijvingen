@@ -25,4 +25,3 @@
 </a>
 <?php endforeach; ?>
 <?php if (!$lijst): ?><div class="leeg"><?= $is_secretaris ? 'Nog geen wedstrijden. Upload een Lenex-bestand om te starten.' : 'Er staan momenteel geen wedstrijden open.' ?></div><?php endif; ?>
-<?php if (!$is_staf): ?><button id="installeer" class="secundair vol">📲 Installeer als app</button><?php include __DIR__ . '/_installeer.php'; endif; ?>

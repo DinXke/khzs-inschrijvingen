@@ -12,5 +12,4 @@
   <p class="klein"><a href="<?= esc_url(wp_lostpassword_url(app_url('aanmelden/'))) ?>">Wachtwoord vergeten?</a></p>
 </form>
 <?php if (registratie_open()): ?><p class="leeg">Nog geen account? <a href="<?= esc_url(app_url('registreren/')) ?>">Maak een profiel aan</a></p><?php endif; ?>
-<button id="installeer" class="secundair vol">📲 Installeer als app</button>
-<?php include __DIR__ . '/_installeer.php'; ?>
+<p class="leeg"><a href="<?= esc_url(app_url('installeer/')) ?>">📲 Installeer als app</a></p>

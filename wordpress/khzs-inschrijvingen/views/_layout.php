@@ -80,6 +80,6 @@ $ingelogd = is_user_logged_in();
 })();
 if ("serviceWorker" in navigator) navigator.serviceWorker.register(<?= wp_json_encode(app_url('sw.js')) ?>, {scope: <?= wp_json_encode(wp_parse_url(app_url(''), PHP_URL_PATH)) ?>});
 </script>
-<?php if (!empty($scripts)) { include KHZS_PAD . "views/$scripts.php"; } ?>
+<?php if (pwa_melding_aan() && $pagina !== 'installeer') { echo pwa_melding_html(true); } ?>
 </body>
 </html>

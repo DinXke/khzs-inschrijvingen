@@ -22,7 +22,10 @@ add_action('admin_init', function () {
         register_setting('khzs', $k, ['type' => 'string', 'default' => $o[1], 'sanitize_callback' => $k === 'khzs_slug'
             ? fn($v) => sanitize_title($v) ?: 'inschrijvingen' : 'sanitize_text_field']);
     }
-    register_setting('khzs', 'khzs_registratie', ['type' => 'integer', 'default' => 1, 'sanitize_callback' => fn($v) => $v ? 1 : 0]);
+    foreach (['khzs_registratie' => 1, 'khzs_pwa_melding' => 1, 'khzs_pwa_enkel_gsm' => 1, 'khzs_pwa_enkel_home' => 0] as $k => $std) {
+        register_setting('khzs', $k, ['type' => 'integer', 'default' => $std, 'sanitize_callback' => fn($v) => $v ? 1 : 0]);
+    }
+    register_setting('khzs', 'khzs_pwa_tekst', ['type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field']);
 });
 
 // Nieuw adres → rewrite-regels opnieuw opbouwen.
@@ -65,6 +68,12 @@ function admin_pagina(): void
           <tr><th scope="row">Registreren</th>
             <td><label><input type="checkbox" name="khzs_registratie" value="1" <?php checked(get_option('khzs_registratie', 1)); ?>> Ouders en zwemmers mogen zelf een account aanmaken in de app</label>
             <p class="description">Nieuwe accounts krijgen de standaardrol van WordPress (<code><?= esc_html(get_option('default_role')) ?></code>) en de app-rol Zwemmer.</p></td></tr>
+          <tr><th scope="row">App installeren</th>
+            <td><label><input type="checkbox" name="khzs_pwa_melding" value="1" <?php checked(get_option('khzs_pwa_melding', 1)); ?>> Toon bezoekers een melding om de app op hun beginscherm te zetten</label><br>
+            <label><input type="checkbox" name="khzs_pwa_enkel_gsm" value="1" <?php checked(get_option('khzs_pwa_enkel_gsm', 1)); ?>> Enkel op gsm en tablet</label><br>
+            <label><input type="checkbox" name="khzs_pwa_enkel_home" value="1" <?php checked(get_option('khzs_pwa_enkel_home', 0)); ?>> Op de website enkel op de startpagina (in de app altijd)</label>
+            <p><input name="khzs_pwa_tekst" class="large-text" value="<?= esc_attr(get_option('khzs_pwa_tekst', '')) ?>" placeholder="Schrijf je kinderen in voor wedstrijden en krijg meldingen, rechtstreeks vanaf je beginscherm."></p>
+            <p class="description">Wie op ‘Niet nu’ tikt, ziet de melding 30 dagen niet meer. Vaste link om te delen (bv. in een nieuwsbrief): <code><?= esc_html(app_url('installeer/')) ?></code></p></td></tr>
         </table>
         <?php submit_button(); ?>
       </form>

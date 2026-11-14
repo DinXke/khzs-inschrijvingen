@@ -231,6 +231,7 @@ function routes(): array
         ['manifest\.webmanifest', 'manifest', 'v_manifest'],
         ['sw\.js', 'sw', 'v_sw'],
         ['offline', 'offline', 'v_offline'],
+        ['installeer', 'installeer', 'v_installeer'],
     ];
 }
 

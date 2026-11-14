@@ -298,6 +298,8 @@ class StroomTest(Basis):
         self.assertIn("application/manifest+json", self.c.get("manifest.webmanifest").headers["Content-Type"])
         self.assertEqual(self.c.get("sw.js").status_code, 200)
         self.assertEqual(self.c.get("offline/").status_code, 200)
+        self.assertContains(self.c.get("installeer/"), "Installeer de app")
+        self.assertIn("khzs-pwa", requests.get(BASIS + "/").text)  # melding op de website
 
     def test_zonder_nonce_geweigerd(self):
         r = self.c.s.post(APP + f"wedstrijd/{self.w}/verwijderen/", data={}, allow_redirects=False)

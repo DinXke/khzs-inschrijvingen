@@ -30,6 +30,7 @@ require_once KHZS_PAD . 'includes/app.php';
 require_once KHZS_PAD . 'includes/velden.php';
 require_once KHZS_PAD . 'includes/acties.php';
 require_once KHZS_PAD . 'includes/admin.php';
+require_once KHZS_PAD . 'includes/pwa.php';
 
 register_activation_hook(__FILE__, __NAMESPACE__ . '\\activeer');
 register_deactivation_hook(__FILE__, __NAMESPACE__ . '\\deactiveer');

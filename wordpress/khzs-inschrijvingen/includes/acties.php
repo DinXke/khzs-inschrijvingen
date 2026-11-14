@@ -1123,6 +1123,7 @@ function v_manifest(): void
     header('Content-Type: application/manifest+json; charset=utf-8');
     $club = club();
     echo wp_json_encode([
+        'id' => app_url(''),
         'name' => get_option('khzs_app_naam', 'HZS inschrijvingen'),
         'short_name' => get_option('khzs_app_kort', 'HZS'),
         'description' => "Inschrijven voor zwemwedstrijden van {$club['naam']}",
@@ -1150,6 +1151,11 @@ function v_sw(): void
     header('Cache-Control: no-cache');
     include KHZS_PAD . 'views/sw.js.php';
     exit;
+}
+
+function v_installeer(): void
+{
+    toon('installeer', [], 'App installeren', 'smal');
 }
 
 function v_offline(): void

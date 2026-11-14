@@ -11,6 +11,17 @@ De inschrijvingsapp als WordPress-plugin. Ze werkt hetzelfde als de Django-versi
 
 Vereisten: WordPress 6.2+, PHP 8.0+ met de extensies `zip`, `simplexml`, `dom` en `openssl`. Er zijn geen andere plugins of Composer-pakketten nodig.
 
+## App installeren (PWA)
+
+De app is een PWA: op gsm en tablet zet je ze op het beginscherm, en dan werkt ze als een gewone app, met pushmeldingen.
+
+- **Melding op de website**: bezoekers op gsm zien onderaan elke pagina van de website een melding *"Installeer de HZS-app"*. In de app zelf verschijnt dezelfde melding.
+  - In de app opent *Installeren* meteen het installatievenster van de browser (Android, Chrome, Edge).
+  - Op de rest van de website gaat de knop naar `/inschrijvingen/installeer/`. Browsers laten installeren namelijk enkel toe vanaf een pagina binnen de app.
+- **Installatiepagina** `/inschrijvingen/installeer/`: op Android installeer je daar met één tik. Op iPhone en iPad legt de pagina stap voor stap uit hoe je de app via *Delen → Zet op beginscherm* toevoegt. Deze link kun je ook delen, bv. in een nieuwsbrief of via een QR-code.
+- Wie op *Niet nu* tikt, ziet de melding 30 dagen niet. Wie de app al geïnstalleerd heeft, ziet de melding niet meer.
+- Instellen bij **Instellingen → KHZS inschrijvingen → App installeren**: de melding aan of uit, enkel op gsm, enkel op de startpagina, en een eigen tekst.
+
 ## Rollen
 
 | App-rol | Wie | Instellen |
