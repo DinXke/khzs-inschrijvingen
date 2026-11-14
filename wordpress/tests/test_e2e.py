@@ -1496,7 +1496,7 @@ class TabbalkTest(Basis):
         self.assertEqual(self.balk(html), ["Wedstrijden", "Zwemmers", "Trainingen", "Verloning", "Meer"])
         blad = re.search(r'<div class="meer-blad".*?</div>', html, re.S).group(0)
         meer = re.findall(r"</svg>([^<]+)</a>", blad)
-        self.assertEqual(meer, ["Gebruikers", "Uitleg", "Meldingen", "Backup", "Afmelden"])
+        self.assertEqual(meer, ["Ploegen", "Gebruikers", "Uitleg", "Meldingen", "Backup", "Afmelden"])
         # Actieve pagina onder 'Meer': de knop Meer licht op.
         self.assertIn('class="actief" id="meer-knop"', self.c.get("gebruikers/").text)
 
