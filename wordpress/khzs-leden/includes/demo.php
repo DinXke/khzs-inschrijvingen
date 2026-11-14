@@ -14,7 +14,8 @@
  * - Aanmelden: in de demo stuurt WordPress geen echte aanmeldcookies. De demo heeft een eigen cookie (khzs_demo_sessie)
  *   die enkel binnen /leden-demo/ meegestuurd wordt. Een demo-account komt zo nooit in wp-admin of in de echte app.
  * - Privémap, databaseversie: eigen opties (khzs_demo_…).
- * - Geen PWA (geen manifest, service worker of installatiemelding), geen pushmeldingen en geen mails.
+ * - Wel een installeerbare app (PWA), maar duidelijk anders: 'KHZS Leden Demo', iconen met 'DEMO', scope /leden-demo/.
+ * - Geen pushmeldingen en geen mails.
  * - Zelf registreren en een backup terugzetten kunnen niet in de demo (zo komen er geen echte gegevens in).
  *
  * De demodata staan in includes/demo-data.php. Terugzetten naar de begintoestand: elke nacht (khzs_demo_reset),
@@ -164,7 +165,11 @@ foreach (DEMO_OPTIES as $echt => $demo) {
 }
 add_filter('pre_option_khzs_modules', fn($pre) => is_demo() ? array_keys(modules()) : $pre); // alle modules
 add_filter('pre_option_khzs_registratie', fn($pre) => is_demo() ? '0' : $pre);
-add_filter('pre_option_khzs_pwa_melding', fn($pre) => is_demo() ? '0' : $pre);
+// Naam van de app: altijd duidelijk de demo (ook op het beginscherm van de gsm).
+foreach (['khzs_app_naam', 'khzs_app_kort', 'khzs_app_titel'] as $optie) {
+    add_filter("pre_option_$optie", fn($pre) => is_demo() ? 'KHZS Leden Demo' : $pre);
+}
+add_filter('pre_option_khzs_pwa_tekst', fn($pre) => is_demo() ? 'Probeer de app van de club uit met verzonnen gegevens, rechtstreeks vanaf je beginscherm.' : $pre);
 
 // ---------- aanmelden met een eigen cookie ----------
 
@@ -230,7 +235,7 @@ add_filter('khzs_routes', function ($routes) {
     if (!is_demo()) {
         return $routes;
     }
-    $weg = ['manifest', 'sw', 'offline', 'installeer', 'push_abonneer', 'push_afmelden', 'push_test', 'registreren'];
+    $weg = ['push_abonneer', 'push_afmelden', 'push_test', 'registreren'];
     $routes = array_values(array_filter($routes, fn($r) => !in_array($r[1], $weg, true)));
     foreach ($routes as &$r) {
         if ($r[1] === 'backups') {

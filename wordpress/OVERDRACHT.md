@@ -109,62 +109,68 @@ Start Claude Code in de map van de repo. Claude leest dan automatisch `CLAUDE.md
 - Eventueel "gelezen" per ouder bijhouden in plaats van per melding.
 - Installatie op www.khzs.be: zip uploaden, permalinks controleren, zelf registreren eerst uitzetten, en daarna de migratie vanuit Django.
 
-## Demo op /leden-demo/ (branch `wordpress/demo`)
+## Demo op /leden-demo/ (branch `wordpress/demo`, PR #8)
 
 Vraag van de eigenaar: *"kan je een /leden-demo maken waarin heel de app nagemaakt is (geen pwa), met demo data, een demo/demo user met alle mogelijke rechten, die bestuurder, zwemmer, trainer, ouder,... is. enkele wedstrijden toegevoegd, de ploegen (je vind die in de uren van de competitie), de uren van de zwemschool voor de trainers, de ploegen van de zwemschool,...."*
 
+Daarna nog twee bijsturingen:
+- *"deze moet ook continu up to date worden gehouden. geen koppeling met de productie wordpress"*;
+- *"eventueel toch een pwa app ervan maken maar die heel duidelijke KHZS Leden Demo noemen"*.
+
 **Beslissingen**
-- **Zelfde plugin, demo-modus**: geen kopie van de code. Een verzoek op `/leden-demo/` zet de plugin in demo-modus (`includes/demo.php`, `is_demo()`).
-  - Optie `khzs_demo` (wp-admin) zet de demo aan. Standaard staat ze uit.
-  - `khzs_demo_slug` (standaard `leden-demo`) bepaalt het adres.
-- **Scheiding van de gegevens**:
-  - `t()` geeft in de demo `wp_khzsdemo_…`.
-  - `$wpdb->users` en `$wpdb->usermeta` wijzen in de demo naar `wp_khzsdemo_users` en `wp_khzsdemo_usermeta`. Alle WordPress-functies voor accounts (`get_users`, `wp_signon`, user meta) werken daardoor ongewijzigd, maar enkel met demo-accounts.
-  - Demo-id's beginnen bij 900000001. In de demo staan de cachegroepen van accounts enkel in het geheugen, zodat een gedeelde objectcache (Redis) niets kan mengen.
-  - De privémap en de databaseversie hebben eigen opties: `khzs_demo_prive_map` en `khzs_demo_db_versie`.
-- **Aanmelden**:
-  - In de demo stuurt WordPress geen aanmeldcookies (`send_auth_cookies` staat op false).
-  - Het cookie `khzs_demo_sessie`, met pad `/leden-demo/`, bevat een gewoon WordPress-'logged in'-cookie, dat tegen de demo-accounts gecontroleerd wordt.
-  - Echte aanmeldcookies worden in de demo genegeerd. Wie op de site is aangemeld, is dat in de demo dus niet, en afmelden in de demo raakt de echte sessie niet.
-- **Uit in de demo**:
-  - PWA: manifest, service worker, installeerpagina, installatiemelding;
-  - push: `stuur()` doet niets;
-  - mail: `pre_wp_mail`;
-  - zelf registreren, want andere plugins reageren mogelijk op `user_register`;
-  - een backup terugzetten, want zo zouden echte gegevens publiek worden.
+- **Aparte installatie**: de demo draait op een eigen WordPress met een eigen database (`wordpress/demo/`: docker-compose, `installeer.sh`, `update.sh`). Ze deelt niets met www.khzs.be.
+- **Aan met een constante**: demo-modus enkel met `define('KHZS_DEMO', true)` in wp-config.php. Er is geen optie in wp-admin, zodat ze op productie nooit per ongeluk aangaat.
+  - `KHZS_DEMO_ENKEL` laat de rest van de site en `/leden/` doorverwijzen naar `/leden-demo/`.
+  - De filter `khzs_demo_aan` dient enkel voor tests (header `X-KHZS-Demo-Uit` in de testhulp).
+- **Altijd actueel**: `update.sh` (cron, elke 10 minuten) volgt `main`, net zoals `deploy/auto_update.sh` voor Django. Bij een nieuwe commit:
+  - rewrite-regels opnieuw opbouwen;
+  - `demo_terugzetten()`;
+  - lukt dat niet, terug naar de vorige commit.
+
+  Ook de plugin zelf bouwt de demo opnieuw op als `demo_code_versie()` verandert (VERSIE, DB_VERSIE of `demo-data.php`). Dat werkt dus ook met de automatische updates via releases (`wordpress/auto-update`).
+- **App (PWA)**: installeerbaar als *KHZS Leden Demo* (de opties voor de app-naam worden in de demo overschreven).
+  - `asset()` kiest in de demo de iconen uit `assets/img/demo/`, met een oranje lint "DEMO" (`tools/logo/maak_demo_iconen.py`).
+  - Pushmeldingen blijven uit.
+- **Scheiding ook binnen één installatie** (extra veiligheid):
+  - `t()` geeft in de demo `wp_khzsdemo_…`;
+  - `$wpdb->users` en `$wpdb->usermeta` wijzen naar `wp_khzsdemo_users` en `wp_khzsdemo_usermeta`, met id's vanaf 900000001;
+  - de cachegroepen van accounts staan enkel in het geheugen;
+  - een eigen cookie `khzs_demo_sessie` met pad `/leden-demo/` (WordPress stuurt in de demo geen aanmeldcookies);
+  - eigen opties voor de privémap en de databaseversie.
+- **Uit in de demo**: pushmeldingen (`stuur()`), mail (`pre_wp_mail`), zelf registreren en een backup terugzetten.
 - **Demodata** (`includes/demo-data.php`):
-  - De accounts worden rechtstreeks in de tabellen gezet, zonder `wp_insert_user`. Zo reageren andere plugins er niet op.
-  - De wedstrijden lopen via de gewone Lenex-import (`parse_meet`, `importeer`, `importeer_uitslagen`).
-  - Datums staan relatief tegenover `vandaag()`, met vast pseudo-toeval (`demo_rnd`). De demo is dus elke dag gelijkaardig maar actueel.
+  - accounts rechtstreeks in de tabellen, zonder `wp_insert_user`, zodat andere plugins er niet op reageren;
+  - wedstrijden via de gewone Lenex-import;
+  - datums relatief tegenover `vandaag()`;
+  - vast pseudo-toeval (`demo_rnd`).
 - **Ploegen en uren**:
-  - De competitie komt van www.khzs.be/trainingsuren-competitie (14/11/2026), met verzonnen trainers.
+  - De competitie komt van www.khzs.be/trainingsuren-competitie (14/11/2026), met verzonnen trainers. Ploegen die op hetzelfde uur trainen, vormen één training.
   - De zwemschool:
     - lesmomenten: www.khzs.be/inschrijven-zwemtest;
     - groepen: de pagina's *doelstellingen* en *vakantieperiodes*;
-    - welke groep wanneer zwemt: niet op de website, dus verzonnen. Vervang dat gerust door de echte verdeling (`demo_ploegen()`).
-- **Terugzetten** (`demo_terugzetten()`): alle demotabellen leegmaken en opnieuw vullen.
-  - `demo_controleer()` weigert als de tabelnamen geen `khzsdemo_` bevatten.
-  - Het kan ook buiten de demo: de taak `khzs_demo_reset` om 03:30, en `admin-post.php?action=khzs_demo_terugzetten`.
+    - welke groep wanneer zwemt: niet op de website, dus verzonnen (`demo_ploegen()`).
+- **Terugzetten**: `demo_terugzetten()` maakt alle demotabellen leeg en vult ze opnieuw. `demo_controleer()` weigert als de tabelnamen geen `khzsdemo_` bevatten.
+  - De taak `khzs_demo_reset` draait om 03:30.
+  - Knoppen in de demo en in wp-admin.
 
-**Uitbreiden voor nieuwe onderdelen** (rollen, ploegen, chatkanalen, urenregistratie):
-- Haak in op de actie `khzs_demo_vullen`. Die krijgt `$c->users` (sleutel → id, bv. `demo`, `lotte`), `$c->zwemmers`, `$c->ploegen` (met per ploeg `->momenten`, `->trainers` en `->soort`) en `$c->seizoen`.
-- `demo_personen()` heeft al een kolom *extra* met `bestuurder` (demo, marc) en `penningmeester`.
+**Uitbreiden voor nieuwe onderdelen** (rollen en ploegen, PR #7; urenregistratie):
+- Haak in op de actie `khzs_demo_vullen`. Die krijgt `$c->users` (sleutel → id, bv. `demo`, `lotte`), `$c->zwemmers`, `$c->ploegen` (met `->momenten`, `->trainers`, `->soort`) en `$c->seizoen`.
+- `demo_personen()` heeft een kolom *extra* met `bestuurder` (demo, marc) en `penningmeester`.
 - `demo_zwemmers()` geeft per zwemmer de ploeg.
-- Nieuwe tabellen komen vanzelf in de demo, als ze via `t()` en de filter `khzs_tabellen` lopen.
-- Nieuwe user meta komt vanzelf in de demo-accounts terecht.
+- Nieuwe tabellen via `t()` en `khzs_tabellen` komen vanzelf in de demo.
 
-**Kernwijzigingen** (klein gehouden om botsingen met andere branches te vermijden):
-- `t()` en `slug()`/`echte_slug()`;
+**Kernwijzigingen** (klein gehouden):
+- `t()`, `slug()`/`echte_slug()` en `asset()`;
 - de demoroute in `registreer_routes()`;
 - `app_url()` zonder mooie permalinks;
 - `stuur()`;
-- `_layout.php`, `aanmelden.php`, `meldingen.php`;
-- twee haken in `admin.php`: `khzs_admin_velden` en `khzs_admin_onder`.
+- `_layout.php`, `aanmelden.php` en `meldingen.php`;
+- de haak `khzs_admin_onder` in `admin.php`.
 
-**Testen**:
-- `DemoTest` in `tests/test_e2e.py`: 5 scenario's. Samen met de rest geven ze 82 tests, alle geslaagd.
-- Lokaal op Windows met Docker (`mariadb:11`, `wordpress:php8.2`, `wordpress:cli-php8.2`), poort 8093.
-- `testsite.sh` zet de demo aan, en de testhulp kreeg de actie `optie`.
+**Stand**:
+- `DemoTest` in `tests/test_e2e.py` (6 scenario's), alle geslaagd.
+- `wordpress/demo/` is lokaal getest met Docker Desktop: `installeer.sh`, en `update.sh` met een nieuwe commit.
+- **Nog niet uitgerold**. De host en het adres (bv. demo.khzs.be via een Cloudflare-tunnel) moet de eigenaar nog kiezen.
 
 ## Werken aan de plugin
 

@@ -14,4 +14,4 @@
   <?php if (!is_demo()): ?><p class="klein"><a href="<?= esc_url(wp_lostpassword_url(app_url('aanmelden/'))) ?>">Wachtwoord vergeten?</a></p><?php endif; ?>
 </form>
 <?php if (registratie_open()): ?><p class="leeg">Nog geen account? <a href="<?= esc_url(app_url('registreren/')) ?>">Maak een profiel aan</a></p><?php endif; ?>
-<?php if (!is_demo()): ?><p class="leeg"><a href="<?= esc_url(app_url('installeer/')) ?>">📲 Installeer als app</a></p><?php endif; ?>
+<p class="leeg"><a href="<?= esc_url(app_url('installeer/')) ?>">📲 Installeer als app</a></p>

@@ -55,6 +55,9 @@ function app_url(string $pad = '', array $query = []): string
 
 function asset(string $pad): string
 {
+    if (is_demo() && str_starts_with($pad, 'img/') && is_file(KHZS_PAD . 'assets/img/demo/' . substr($pad, 4))) {
+        $pad = 'img/demo/' . substr($pad, 4); // iconen met 'DEMO' (tools/logo/maak_demo_iconen.py)
+    }
     $v = @filemtime(KHZS_PAD . "assets/$pad") ?: VERSIE;
     return KHZS_URL . "assets/$pad?v=$v";
 }

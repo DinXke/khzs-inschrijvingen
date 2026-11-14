@@ -12,13 +12,11 @@ $ingelogd = is_user_logged_in();
   <meta name="theme-color" content="#111b1e" media="(prefers-color-scheme: dark)">
   <meta name="robots" content="noindex">
   <script>try{var t=localStorage.getItem("thema");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
-  <?php if (!is_demo()): ?>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="<?= esc_attr(app_kort()) ?>">
+  <title><?= e($titel) ?> · <?= e(app_kort()) ?></title>
   <link rel="manifest" href="<?= esc_url(app_url('manifest.webmanifest')) ?>">
-  <?php endif; ?>
-  <title><?= e($titel) ?> · <?= e(app_kort()) ?><?= is_demo() ? ' (demo)' : '' ?></title>
   <link rel="icon" href="<?= esc_url(asset('img/favicon-32.png')) ?>">
   <link rel="apple-touch-icon" href="<?= esc_url(asset('img/apple-touch-icon.png')) ?>">
   <link rel="stylesheet" href="<?= esc_url(asset('app.css')) ?>">
@@ -70,7 +68,7 @@ $ingelogd = is_user_logged_in();
   });
   toon();
 })();
-<?php if (!is_demo()): ?>if ("serviceWorker" in navigator) navigator.serviceWorker.register(<?= wp_json_encode(app_url('sw.js')) ?>, {scope: <?= wp_json_encode(wp_parse_url(app_url(''), PHP_URL_PATH)) ?>});<?php endif; ?>
+if ("serviceWorker" in navigator) navigator.serviceWorker.register(<?= wp_json_encode(app_url('sw.js')) ?>, {scope: <?= wp_json_encode(wp_parse_url(app_url(''), PHP_URL_PATH)) ?>});
 </script>
 <?php if (pwa_melding_aan() && $pagina !== 'installeer') { echo pwa_melding_html(true); } ?>
 </body>

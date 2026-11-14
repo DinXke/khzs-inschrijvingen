@@ -1010,13 +1010,24 @@ class DemoTest(Basis):
         self.assertNotIn(">Verloning</a>", t.get("trainers/").text)
         self.assertEqual(t.post("demo/terugzetten/").status_code, 403)
 
-    def test_geen_pwa_push_of_registratie(self):
+    def test_app_als_demo_zonder_push_of_registratie(self):
+        # Installeerbaar, maar duidelijk de demo: eigen naam, iconen met DEMO, scope /leden-demo/.
         r = self.d.get("wedstrijden/")
-        self.assertNotContains(r, 'rel="manifest"')
-        self.assertNotContains(r, "serviceWorker")
-        self.assertNotContains(r, "khzs-pwa")
-        for pad in ("manifest.webmanifest", "sw.js", "installeer/", "offline/", "registreren/"):
-            self.assertEqual(self.d.get(pad).status_code, 404, pad)
+        self.assertContains(r, "<title>Wedstrijden · KHZS Leden Demo</title>")
+        self.assertContains(r, 'rel="manifest"')
+        self.assertContains(r, "/assets/img/demo/apple-touch-icon.png")
+        m = self.d.get("manifest.webmanifest").json()
+        self.assertEqual((m["name"], m["short_name"]), ("KHZS Leden Demo", "KHZS Leden Demo"))
+        self.assertTrue(m["scope"].endswith("/leden-demo/"))
+        self.assertTrue(all("/img/demo/" in i["src"] for i in m["icons"]))
+        self.assertEqual(requests.head(m["icons"][0]["src"]).status_code, 200)
+        sw = self.d.get("sw.js")
+        self.assertEqual(sw.status_code, 200)
+        self.assertEqual(sw.headers["Service-Worker-Allowed"], "/leden-demo/")
+        self.assertContains(self.d.get("installeer/"), "KHZS Leden Demo")
+        # De echte app heet gewoon KHZS Leden.
+        self.assertEqual(requests.get(APP + "manifest.webmanifest").json()["name"], "KHZS Leden")
+        self.assertEqual(self.d.get("registreren/").status_code, 404)
         self.assertEqual(self.d.s.post(DEMO + "meldingen/abonneer/", json={}).status_code, 404)
         anoniem = requests.get(DEMO + "aanmelden/")
         self.assertNotIn("Wachtwoord vergeten", anoniem.text)

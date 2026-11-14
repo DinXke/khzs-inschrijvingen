@@ -82,14 +82,16 @@ Bezoekers op gsm zien op de website en in de app een melding *"Installeer de app
 
 ## Demo op /leden-demo/
 
-Naast de echte app kan dezelfde site een **demo** tonen op `https://jouwsite.be/leden-demo/`. Zet ze aan bij **Instellingen → KHZS Leden → Demo**.
+De demo draait op een **aparte WordPress-installatie**, volledig los van de site van de club. Gebruik daarvoor `demo/`: daar staan een `docker-compose.yml`, een installatiescript en `update.sh`, dat de demo automatisch bijhoudt met `main` (zie `demo/README.md`).
+- De demo staat enkel aan met `define('KHZS_DEMO', true);` in `wp-config.php`. Op een gewone site wordt ze nooit vanzelf actief.
+- Met `KHZS_DEMO_ENKEL` verwijzen de rest van de site en `/leden/` door naar `/leden-demo/`.
 
 - **Aanmelden** met `demo` / `demo`. Dat account heeft alle rollen: beheerder (dus ook sportsecretaris), trainer, penningmeester, ouder van drie kinderen en zelf zwemmer.
   Andere demo-accounts, ook met wachtwoord `demo`:
   - `katrien` (sportsecretaris)
   - `lotte`, `bram`, `tom`, `wout`, `annelies` (competitie) en `nina`, `ruben`, `elise`, `jasper` (zwemschool): trainers
   - `koen`, `an`, `pieter`, `hilde`, `sofie`, `marc`: ouders
-- **Zelfde schermen en werking** als de app, maar zonder PWA: geen manifest, geen service worker, geen installatiemelding. Er gaan ook geen pushmeldingen of mails uit.
+- **Zelfde schermen en werking** als de app. Ook installeerbaar als app, maar duidelijk herkenbaar als demo: ze heet *KHZS Leden Demo*, de iconen dragen een oranje lint "DEMO" (`tools/logo/maak_demo_iconen.py`) en de scope is `/leden-demo/`. Er gaan geen pushmeldingen of mails uit.
 - **Demodata** (verzonnen personen):
   - zes wedstrijden in alle stadia: twee doorgestuurd met uitslagen, één gesloten, twee open (één met bijlage) en één concept;
   - zwemmers met beste tijden, inschrijvingen, afgekeurde en geweigerde inschrijvingen, meldingen, en een zwemmer die gedeeld is met de andere ouder;
@@ -99,14 +101,15 @@ Naast de echte app kan dezelfde site een **demo** tonen op `https://jouwsite.be/
   - De datums hangen af van vandaag, dus de demo blijft actueel.
 - **Terugzetten** naar de begintoestand:
   - elke nacht om 03:30 (WP-Cron);
+  - na elke update van de plugin (`update.sh`, en ook vanzelf bij een nieuwe versie);
   - met de knop *Demo terugzetten* in de demo (voor beheerders);
   - met *Demo nu terugzetten* in wp-admin.
-- **Volledig gescheiden** van de echte gegevens:
+- **Ook binnen één installatie gescheiden** van gewone gegevens (extra veiligheid):
   - eigen tabellen (`wp_khzsdemo_…`) en een eigen privémap;
   - eigen accounts in `wp_khzsdemo_users` en `wp_khzsdemo_usermeta`, met id's vanaf 900000001;
   - een eigen aanmeldcookie dat enkel binnen `/leden-demo/` geldt.
 
-  Een demo-account komt dus niet in wp-admin of in de echte app, en echte leden zien de demo-accounts nergens.
+  Een demo-account komt dus niet in wp-admin of in de gewone app.
 - In de demo kan je **geen backup terugzetten** en **niet zelf registreren**. Zo komen er geen echte gegevens in de demo.
 
 ## Overstappen vanuit de Django-versie
