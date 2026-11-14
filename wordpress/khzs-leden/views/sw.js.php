@@ -40,8 +40,8 @@ self.addEventListener("fetch", e => {
 
 self.addEventListener("push", e => {
   let d = {};
-  try { d = e.data.json(); } catch (_) { d = {titel: "HZS inschrijvingen", tekst: e.data ? e.data.text() : ""}; }
-  e.waitUntil(self.registration.showNotification(d.titel || "HZS inschrijvingen", {
+  try { d = e.data.json(); } catch (_) { d = {titel: <?= wp_json_encode(app_naam()) ?>, tekst: e.data ? e.data.text() : ""}; }
+  e.waitUntil(self.registration.showNotification(d.titel || <?= wp_json_encode(app_naam()) ?>, {
     body: d.tekst || "", icon: ICOON, badge: BADGE, data: {url: d.url || START}, lang: "nl-BE",
   }));
 });

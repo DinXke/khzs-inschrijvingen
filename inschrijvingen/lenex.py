@@ -356,7 +356,7 @@ def bouw_inschrijvingen(wedstrijd, inschrijvingen) -> bytes:
     """Maakt een Lenex 3.0-inschrijvingsbestand (.lxf) voor de organisator."""
     club = settings.CLUB
     root = ET.Element("LENEX", version="3.0")
-    ET.SubElement(root, "CONSTRUCTOR", name="KHZS inschrijvingen", registration=club["naam"], version="1.0")
+    ET.SubElement(root, "CONSTRUCTOR", name="KHZS Leden", registration=club["naam"], version="1.0")
     meet = ET.SubElement(ET.SubElement(root, "MEETS"), "MEET", name=wedstrijd.naam, city=wedstrijd.stad,
                          course=wedstrijd.baan, deadline=wedstrijd.deadline.isoformat(), nation="BEL")
     c = ET.SubElement(ET.SubElement(meet, "CLUBS"), "CLUB", name=club["naam"], code=club["code"], nation=club["nation"])

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Zet een lokale WordPress-testsite op met de KHZS-plugin en de testhulp, en start ze.
+# Zet een lokale WordPress-testsite op met de plugin KHZS Leden en de testhulp, en start ze.
 #   wordpress/tests/testsite.sh [map] [poort]      standaard: ./.testsite  8080
 # Vereist: php (met mysqli, zip, xml, openssl), composer, mariadb-server.
 # Daarna: KHZS_URL=http://localhost:8080 python3 wordpress/tests/test_e2e.py
 set -euo pipefail
 HIER="$(cd "$(dirname "$0")" && pwd)"
-PLUGIN="$(cd "$HIER/../khzs" && pwd)"
+PLUGIN="$(cd "$HIER/../khzs-leden" && pwd)"
 MAP="$(mkdir -p "${1:-$HIER/../../.testsite}" && cd "${1:-$HIER/../../.testsite}" && pwd)"
 POORT="${2:-8080}"
 DB="khzs_test_$POORT"
@@ -36,9 +36,9 @@ WP core is-installed 2>/dev/null || WP core install --url="http://localhost:$POO
   --admin_password=admin123 --admin_email=admin@example.com --skip-email
 WP rewrite structure '/%postname%/' >/dev/null
 mkdir -p "$MAP/site/wp-content/plugins" "$MAP/site/wp-content/mu-plugins"
-ln -sfn "$PLUGIN" "$MAP/site/wp-content/plugins/khzs"
+ln -sfn "$PLUGIN" "$MAP/site/wp-content/plugins/khzs-leden"
 ln -sfn "$HIER/khzs-test-helper.php" "$MAP/site/wp-content/mu-plugins/khzs-test-helper.php"
-WP plugin activate khzs >/dev/null
+WP plugin activate khzs-leden >/dev/null
 WP rewrite flush >/dev/null
 
 # PHP-webserver met router voor mooie permalinks
@@ -57,4 +57,4 @@ if ! curl -s -o /dev/null "http://localhost:$POORT/"; then
     </dev/null >"$MAP/php.log" 2>&1 &
   sleep 2
 fi
-echo "Testsite: http://localhost:$POORT/club/  (wp-admin: admin / admin123)  map: $MAP"
+echo "Testsite: http://localhost:$POORT/leden/  (wp-admin: admin / admin123)  map: $MAP"

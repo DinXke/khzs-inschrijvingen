@@ -1,6 +1,6 @@
-# HZS inschrijvingen
+# KHZS Leden
 
-Inschrijfsysteem (PWA) voor zwemwedstrijden van Hasseltse Zwemvereniging Spartacus.
+Ledenapp (PWA) van de Hasseltse Zwemvereniging Spartacus: inschrijvingen voor zwemwedstrijden. De WordPress-versie met extra modules (o.a. trainers: planning, uren, verloning) staat in [`wordpress/`](wordpress/README.md).
 
 - **Sportsecretaris**: Lenex-uitnodiging (.lxf/.lef) uploaden → programma, deadline en limieten worden ingelezen; deadline secretariaat instellen; inschrijvingen exporteren als Lenex + Excel.
 - **Trainers**: extra dagen instellen, inschrijvingen nakijken, goed-/afkeuren en aanpassen.

@@ -1,5 +1,5 @@
 {% load static %}// Service worker: statische bestanden uit cache, pagina's altijd vers van het net (inschrijvingen moeten actueel zijn).
-const CACHE = "hzs-v3";
+const CACHE = "hzs-v4";
 const STATISCH = ["{% static 'app.css' %}", "{% static 'img/icon-192.png' %}", "{% static 'img/logo.png' %}", "{% url 'offline' %}"];
 
 self.addEventListener("install", e => {
@@ -33,8 +33,8 @@ self.addEventListener("fetch", e => {
 
 self.addEventListener("push", e => {
   let d = {};
-  try { d = e.data.json(); } catch (_) { d = {titel: "HZS inschrijvingen", tekst: e.data ? e.data.text() : ""}; }
-  e.waitUntil(self.registration.showNotification(d.titel || "HZS inschrijvingen", {
+  try { d = e.data.json(); } catch (_) { d = {titel: "KHZS Leden", tekst: e.data ? e.data.text() : ""}; }
+  e.waitUntil(self.registration.showNotification(d.titel || "KHZS Leden", {
     body: d.tekst || "", icon: "{% static 'img/icon-192.png' %}", badge: "{% static 'img/favicon-32.png' %}",
     data: {url: d.url || "/"}, lang: "nl-BE",
   }));

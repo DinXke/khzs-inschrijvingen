@@ -8,8 +8,8 @@
   <script>try{var t=localStorage.getItem("thema");if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="HZS">
-  <title>{% block titel %}Inschrijvingen{% endblock %} · HZS</title>
+  <meta name="apple-mobile-web-app-title" content="KHZS Leden">
+  <title>{% block titel %}Inschrijvingen{% endblock %} · KHZS Leden</title>
   <link rel="manifest" href="{% url 'manifest' %}">
   <link rel="icon" href="{% static 'img/favicon-32.png' %}">
   <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}">
@@ -18,7 +18,7 @@
 <body>
 {% with p=request.resolver_match.url_name %}
 <header class="kop">
-  <a class="logo" href="{% url 'start' %}"><span class="logo-badge"><img src="{% static 'img/logo.png' %}" alt="Hasseltse Zwemvereniging Spartacus"></span><span class="logo-tekst">Inschrijvingen</span></a>
+  <a class="logo" href="{% url 'start' %}"><span class="logo-badge"><img src="{% static 'img/logo.png' %}" alt="Hasseltse Zwemvereniging Spartacus"></span><span class="logo-tekst">KHZS Leden</span></a>
   <button type="button" class="thema-knop" id="thema" title="Licht / donker / automatisch" aria-label="Thema wisselen"></button>
   {% if user.is_authenticated %}
   <nav>

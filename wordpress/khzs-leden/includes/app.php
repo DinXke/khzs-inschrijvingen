@@ -10,15 +10,15 @@ defined('ABSPATH') || exit;
 
 function slug(): string
 {
-    return trim(get_option('khzs_slug', 'club'), '/') ?: 'club';
+    return trim(get_option('khzs_slug', 'leden'), '/') ?: 'leden';
 }
 
 function registreer_routes(): void
 {
     add_rewrite_rule('^' . preg_quote(slug(), '#') . '(?:/(.*))?/?$', 'index.php?khzs_pad=/$matches[1]', 'top');
-    // Oud adres van de inschrijvingsapp blijft werken (doorverwijzing).
-    if (slug() !== 'inschrijvingen') {
-        add_rewrite_rule('^inschrijvingen(?:/(.*))?/?$', 'index.php?khzs_oud=/$matches[1]', 'top');
+    // Oude adressen (/inschrijvingen/, /club/) blijven werken (doorverwijzing).
+    foreach (array_diff(['inschrijvingen', 'club'], [slug()]) as $oud) {
+        add_rewrite_rule('^' . $oud . '(?:/(.*))?/?$', 'index.php?khzs_oud=/$matches[1]', 'top');
     }
 }
 
@@ -142,7 +142,7 @@ function naar(string $url): never
 }
 
 /** Toont een pagina binnen de opmaak van de app. */
-function toon(string $sjabloon, array $ctx = [], string $titel = 'Club', string $mainklasse = '', int $status = 200): never
+function toon(string $sjabloon, array $ctx = [], string $titel = 'KHZS Leden', string $mainklasse = '', int $status = 200): never
 {
     status_header($status);
     nocache_headers();

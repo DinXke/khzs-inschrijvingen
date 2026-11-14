@@ -494,7 +494,7 @@ function bouw_inschrijvingen(object $w, array $inschrijvingen): string
         return $e;
     };
     $root = $el($doc, 'LENEX', ['version' => '3.0']);
-    $el($root, 'CONSTRUCTOR', ['name' => 'KHZS inschrijvingen', 'registration' => $club['naam'], 'version' => '1.0']);
+    $el($root, 'CONSTRUCTOR', ['name' => 'KHZS Leden', 'registration' => $club['naam'], 'version' => '1.0']);
     $meet = $el($el($root, 'MEETS'), 'MEET', ['name' => $w->naam, 'city' => $w->stad, 'course' => $w->baan,
         'deadline' => dag($w->deadline)->format('Y-m-d'), 'nation' => 'BEL']);
     $c = $el($el($meet, 'CLUBS'), 'CLUB', ['name' => $club['naam'], 'code' => $club['code'], 'nation' => $club['nation']]);

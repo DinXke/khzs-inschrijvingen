@@ -1,6 +1,6 @@
-# Overdracht: WordPress-plugin KHZS
+# Overdracht: KHZS Leden (WordPress-plugin)
 
-Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist en gebouwd is, zodat iemand anders of een volgende sessie meteen verder kan. Lees daarna `wordpress/README.md` voor installatie en gebruik.
+Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist en gebouwd is, zodat iemand anders of een volgende sessie meteen verder kan, ook op een andere pc. Lees daarna `wordpress/README.md` voor installatie en gebruik.
 
 ## Voorgeschiedenis en beslissingen
 
@@ -18,8 +18,8 @@ Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist 
    - Accounts worden aangemaakt of gekoppeld op gebruikersnaam of e-mail.
    - Django-wachtwoordhashes (`pbkdf2_sha256`) worden bewaard in de user meta `khzs_django_hash`. Bij de eerste login worden ze gecontroleerd en omgezet naar een WordPress-wachtwoord. Zo blijven de bestaande wachtwoorden werken.
 6. **Installatiemelding (PWA)**:
-   - Op de website en in de app verschijnt een melding "Installeer de HZS-app".
-   - Browsers tonen hun installatievenster alleen binnen de scope van de app. Daarom gaat de knop op de rest van de website naar `/club/installeer/`.
+   - Op de website en in de app verschijnt een melding "Installeer de app KHZS Leden".
+   - Browsers tonen hun installatievenster alleen binnen de scope van de app. Daarom gaat de knop op de rest van de website naar `/leden/installeer/`.
 7. **Modules**: de plugin heette eerst `khzs-inschrijvingen` en is daarna omgebouwd tot één plugin **KHZS** met een kern en modules. Het adres werd `/club/`; het oude `/inschrijvingen/` verwijst door (301).
 8. **Module Trainers**, op vraag van de club: trainers duiden aan welke trainingen ze normaal geven en melden zich af als ze niet kunnen. De penningmeester koppelt bedragen aan trainers en ziet per maand de uren en de verloning. Gekozen werking:
    - vaste trainers per trainingsmoment (`tr_vast`, met periode) plus wijzigingen per datum (`tr_wijzigingen`: afwezig, vervanger, extra)
@@ -36,15 +36,51 @@ Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist 
    - Na 10 foute pogingen per uur wordt het account geblokkeerd voor koppelen.
    - Meldingen en push gaan naar alle accounts. "Gelezen" geldt per melding, dus voor beide ouders samen.
    - Verwijder je het eerste account, dan wordt de andere ouder het eerste account (Django: `on_delete=account_verwijderd`).
+   - De staf kan een account ook rechtstreeks koppelen via het e-mailadres.
+11. **Naam KHZS Leden** (op vraag van de eigenaar):
+   - Plugin: "KHZS Leden", map `wordpress/khzs-leden/` met als hoofdbestand `khzs-leden.php`. Het adres werd `/leden/`; `/club/` en `/inschrijvingen/` verwijzen door (301).
+   - Interne namen zijn gebleven: PHP-namespace `KHZS`, tabellen en opties met `khzs_`.
+   - Django: de zichtbare naam is "KHZS Leden" (titel, app op de gsm, mails, beheer).
+   - De GitHub-repo heet `khzs-leden`. GitHub verwijst het oude adres `khzs-inschrijvingen` automatisch door, dus de server werkt gewoon verder.
+12. **Logo KHZS Leden**: de app-iconen tonen het HZS-logo met daaronder "Leden" in dezelfde stijl.
+   - "Leden" staat in Rubik Black Italic (SIL OFL), in dezelfde twee blauwtinten `#009FE0` en `#074DA2`, met de golf zoals die in het HZS-logo gemeten is.
+   - Opnieuw maken: `python3 tools/logo/maak_iconen.py`. Dat schrijft naar `static/img/` en `wordpress/khzs-leden/assets/img/`.
+   - De kleine iconen (192 en 180 pixels) hebben meer letterruimte, zodat de e leesbaar blijft.
+   - Het favicon (32 pixels) en het logo bovenaan in de app tonen enkel HZS.
+10. **Zelf zwemmer** (bv. masters), in Django én WordPress:
+   - Bij registratie vult het vinkje *Ik zwem zelf* het eerste zwemmerblok met de eigen naam. Dat gebeurt enkel met JavaScript; de server verandert niet.
+   - Bij *Mijn zwemmers* opent de knop *+ Mezelf* het formulier met de naam al ingevuld. De knop verdwijnt zodra er een zwemmer met de naam van het account bestaat.
 
-## Stand van zaken
+## Stand van zaken (14/11/2026, eind van de dag)
 
-- Alles staat op **`main`** (PR #1). De map `wordpress/` en `export_wordpress` raken de draaiende Django-app niet. Werk verder op een branch: elke commit op `main` komt binnen 10 minuten op de server.
-- **Tests**: `wordpress/tests/test_e2e.py`, 63 scenario's: alle Django-scenario's plus de trainersmodule. Ze slaagden allemaal.
-- **Migratie** getest met de Django-demodata: alle gegevens komen over en oude wachtwoorden werken.
+- **Alles staat op `main`**, samengevoegd op vraag van de eigenaar via vier pull requests:
+  - #1: WordPress-plugin met de modules Inschrijvingen en Trainers
+  - #2: overdracht bijgewerkt
+  - #3: zwemmer bij meerdere accounts (Django-migratie `0011_zwemmer_accounts`)
+  - #4: *Ik zwem zelf* en *+ Mezelf*
+- Elke commit op `main` komt binnen 10 minuten op de productieserver (`deploy/auto_update.sh`, met terugrol als `update.sh` faalt). Vraag daarom akkoord vóór een nieuwe samenvoeging.
+- **Werkbranch**: `ccr-5219135a-lksd0b`. Die is na de laatste samenvoeging opnieuw gelijkgezet met `main`. Op een andere pc maak je gerust een eigen branch van `main`.
+- **Tests**:
+  - Django: 84, alle geslaagd. De vroeger falende datumafhankelijke test staat nu op een vaste datum.
+  - WordPress: 76 end-to-end-scenario's in `wordpress/tests/test_e2e.py`, alle geslaagd.
+- **Migratie** naar WordPress getest met de Django-demodata: alle gegevens komen over, ook gekoppelde accounts, en oude wachtwoorden werken.
 - **Push**: de versleuteling en de VAPID-handtekening zijn gecontroleerd met de Python-bibliotheek `cryptography`. Nog niet getest op een echt toestel.
-- **Nog niet geïnstalleerd** op www.khzs.be. De plugin-zip maak je met `wordpress/bouw.sh`.
-- **Bekend, los van de plugin**: de Django-test `test_trainer_wijzigt_en_zwemmer_ziet_melding` faalt sinds de testwedstrijd (oktober 2026) voorbij is. De test is datumafhankelijk.
+- **Nog niet geïnstalleerd** op www.khzs.be. Claude had vanuit de cloudomgeving geen toegang tot die site. Maak de zip met `wordpress/bouw.sh` en upload hem via WordPress → Plugins.
+- **Niet bijgewerkt**: de PDF-handleidingen en filmpjes in `docs/` vermelden het koppelen en *Ik zwem zelf* nog niet. Opnieuw maken kan met `docs/build.py` en `docs/video.py`.
+
+## Verdergaan op een andere pc
+
+```bash
+git clone https://github.com/DinXke/khzs-leden && cd khzs-leden
+git checkout -b mijn-werk            # niet rechtstreeks op main werken
+# Django
+uv venv --python 3.12 .venv && uv pip install --python .venv -r requirements.txt
+.venv/bin/python manage.py migrate && .venv/bin/python manage.py test inschrijvingen
+# WordPress (vereist php, composer, mariadb-server)
+wordpress/tests/testsite.sh && KHZS_URL=http://localhost:8080 python3 wordpress/tests/test_e2e.py
+```
+
+Start Claude Code in de map van de repo. Claude leest dan automatisch `CLAUDE.md`, dat naar dit document verwijst. Vraag bijvoorbeeld: *"Lees wordpress/OVERDRACHT.md en ga verder met …"*.
 
 ## Mogelijke volgende stappen
 
@@ -52,6 +88,8 @@ Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist 
 - Groepen (A-groep, B-groep…) als gedeelde gegevens in de kern. Inschrijvingen kan dan een wedstrijd beperken tot een groep, en Trainers kan een groep aan een training koppelen.
 - RSVP of aanwezigheden voor zwemmers (afmelden voor een training, activiteiten).
 - Testen op echte toestellen: installeren op Android en iPhone, en pushmeldingen.
+- De PDF-handleidingen en filmpjes bijwerken met het koppelen van zwemmers en *Ik zwem zelf*.
+- Eventueel "gelezen" per ouder bijhouden in plaats van per melding.
 - Installatie op www.khzs.be: zip uploaden, permalinks controleren, zelf registreren eerst uitzetten, en daarna de migratie vanuit Django.
 
 ## Werken aan de plugin
@@ -59,7 +97,7 @@ Dit document vat samen wat er in de sessie met Claude Code (14/11/2026) beslist 
 ```bash
 wordpress/tests/testsite.sh                     # lokale WordPress + MariaDB + plugin op http://localhost:8080
 KHZS_URL=http://localhost:8080 python3 wordpress/tests/test_e2e.py
-wordpress/bouw.sh                               # khzs.zip voor WordPress
+wordpress/bouw.sh                               # khzs-leden.zip voor WordPress
 ```
 
 - **Nieuwe module**: maak `modules/<id>/` met een `db.php` die `schema_<id>()` bevat en een `module.php`. Haak in via de filters `khzs_routes`, `khzs_menu`, `khzs_tabellen`, `khzs_voorkeuren` en `khzs_taken`, en voeg een regel toe aan `modules()` in `includes/kern.php`.
