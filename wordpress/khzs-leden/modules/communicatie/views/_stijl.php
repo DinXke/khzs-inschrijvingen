@@ -30,9 +30,9 @@ main.com-main{max-width:820px}
 .com-vinkjes label{display:flex;gap:.5rem;align-items:center;font-weight:400;margin:0;padding:.45rem 0;border-bottom:1px solid var(--lijn)}
 .com-vinkjes label:last-child{border-bottom:0}
 .com-rsvp{margin-top:.8rem;padding-top:.6rem;border-top:1px dashed var(--lijn)}
-.com-rsvp .segment button.gekozen.r-ja{background:var(--ok)}
+.com-rsvp .segment button.gekozen.r-ja{background:var(--ok);color:var(--ok-tekst)}
 .com-rsvp .segment button.gekozen.r-misschien{background:var(--accent);color:#1c1200}
-.com-rsvp .segment button.gekozen.r-nee{background:var(--zacht)}
+.com-rsvp .segment button.gekozen.r-nee{background:var(--zacht);color:var(--zacht-tekst)}
 .com-rsvp input[type=number]{width:5.5rem}
 .com-rsvp .rij{margin-top:.5rem}
 .com-rsvp .rij label{margin:0;font-weight:400;display:flex;gap:.4rem;align-items:center}

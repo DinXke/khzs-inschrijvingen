@@ -4,6 +4,10 @@ $actief = fn(array $namen) => in_array($_pagina, $namen, true) ? 'actief' : '';
 $items = is_user_logged_in() ? menu() : [];
 // Getal bij een menu-item (optioneel zesde element: callable die een aantal geeft, bv. ongelezen berichten).
 $_badges = array_map(fn($i) => isset($i[5]) ? (int) ($i[5])() : 0, $items);
+// Open aanvragen tellen mee als getal bij Ploegen en Gebruikers.
+foreach ($items as $_i => $_item) {
+    $_badges[$_i] += match ($_item[0]) { 'Ploegen' => count(te_behandelen_ploeg()), 'Gebruikers' => aantal_open_rolaanvragen(), default => 0 };
+}
 $ingelogd = is_user_logged_in();
 ?><!doctype html>
 <html lang="nl">
@@ -29,7 +33,7 @@ $ingelogd = is_user_logged_in();
   <button type="button" class="thema-knop" id="thema" title="Licht / donker / automatisch" aria-label="Thema wisselen"></button>
   <?php if ($ingelogd): ?>
   <nav>
-    <?php foreach ($items as $_i => [$label, $pad, $namen, $icoon]): ?><a href="<?= esc_url(app_url($pad)) ?>" class="<?= $actief($namen) ?>"<?= $label === 'Meldingen' ? ' title="Meldingen"' : '' ?>><?= $label === 'Meldingen' ? '🔔' : e($label) ?><?php if ($_badges[$_i]): ?> <span class="badge wacht"><?= $_badges[$_i] ?></span><?php endif; ?><?php if ($label === 'Ploegen' && ($_n = count(te_behandelen_ploeg()))): ?> <span class="badge wacht" title="Ploegaanvragen"><?= $_n ?></span><?php endif; ?><?php if ($label === 'Gebruikers' && ($_n = aantal_open_rolaanvragen())): ?> <span class="badge wacht" title="Rolaanvragen"><?= $_n ?></span><?php endif; ?></a>
+    <?php foreach ($items as $_i => [$label, $pad, $namen, $icoon]): ?><a href="<?= esc_url(app_url($pad)) ?>" class="<?= $actief($namen) ?>"<?= $label === 'Meldingen' ? ' title="Meldingen"' : '' ?>><?= $label === 'Meldingen' ? '🔔' : e($label) ?><?php if ($_badges[$_i]): ?> <span class="badge wacht"<?= $label === 'Ploegen' ? ' title="Ploegaanvragen"' : ($label === 'Gebruikers' ? ' title="Rolaanvragen"' : '') ?>><?= $_badges[$_i] ?></span><?php endif; ?></a>
     <?php endforeach; ?>
     <?php if (club()['webshop']): ?><a href="<?= esc_url(club()['webshop']) ?>" target="_blank" rel="noopener">Webshop ↗</a><?php endif; ?>
     <?php if ($is_beheerder): ?><a href="<?= esc_url(app_url('backup/')) ?>" class="<?= $actief(['backups']) ?>">Backup</a><?php if (current_user_can('manage_options')): ?><a href="<?= esc_url(admin_url('options-general.php?page=khzs')) ?>">Beheer</a><?php endif; endif; ?>
@@ -41,7 +45,7 @@ $ingelogd = is_user_logged_in();
 <main class="<?= esc_attr($mainklasse) ?>">
   <?php foreach ($meldingen_flash as [$soort, $tekst]): ?><div class="melding <?= esc_attr($soort) ?>"><?= e($tekst) ?></div><?php endforeach; ?>
   <?php foreach ($ploegbeslissingen as $_l): ?><div class="melding <?= $_l->status === PL_AFGEKEURD ? 'error' : 'success' ?>"><?= e($_l->voornaam) ?>: <?= $_l->status === PL_AFGEKEURD ? 'aanvraag voor ' . e($_l->ploegnaam) . ' afgekeurd' : 'zit nu in ' . e($_l->ploegnaam) ?>. <a href="<?= esc_url(app_url("zwemmers/{$_l->zwemmer_id}/")) ?>">Bekijk</a></div><?php endforeach; ?>
-  <?php if ($privacy_lezen && $_pagina !== 'privacy'): ?><div class="melding info">Lees hoe de club met je gegevens omgaat, en bevestig dat je akkoord gaat. <a href="<?= esc_url(app_url('privacy/')) ?>">Privacyverklaring</a></div><?php endif; ?>
+  <?php if ($privacy_lezen && $_pagina !== 'privacy'): ?><div class="melding info kort"><span>Bevestig de privacyverklaring van de club.</span> <a class="knop mini" href="<?= esc_url(app_url('privacy/')) ?>">Lezen</a></div><?php endif; ?>
   <?php foreach ($rolbeslissingen as $_a): ?><div class="melding <?= $_a->status === RA_AFGEKEURD ? 'error' : 'success' ?>"><?= e(rol_beslissing($_a)) ?> <a href="<?= esc_url(app_url('rollen/')) ?>">Mijn rollen</a></div><?php endforeach; ?>
   <?php include $inhoud_sjabloon; ?>
 </main>
@@ -52,16 +56,18 @@ $ingelogd = is_user_logged_in();
       $gsm[] = ['Backup', 'backup/', ['backups'], '<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/>'];
   }
   $afmelden_icoon = '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>';
-  $meer = count($gsm) + 1 > 5 ? array_slice($gsm, 4) : [];
-  $balk = $meer ? array_slice($gsm, 0, 4) : $gsm;
+  $meer = count($gsm) + 1 > 5 ? array_slice($gsm, 4, null, true) : [];
+  $balk = $meer ? array_slice($gsm, 0, 4, true) : $gsm;
+  // Getal op 'Meer': de som van wat eronder verborgen zit (ongelezen berichten, open aanvragen).
+  $meer_aantal = array_sum(array_map(fn($_i) => $_badges[$_i] ?? 0, array_keys($meer)));
   $meer_actief = $actief(array_merge([], ...array_map(fn($i) => $i[2], $meer))); ?>
 <nav class="tabbalk">
   <?php foreach ($balk as $_i => [$label, $pad, $namen, $icoon]): ?><a href="<?= esc_url(app_url($pad)) ?>" class="<?= $actief($namen) ?>">
     <?php if (!empty($_badges[$_i])): ?><span class="tab-badge"><?= $_badges[$_i] > 99 ? '99+' : $_badges[$_i] ?></span><?php endif; ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><?= $icoon /* vaste svg uit de code */ ?></svg><?= e($label) ?></a>
   <?php endforeach; ?>
   <?php if ($meer): ?>
-  <button type="button" class="<?= $meer_actief ?>" id="meer-knop" aria-expanded="false" aria-controls="meer-blad">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>Meer</button>
+  <button type="button" class="<?= $meer_actief ?>" id="meer-knop" aria-expanded="false" aria-controls="meer-blad"<?= $meer_aantal ? ' aria-label="Meer, ' . $meer_aantal . ' te bekijken"' : '' ?>>
+    <?php if ($meer_aantal): ?><span class="tab-badge"><?= $meer_aantal > 99 ? '99+' : $meer_aantal ?></span><?php endif; ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>Meer</button>
   <?php else: ?>
   <a href="#" onclick="document.getElementById('afmelden').submit();return false">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><?= $afmelden_icoon ?></svg>Afmelden</a>
@@ -70,8 +76,8 @@ $ingelogd = is_user_logged_in();
 <?php if ($meer): ?>
 <div class="meer-achtergrond" id="meer-achtergrond" hidden></div>
 <div class="meer-blad" id="meer-blad" role="dialog" aria-label="Meer" hidden>
-  <?php foreach ($meer as [$label, $pad, $namen, $icoon]): ?><a href="<?= esc_url(app_url($pad)) ?>" class="<?= $actief($namen) ?>">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><?= $icoon /* vaste svg uit de code */ ?></svg><?= e($label) ?></a>
+  <?php foreach ($meer as $_i => [$label, $pad, $namen, $icoon]): ?><a href="<?= esc_url(app_url($pad)) ?>" class="<?= $actief($namen) ?>">
+    <?php if (!empty($_badges[$_i])): ?><span class="tab-badge"><?= $_badges[$_i] > 99 ? '99+' : $_badges[$_i] ?></span><?php endif; ?><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><?= $icoon /* vaste svg uit de code */ ?></svg><?= e($label) ?></a>
   <?php endforeach; ?>
   <a href="#" onclick="document.getElementById('afmelden').submit();return false">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><?= $afmelden_icoon ?></svg>Afmelden</a>

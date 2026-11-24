@@ -51,7 +51,7 @@ add_filter('khzs_menu', fn($m) => $m + [
         '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>', fn() => !zonder_wedstrijden()],
     20 => [is_staf() ? 'Zwemmers' : 'Profiel', 'zwemmers/', ['zwemmers', 'zwemmer', 'zwemmer_nieuw', 'uitslagen'],
         '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>', fn() => true],
-    70 => ['Uitleg', 'uitleg/', ['uitleg'], '<circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z" fill="currentColor"/>', fn() => true],
+    90 => ['Uitleg', 'uitleg/', ['uitleg'], '<circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z" fill="currentColor"/>', fn() => true],
 ]);
 
 add_filter('khzs_taken', fn($t) => $t + ['khzs_herinneringen' => '08:00']);
