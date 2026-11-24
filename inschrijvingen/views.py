@@ -1066,7 +1066,7 @@ def uitleg(request):
     zichtbaar = [f[0] for f in FILMPJES] if secretariaat else ["trainer", "zwemmer"] if trainer else ["zwemmer"]
     filmpjes = [f for f in FILMPJES if f[0] in zichtbaar]
     if secretariaat:
-        pdfs = ["HZS-inschrijvingen-documentatie", "onepager-sportsecretaris", "handleiding-sportsecretaris",
+        pdfs = ["KHZS-Leden-documentatie", "onepager-sportsecretaris", "handleiding-sportsecretaris",
                 "handleiding-trainer", "handleiding-zwemmer"]
         if heeft_rol(u, Profiel.BEHEERDER):
             pdfs += ["handleiding-beheerder", "technisch"]

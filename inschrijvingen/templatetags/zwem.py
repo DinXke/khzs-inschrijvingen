@@ -21,7 +21,7 @@ def euro(v):
 
 
 PDF_NAMEN = {
-    "HZS-inschrijvingen-documentatie": "Volledige documentatie", "onepager-zwemmer": "Onepager zwemmers",
+    "KHZS-Leden-documentatie": "Volledige documentatie", "onepager-zwemmer": "Onepager zwemmers",
     "onepager-trainer": "Onepager trainers", "onepager-sportsecretaris": "Onepager sportsecretaris",
     "handleiding-zwemmer": "Handleiding zwemmers & ouders", "handleiding-trainer": "Handleiding trainers",
     "handleiding-sportsecretaris": "Handleiding sportsecretaris", "handleiding-beheerder": "Handleiding beheerder",

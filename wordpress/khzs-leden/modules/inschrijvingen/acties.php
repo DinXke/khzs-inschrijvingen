@@ -1109,7 +1109,7 @@ const FILMPJES = [
     ['sportsecretaris', 'Voor de sportsecretaris', 'handleiding-sportsecretaris'],
 ];
 const PDF_NAMEN = [
-    'HZS-inschrijvingen-documentatie' => 'Volledige documentatie', 'onepager-zwemmer' => 'Onepager zwemmers',
+    'KHZS-Leden-documentatie' => 'Volledige documentatie', 'onepager-zwemmer' => 'Onepager zwemmers',
     'onepager-trainer' => 'Onepager trainers', 'onepager-sportsecretaris' => 'Onepager sportsecretaris',
     'handleiding-zwemmer' => 'Handleiding zwemmers & ouders', 'handleiding-trainer' => 'Handleiding trainers',
     'handleiding-sportsecretaris' => 'Handleiding sportsecretaris', 'handleiding-beheerder' => 'Handleiding beheerder',
@@ -1124,7 +1124,7 @@ function v_uitleg(): void
     $zichtbaar = $secretariaat ? array_column(FILMPJES, 0) : ($trainer ? ['trainer', 'zwemmer'] : ['zwemmer']);
     $filmpjes = array_values(array_filter(FILMPJES, fn($f) => in_array($f[0], $zichtbaar, true)));
     $pdfs = $secretariaat
-        ? array_merge(['HZS-inschrijvingen-documentatie', 'onepager-sportsecretaris', 'handleiding-sportsecretaris', 'handleiding-trainer', 'handleiding-zwemmer'],
+        ? array_merge(['KHZS-Leden-documentatie', 'onepager-sportsecretaris', 'handleiding-sportsecretaris', 'handleiding-trainer', 'handleiding-zwemmer'],
             heeft_rol([BEHEERDER]) ? ['handleiding-beheerder', 'technisch'] : [])
         : ($trainer ? ['onepager-trainer', 'handleiding-trainer', 'handleiding-zwemmer'] : ['onepager-zwemmer', 'handleiding-zwemmer']);
     // Filmpjes en PDF's zijn optioneel (groot); enkel tonen wat meegeleverd is in assets/docs.
