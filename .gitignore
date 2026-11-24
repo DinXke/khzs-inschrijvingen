@@ -11,3 +11,4 @@ docs/video/stem/*.woorden.json
 docs/video/stem/.*
 wordpress/khzs-leden.zip
 .testsite/
+.DS_Store

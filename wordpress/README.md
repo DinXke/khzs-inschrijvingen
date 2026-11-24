@@ -5,7 +5,7 @@ Eén plugin **KHZS Leden** met een gedeelde kern en modules:
 | Module | Wat |
 |---|---|
 | **Inschrijvingen** | De inschrijvingsapp, die hetzelfde werkt als de Django-versie: Lenex-import en -export, inschrijven, nakijken, finaliseren, Excel, uitslagen |
-| **Trainers** | Trainingsrooster, wie geeft welke training, afmelden en vervangen, gepresteerde uren, tarieven en verloning |
+| **Trainers** | Trainingsrooster met ploegen, seizoenen en verlof; eigen schema, afmelden en vervangen; *Was je aanwezig?*; kalender; uren, tarieven en verloning; aanwezigheid van zwemmers met statistiek |
 | **Communicatie** | Berichten zoals WhatsApp en Discord: secties, kanalen per ploeg en per wedstrijd, threads, vastgepinde berichten, aankondigingen en hulpvragen met inschrijving |
 
 De **kern** bevat wat alle modules delen:
@@ -14,7 +14,9 @@ De **kern** bevat wat alle modules delen:
 - pushmeldingen, de PWA en de installatiemelding
 - backup en instellingen
 
-De app staat op `https://jouwsite.be/leden/`. De oudere adressen `/inschrijvingen/…` en `/club/…` verwijzen automatisch door.
+De app staat op `https://jouwsite.be/leden/` (of op een eigen domein, zie verder). De oudere adressen `/inschrijvingen/…` en `/club/…` verwijzen automatisch door. Daarnaast synchroniseert de module Inschrijvingen de wedstrijden met **The Events Calendar** (zie *Websitekalender*).
+
+Een demo met alle modules staat op **https://khzs.be/leden-demo/** (zie *Demo op /leden-demo/*).
 
 ## Installeren
 
@@ -27,6 +29,8 @@ De app staat op `https://jouwsite.be/leden/`. De oudere adressen `/inschrijvinge
    - het adres van de app, en eventueel een eigen domein (zie *Eigen domein*)
    - of zelf registreren mag
    - de installatiemelding
+   - de link naar de webshop (leeg = geen knop)
+   - de gegevens voor de privacyverklaring
 
 Vereisten: WordPress 6.2+, PHP 8.0+ met de extensies `zip`, `simplexml`, `dom` en `openssl`. Er zijn geen andere plugins nodig. Met The Events Calendar komen de wedstrijden ook op de kalender van de website.
 
@@ -38,13 +42,13 @@ De plugin haalt nieuwe versies zelf op uit de GitHub-releases van deze repo (`in
 - Klik in de pluginlijst bij KHZS Leden op **Automatische updates inschakelen**. Dan installeert WordPress elke nieuwe versie vanzelf.
 - WordPress kijkt twee keer per dag. Wil je meteen kijken? Klik dan in de pluginlijst op **Op updates controleren**.
 
-Een nieuwe versie uitbrengen:
+Een nieuwe versie uitbrengen (releaseprocedure):
 
-1. Verhoog de versie in `khzs-leden/khzs-leden.php`, zowel op de regel `Version:` als bij `const VERSIE`.
-2. Merge naar `main`.
+1. Verhoog de versie in `khzs-leden/khzs-leden.php`, zowel op de regel `Version:` als bij `const VERSIE` (nu `2.0.0`).
+2. Laat de e2e-tests slagen en merge naar `main` (na akkoord: `main` gaat ook automatisch naar de Django-server en de demo).
 3. `git tag plugin-v2.1.0 && git push origin plugin-v2.1.0`
 
-De GitHub Action `.github/workflows/plugin-release.yml` controleert dan of de versies kloppen, bouwt `khzs-leden.zip` met `bouw.sh` en maakt de release. Enkel releases met een tag `plugin-v…` en de bijlage `khzs-leden.zip` tellen mee. Concepten en pre-releases worden genegeerd.
+De GitHub Action `.github/workflows/plugin-release.yml` controleert dan of de versies kloppen, bouwt `khzs-leden.zip` met `bouw.sh` en maakt de release. Enkel releases met een tag `plugin-v…` en de bijlage `khzs-leden.zip` tellen mee. Concepten en pre-releases worden genegeerd. De plugin vraagt de laatste release hoogstens om de 6 uur op bij GitHub.
 
 ## Rollen
 
@@ -56,7 +60,7 @@ Een account kan **meerdere rollen** hebben (bv. ouder én trainer); de rechten t
 | Ouder | hetzelfde als zwemmer: de eigen zwemmers inschrijven |
 | Trainer competitie | inschrijvingen nakijken, uitslagen; in *Trainingen* aanduiden welke trainingen hij of zij geeft, afmelden, overnemen, eigen uren bekijken; alle ploegen zien (sleutel `trainer`) |
 | Trainer zwemschool | enkel *Trainingen* (schema, aanwezigheid, uren, kalender) en de ploegen van de zwemschool; geen wedstrijden, nakijken of uitslagen (sleutel `trainer_zwemschool`) |
-| Bestuurder | leden en rollen beheren: rolaanvragen goedkeuren of afkeuren, rollen toekennen en afnemen (geen wedstrijden of inschrijvingen) |
+| Bestuurder | leden en rollen beheren: rolaanvragen goedkeuren of afkeuren, rollen toekennen en afnemen; ploegen; trainers opvolgen en trainingen beheren; kanalen en aankondigingen (geen wedstrijden of inschrijvingen) |
 | Sportsecretaris | wedstrijden, export, rollen, trainingsrooster beheren, de planning van anderen corrigeren |
 | Beheerder | alles, plus backup (WordPress-beheerders zijn dit altijd) |
 
@@ -72,12 +76,12 @@ De rollen staan in de user meta `khzs_rollen` (komma-gescheiden); `khzs_rol` hou
 
 **Penningmeester** staat los van de app-rol, want het kan ook een ouder zijn. Een beheerder duidt die aan bij *Gebruikers* in de app of op het WordPress-profiel. De penningmeester ziet **Verloning**: de tarieven en het overzicht per maand.
 
-**Bestuur** in de module Trainers: de penningmeester, de beheerder en (zodra de rollen er zijn) de bestuurder (functie `tr_is_bestuur()` in `modules/trainers/regels.php`). Het bestuur en het sportsecretariaat zien en wijzigen de schema's, aanwezigheden en uren van alle trainers. Wie in het bestuur zit en ook traint (en eventueel zelf zwemt), heeft bij *Trainingen* zijn of haar eigen trainingen én de knop *Overzicht trainers*. Voor de **eigen** trainingen gelden altijd de regels van een trainer: na uitbetaling corrigeert een ander lid van het bestuur of het secretariaat, zodat niemand zijn eigen uren achteraf goedkeurt.
+**Bestuur** in de module Trainers: de bestuurder, de penningmeester en de beheerder (functie `tr_is_bestuur()` in `modules/trainers/regels.php`). Het bestuur en het sportsecretariaat zien en wijzigen de schema's, aanwezigheden en uren van alle trainers. Wie in het bestuur zit en ook traint (en eventueel zelf zwemt), heeft bij *Trainingen* zijn of haar eigen trainingen én de knop *Overzicht trainers*. Voor de **eigen** trainingen gelden altijd de regels van een trainer: na uitbetaling corrigeert een ander lid van het bestuur of het secretariaat, zodat niemand zijn eigen uren achteraf goedkeurt.
 
 ## Zelf zwemmer
 
 Ook volwassenen die zelf zwemmen (bv. masters) kunnen zichzelf toevoegen:
-- **Bij registratie**: het vinkje *Ik zwem zelf* vult het eerste zwemmerblok met je eigen voor- en achternaam.
+- **Na de registratie**: de stap *Zwem je zelf?* van het stappenplan, met je naam al ingevuld.
 - **Achteraf**: met *+ Mezelf* bij *Mijn zwemmers*. Die knop verdwijnt zodra je jezelf hebt toegevoegd.
 
 ## Zwemmer delen met meerdere accounts
@@ -247,7 +251,7 @@ De demo staat op **https://khzs.be/leden-demo/**, maar draait op een **aparte Wo
   - `trainer` / `trainer`: trainer van Competitie 2
   - `zwemmer` / `zwemmer`: een zwemster die zelf haar account heeft
   - `ouder` / `ouder`: ouder van twee kinderen
-  - `bestuur` / `bestuur`: bestuurslid. Zolang er geen rollenmodule is (PR #7), is dat een penningmeester (verloning); daarna de rol bestuurder.
+  - `bestuur` / `bestuur`: bestuurslid (rol bestuurder)
 
   Andere demo-accounts, met wachtwoord `demo`:
   - `katrien` (sportsecretaris)
@@ -346,10 +350,14 @@ Een nieuwe module voeg je toe met een map `modules/<id>/` (`db.php` met `schema_
 
 ## Testen
 
-`tests/test_e2e.py` doet echte HTTP-verzoeken naar een testsite. Op die testsite moet `tests/khzs-test-helper.php` als mu-plugin staan. **Zet die helper nooit op een echte site.**
+`tests/test_e2e.py` (152 scenario's) doet echte HTTP-verzoeken naar een testsite. Op die testsite moet `tests/khzs-test-helper.php` als mu-plugin staan. **Zet die helper nooit op een echte site.**
 
 ```bash
+tests/testsite.sh                                   # WordPress + MariaDB + The Events Calendar op http://localhost:8080
 KHZS_URL=http://localhost:8080 python3 tests/test_e2e.py
 ```
+
+- `testsite.sh` vraagt `php`, `composer` en `mariadb-server`. Op Windows draai je het in een Docker-container (Debian, PHP 8.x, MariaDB), met LF-regeleindes.
+- Zonder The Events Calendar (`KHZS_TEC=0`) worden de kalendertests overgeslagen.
 
 De scenario's voor het eigen domein (`EigenDomeinTest`) bootsen de Cloudflare Worker na met Node (`tests/worker_sim.mjs`). Zonder Node worden ze overgeslagen.

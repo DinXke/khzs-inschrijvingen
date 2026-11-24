@@ -20,10 +20,10 @@
 
 ## Beheer
 
-- Rollen toekennen: **Gebruikers**.
+- Rollen: **Gebruikers & rollen** → aanvragen goedkeuren, afkeuren of een andere rol geven; **+ rol** en ✕ in de tabel.
+- Ploegen: **Ploegen** → ploeg aanmaken (competitie of zwemschool), trainers aanduiden, aanvragen behandelen.
+- Websitekalender *(WordPress-versie)*: **Wedstrijden → 📅 Websitekalender**.
 - Beste tijden: **Zwemmers → Uitslagen importeren** na elke wedstrijd.
 - Kosten zie jij en de trainer; zwemmers en ouders niet.
 - Backups: dat doet de beheerder.
 - Nieuwe versie van de uitnodiging: **Lenex opnieuw uploaden** (inschrijvingen blijven behouden).
-
-![pc instellingen](../screenshots/secretaris-instellingen.png)

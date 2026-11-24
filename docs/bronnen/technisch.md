@@ -1,5 +1,14 @@
 # Technische documentatie
 
+De app **KHZS Leden** bestaat in twee versies met dezelfde inschrijvingsregels:
+
+| Versie | Waar | Wat |
+|---|---|---|
+| **Django** (deze repo: `inschrijvingen/`, `config/`, `templates/`, `static/`, `deploy/`) | eigen LXC, `https://inschrijvingen.khzs.be`, nu in productie | inschrijvingen, rollen, ploegen, stappenplan, AVG |
+| **WordPress-plugin** (`wordpress/khzs-leden/`) | website van de club, `/leden/` of een eigen domein | hetzelfde, plus de modules *Trainers* en *Communicatie* en de websitekalender (The Events Calendar) |
+
+Dit document gaat over de Django-versie. De plugin staat beschreven in `wordpress/README.md`; de beslissingen en de open punten in `wordpress/OVERDRACHT.md`.
+
 ## Architectuur
 
 | Onderdeel | Keuze |
@@ -8,7 +17,7 @@
 | Database | PostgreSQL (productie), SQLite (lokaal) |
 | Webserver | gunicorn achter nginx (poort 80 in de container) |
 | Publiek | Cloudflare Tunnel (`cloudflared`) → `https://inschrijvingen.khzs.be` |
-| Hosting | Proxmox LXC (Debian 12, VLAN 10.10.30.0/24) |
+| Hosting | Proxmox LXC (Debian 12) |
 | Push | Web Push met VAPID (`pywebpush`), sleutel in `/opt/khzs/data/vapid.pem` |
 
 ## Naam en iconen
@@ -16,6 +25,16 @@
 - De app heet **KHZS Leden** (titel, app op de gsm, mails). Het adres blijft `https://inschrijvingen.khzs.be`.
 - App-iconen: het HZS-logo met *Leden* eronder. Opnieuw maken met `python3 tools/logo/maak_iconen.py` (schrijft naar `static/img/` en naar de WordPress-plugin).
 - Een zwemmer kan bij meerdere accounts horen: het eerste in `account`, de andere in `extra_accounts` (migratie `0011_zwemmer_accounts`). Koppelcodes: 8 tekens, 7 dagen geldig, max. 10 foute pogingen per uur.
+- **Webshop**: de knop naar de webshop van de club komt uit `CLUB_WEBSHOP` in `/etc/khzs.env` (standaard de clubpagina bij Robsport; leeg = geen knop).
+
+## Rollen en ploegen
+
+- **Rollen** (`inschrijvingen/rollen.py`, migratie `0012_rollen`): beheerder, sportsecretaris, trainer (competitie), trainer zwemschool, bestuurder, ouder, zwemmer. Een account heeft er nul of meer (model `Rol`); de rechten tellen samen. `Profiel.rol` is de hoogste rol (*hoofdrol*), enkel voor weergave en oude backups. Rechten controleer je met `heeft_rol(user, *rollen)`; de groepen staan in `Profiel` (`STAF`, `SECRETARIAAT`, `ROLBEHEER`, `PLOEGBEHEER`, `ALLE_PLOEGEN`, `TRAINERS`, `GEZIN`).
+- **Rolaanvragen** (`Rolaanvraag`): zwemmer en ouder krijg je meteen; trainer, bestuurder en sportsecretaris keurt `ROLBEHEER` goed, af of geeft een andere rol. Beheerder kan je niet aanvragen.
+- **Trainer zwemschool** (migratie `0014_trainer_zwemschool`): ziet geen wedstrijden (`rollen.zonder_wedstrijden()`, start op *Ploegen*), wel de ploegen van de zwemschool.
+- **Ploegen** (`inschrijvingen/ploegen.py`, modellen `Ploeg` met `soort` en `trainers`, en `PloegLid`, migratie `0013_ploegen`): de zwemmer of ouder vraagt aan, een trainer van de ploeg of `PLOEGBEHEER` keurt goed. Hulpfuncties voor wie bij een ploeg hoort: `zwemmers_van`, `accounts_van`, `lezers_van`, `zichtbare_ploegen`.
+- **Stappenplan** (`/welkom/`): na de registratie *Zwem je zelf?*, *Heb je kinderen die zwemmen?* en *Help je mee bij de club?*. Een nieuw account start zonder rol; het allereerste account van een installatie wordt sportsecretaris.
+- **Pushmeldingen**: enkel Web Push (VAPID). Voorkeuren in `Profiel.push_*`: nieuwe wedstrijd, deadline, wijziging, nieuwe inschrijving (staf), rolaanvraag (bestuur), ploegaanvraag (staf) en beslissing over een aanvraag.
 
 ## Lenex
 
@@ -48,19 +67,28 @@
 
   Na een wijziging: `systemctl restart khzs`.
 - **Akkoord**: een vinkje bij de registratie (`Profiel.privacy_akkoord` en `privacy_versie`). Wie de huidige versie nog niet aanvaardde, ziet bovenaan een melding.
-- **Toestemming van een ouder** voor een zwemmer jonger dan 18 jaar, bij het toevoegen (`Zwemmer.toestemming_op` en `toestemming_door`, migratie `0014_avg`). Voor bestaande minderjarige zwemmers vraagt de zwemmerpagina die toestemming achteraf.
+- **Toestemming van een ouder** voor een zwemmer jonger dan 18 jaar, bij het toevoegen (`Zwemmer.toestemming_op` en `toestemming_door`, migratie `0015_avg`). Voor bestaande minderjarige zwemmers vraagt de zwemmerpagina die toestemming achteraf.
 - **Mijn gegevens** (`/privacy/mijn-gegevens/`, link bij *Meldingen*): alles downloaden als JSON, en het account verwijderen (wachtwoord en het woord VERWIJDER). Gedeelde zwemmers gaan naar het andere account, de andere verdwijnen mee. Accounts met toegang tot `/beheer/` verwijder je niet zelf.
 - **Opkuis**: `manage.py opkuis` draait elke dag mee met `manage.py herinneringen` (de bestaande timer). Ze wist meldingen, behandelde aanvragen en het logboek van herinneringen na 365 dagen, pushabonnementen van accounts die 365 dagen niet aanmeldden, verlopen koppelcodes en verlopen sessies. Termijnen in `inschrijvingen/avg.py`.
 - **Cookies**: enkel strikt noodzakelijk (`sessionid` 90 dagen, `csrftoken`, `messages`), plus de lokale opslag `thema` en de cache van de service worker. Geen trackers, dus geen cookiebanner.
 - **Logboeken**: nginx en gunicorn bewaren IP-adressen volgens logrotate (op Debian 14 dagen).
 
+## Gegevens naar WordPress
+
+`manage.py export_wordpress --uit export.zip` maakt een zip in het backupformaat van de plugin, met accounts, rollen en aanvragen, ploegen, zwemmers, tijden, wedstrijden, inschrijvingen, het privacy-akkoord en de bestanden. In WordPress zet je die terug via *Backup → Backup terugzetten*. Bestaande wachtwoorden blijven werken.
+
+**Regel**: zolang Django in productie is, horen wijzigingen aan de inschrijvingsregels in `inschrijvingen/regels.py` én in `wordpress/khzs-leden/modules/inschrijvingen/regels.php`.
+
 ## Documentatie bijwerken
 
 ```
-.venv/bin/python docs/build.py          # Windows: .venv/Scripts/python docs/build.py
+.venv/bin/python docs/demo_screenshots.py   # enkel nodig voor de schermen van de WordPress-plugin (wp-*.png)
+.venv/bin/python docs/build.py              # Windows: .venv/Scripts/python docs/build.py (zet PYTHONUTF8=1)
 ```
 
-Het script start de app met demodata, maakt alle screenshots opnieuw (gsm + pc, licht + donker) en bouwt de PDF's in `docs/pdf/`.
+- `docs/build.py` start de Django-app met demodata (plus ploegen, een bestuurder, een rolaanvraag en een nieuw account voor het stappenplan), maakt de screenshots opnieuw (gsm + pc, licht + donker) en bouwt de PDF's in `docs/pdf/`, met de bundel `KHZS-Leden-documentatie.pdf`.
+- `docs/demo_screenshots.py` maakt de screenshots van schermen die enkel in de plugin bestaan (berichten, trainingen, aanwezigheid, verloning) van een **lokale** demo-installatie (`wordpress/demo/`, Docker, standaard `http://localhost:8095/leden-demo`).
+- De teksten staan in `docs/bronnen/*.md`. Wat enkel in de plugin bestaat, staat in een blok `<div class="wp" markdown="1">` (blauw kader in de PDF).
 
 ## Instructiefilmpjes
 
@@ -72,11 +100,15 @@ Het script (macOS en Windows; met Piper is geen macOS-stem nodig) start de app m
 
 De app toont de filmpjes en PDF's op `/uitleg/`: ze worden via `STATICFILES_DIRS` aangeboden als `/static/video/` en `/static/docs/`.
 
+De filmpjes tonen nog de registratie in één scherm, van vóór het stappenplan, en nog niets van de rollen, ploegen en de modules van de plugin. `docs/video.py` moet bijgewerkt worden voor je ze opnieuw maakt.
+
 ## Tests
 
 ```
-.venv/bin/python manage.py test inschrijvingen
+.venv/bin/python manage.py test inschrijvingen     # 125 tests
 ```
+
+De end-to-endtests van de WordPress-plugin staan in `wordpress/tests/test_e2e.py` (152 tests, zie `wordpress/README.md`).
 
 ## Demo-accounts (testfase)
 
@@ -86,6 +118,8 @@ De app toont de filmpjes en PDF's op `/uitleg/`: ze worden via `STATICFILES_DIRS
 | `trainer1`, `trainer2` | Trainer | `demo` |
 | `zwemmer1` (ouder Ann, kinderen Lien 2013 en Noor 2015), `zwemmer2` (Bram, 2011) | Zwemmer | `demo` |
 | `zwemmer3` … `zwemmer6` (gezinnen Vermeulen, Claes, Maes, Wouters) | Zwemmer | `demo` |
+
+`manage.py demodata` (enkel met `DJANGO_DEBUG=1`) maakt deze accounts, het beheerdersaccount `admin` met wachtwoord `demo` en een wedstrijd met inschrijvingen. Een demo van de WordPress-plugin, met alle modules en accounts per rol, staat op https://khzs.be/leden-demo/ (zie `wordpress/README.md`).
 
 **Demo-wedstrijden** (`manage.py demo_wedstrijden`): twee voorbije wedstrijden met doorgestuurde inschrijvingen en verwerkte uitslagen, twee open wedstrijden en één die nog niet open is. De programma's zijn gebaseerd op voorprogramma's van zwemfed.be (Regiocup Bree, Sprintcup KLSVZ, Kerstprijs ZCT). Verwijderen: `manage.py demo_wedstrijden --verwijder`.
 

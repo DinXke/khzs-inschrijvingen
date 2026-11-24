@@ -1,11 +1,15 @@
 # Handleiding sportsecretaris
 
-Als sportsecretaris laad je wedstrijden op, bepaal je de deadlines en selectiecriteria en stuur je de goedgekeurde inschrijvingen door naar de organisator.
+Als sportsecretaris laad je wedstrijden op, bepaal je de deadlines en selectiecriteria en stuur je de goedgekeurde inschrijvingen door naar de organisator. Je hebt ook alle rechten van een trainer van de competitie, en je beheert samen met het bestuur de rollen en de ploegen.
 
-## 1. Eerste keer
+> Onderdelen in een **blauw kader** bestaan enkel in de **WordPress-versie** van de app (op de website van de club).
 
-Het **eerste account** dat op een nieuwe installatie wordt aangemaakt, krijgt automatisch de rol *Sportsecretaris*.
-Andere rollen (zwemmer, trainer, sportsecretaris) ken je toe onder **Gebruikers**. Beheerders kan enkel een beheerder aanstellen.
+## 1. Eerste keer, rollen en ploegen
+
+In de Django-versie krijgt het **allereerste account** van een nieuwe installatie automatisch de rol *Sportsecretaris*. Nieuwe leden starten zonder rol en kiezen in het stappenplan na de registratie of ze zwemmer, ouder of medewerker zijn.
+
+- **Gebruikers & rollen**: bovenaan staan de rolaanvragen (trainer, bestuurder, sportsecretaris). Je kan **goedkeuren**, **afkeuren** met een reden of **een andere rol geven**. In de tabel neem je een rol af met ✕ of voeg je er een toe met **+ rol**. Een account kan meerdere rollen hebben. Beheerders kan enkel een beheerder aanstellen.
+- **Ploegen**: ploegen aanmaken (competitie of zwemschool), trainers aanduiden en ploegaanvragen behandelen. Zie de *Handleiding bestuur*.
 
 Volgen twee ouders dezelfde zwemmer, elk met een eigen account? Dat regelen ze zelf met een koppelcode. Je kan een account ook rechtstreeks koppelen bij de zwemmer, via **Account koppelen (staf)** (zie de handleiding voor trainers).
 
@@ -74,7 +78,31 @@ Na elke wedstrijd: **Zwemmers → Uitslagen importeren** met de uitslagen-Lenex.
 
 Inschrijfgelden zie je als sportsecretaris (en trainer) bij elk nummer en in de Excel-export. **Zwemmers en ouders zien geen bedragen.**
 
-## 9. Backups
+## 9. Websitekalender
+
+<div class="wp" markdown="1">
+
+Staat op de website de plugin **The Events Calendar**, dan zet de app de wedstrijden op de evenementenkalender van de website en houdt ze bij. Instellen doe je onder **Wedstrijden → 📅 Websitekalender**:
+
+- de synchronisatie aan of uit (standaard **uit**);
+- welke statussen op de website komen (standaard *Open*, *Gesloten* en *Doorgestuurd*, geen *Concept*);
+- de categorie van de evenementen, en of nieuwe evenementen meteen gepubliceerd worden of eerst als concept;
+- of de *info voor zwemmers* mee op de website mag (standaard niet);
+- de knop **Nu alles synchroniseren**.
+
+Enkel publieke informatie gaat mee: naam, sessies, zwembad, badlengte en organisator. Nooit zwemmers, inschrijvingen, deadlines of kosten. Bijlagen gaan enkel mee als je ze als **publiek** (🌐) aanduidt. Wijzigde iemand het evenement op de website, dan overschrijft de app dat niet: je kiest *Overschrijven met de app* of *Niet meer bijwerken*. Een wedstrijd die niet meer publiek is, wordt op de website *Geannuleerd*.
+
+</div>
+
+## 10. Trainingen
+
+<div class="wp" markdown="1">
+
+Het sportsecretariaat beheert samen met het bestuur het trainingsrooster (**Trainingen → Trainingen beheren**: vaste trainingen, ploegen per training, seizoenen, verlof en afgelaste trainingen) en kan de planning en de aanwezigheid van elke trainer corrigeren. Zie de *Handleiding bestuur*.
+
+</div>
+
+## 11. Backups
 
 Backups en technisch beheer horen bij de aparte rol **Beheerder** (zie *Handleiding beheerder*), niet bij het sportsecretariaat.
 
@@ -82,6 +110,6 @@ Backups en technisch beheer horen bij de aparte rol **Beheerder** (zie *Handleid
 
 Onder **Uitleg** staan de instructiefilmpjes met gesproken uitleg en ondertitels, samen met de handleidingen als PDF.
 
-## 10. Donker thema
+## 12. Donker thema
 
 ![pc donker](../screenshots/secretaris-donker.png)
