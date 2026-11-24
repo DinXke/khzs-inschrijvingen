@@ -53,17 +53,17 @@ class PrivacyTest(TestCase):
         p = User.objects.get(username="nieuw@test.be").profiel
         self.assertIsNotNone(p.privacy_akkoord)
         self.assertEqual(p.privacy_versie, avg.versie())
-        self.assertNotContains(self.client.get("/welkom/"), "Lees hoe de club met je gegevens omgaat")
+        self.assertNotContains(self.client.get("/welkom/"), "Bevestig de privacyverklaring van de club")
 
     def test_bestaand_account_en_nieuwe_versie(self):
         u = account("oud@test.be", Profiel.OUDER)
         self.client.force_login(u)
-        self.assertContains(self.client.get("/zwemmers/"), "Lees hoe de club met je gegevens omgaat")
+        self.assertContains(self.client.get("/zwemmers/"), "Bevestig de privacyverklaring van de club")
         r = self.client.post("/privacy/")
         self.assertEqual(r["Location"], "/privacy/mijn-gegevens/")
-        self.assertNotContains(self.client.get("/zwemmers/"), "Lees hoe de club met je gegevens omgaat")
+        self.assertNotContains(self.client.get("/zwemmers/"), "Bevestig de privacyverklaring van de club")
         with self.settings(PRIVACY={**avg.instellingen(), "versie": "2099-01-01"}):
-            self.assertContains(self.client.get("/zwemmers/"), "Lees hoe de club met je gegevens omgaat")
+            self.assertContains(self.client.get("/zwemmers/"), "Bevestig de privacyverklaring van de club")
             self.assertContains(self.client.get("/privacy/mijn-gegevens/"), "Er is een nieuwe versie")
 
 

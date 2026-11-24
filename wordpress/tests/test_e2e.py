@@ -229,12 +229,12 @@ class StroomTest(Basis):
 
     def test_deadlines(self):
         r = self.c.get(f"wedstrijd/{self.w}/instellingen/")
-        self.assertContains(r, "Zwemmers tot<b>zo 11 Okt</b>")
-        self.assertContains(r, "Trainers tot<b>di 13 Okt</b>")
+        self.assertContains(r, "Zwemmers tot<b>zo 11 okt</b>")
+        self.assertContains(r, "Trainers tot<b>di 13 okt</b>")
         self.c.login("tr@khzs.be")
         self.c.post(f"wedstrijd/{self.w}/nakijken/", {"dagen_trainer": 5, "info": ""})
         r = self.c.get(f"wedstrijd/{self.w}/nakijken/")
-        self.assertContains(r, "Zwemmers tot<b>do 8 Okt</b>")
+        self.assertContains(r, "Zwemmers tot<b>do 8 okt</b>")
 
     def test_volledige_stroom(self):
         self.c.logout()
@@ -1479,7 +1479,7 @@ class SoortenKalenderTest(TrainersBasis):
         r = self.t.get("trainers/kalender/")
         self.assertEqual(r.status_code, 200, r.text[:1500])
         t = self.tekst(r)
-        self.assertIn("14 Sep – 20 Sep 2026", t)
+        self.assertIn("14 sep – 20 sep 2026", t)
         self.assertIn("A-groep", t)
         self.assertIn("Lies voor Tom", t)
         self.assertIn('<s title="afgemeld">Tom</s>', r.text)
@@ -1532,7 +1532,7 @@ class SoortenKalenderTest(TrainersBasis):
         self.assertNotIn(">B-groep</strong>", r.text)
         self.assertIn("A-ploeg", r.text)
         # Een onbekende weergave wordt de week; wie geen trainer of bestuur is, kan niet binnen.
-        self.assertIn("14 Sep – 20 Sep 2026", self.tekst(self.b.get("trainers/kalender/", weergave="jaar")))
+        self.assertIn("14 sep – 20 sep 2026", self.tekst(self.b.get("trainers/kalender/", weergave="jaar")))
         self.assertEqual(Klant().login("ouder@khzs.be").get("trainers/kalender/").status_code, 403)
 
 
@@ -2313,16 +2313,16 @@ class TabbalkTest(Basis):
     def test_ouder_berichten_en_meer(self):
         gebruiker("ouder@x.be")
         html = self.c.login("ouder@x.be").get("wedstrijden/").text
-        self.assertEqual(self.balk(html), ["Wedstrijden", "Berichten", "Profiel", "Uitleg", "Meer"])
+        self.assertEqual(self.balk(html), ["Wedstrijden", "Berichten", "Profiel", "Meldingen", "Meer"])
         blad = re.search(r'<div class="meer-blad".*?</div>', html, re.S).group(0)
-        self.assertEqual(re.findall(r"</svg>([^<]+)</a>", blad), ["Meldingen", "Afmelden"])
+        self.assertEqual(re.findall(r"</svg>([^<]+)</a>", blad), ["Uitleg", "Afmelden"])
 
     def test_veel_items_onder_meer_met_backup(self):
         html = self.c.login("admin", "admin123").get("wedstrijden/").text
         self.assertEqual(self.balk(html), ["Wedstrijden", "Berichten", "Zwemmers", "Trainingen", "Meer"])
         blad = re.search(r'<div class="meer-blad".*?</div>', html, re.S).group(0)
         meer = re.findall(r"</svg>([^<]+)</a>", blad)
-        self.assertEqual(meer, ["Verloning", "Ploegen", "Gebruikers", "Uitleg", "Meldingen", "Backup", "Afmelden"])
+        self.assertEqual(meer, ["Verloning", "Ploegen", "Gebruikers", "Meldingen", "Uitleg", "Backup", "Afmelden"])
         # Actieve pagina onder 'Meer': de knop Meer licht op.
         self.assertIn('class="actief" id="meer-knop"', self.c.get("gebruikers/").text)
 
@@ -2393,7 +2393,7 @@ class DemoTest(Basis):
         for status in ("Concept", "Open", "Gesloten", "Doorgestuurd"):
             self.assertContains(r, status)
         self.assertContains(r, "Clubmeeting ZCT")
-        self.assertContains(r, "<b>Demo</b>: alle gegevens zijn verzonnen")
+        self.assertContains(r, "<b>Demo</b>: verzonnen gegevens")
         self.assertContains(r, "Demo terugzetten")
         # Alle rollen: menu van beheerder, trainer en penningmeester; eigen zwemmers als ouder en als zwemmer.
         menu = r.text.replace("\n", "")
@@ -2868,7 +2868,7 @@ def optie(naam, waarde=None):
 class AvgTest(Basis):
     """AVG: privacyverklaring, akkoord, toestemming ouder, gegevens downloaden, account verwijderen of afsluiten, opkuis."""
 
-    LEES = "Lees hoe de club met je gegevens omgaat"
+    LEES = "Bevestig de privacyverklaring van de club"
 
     def tearDown(self):
         for o in ("khzs_privacy_verantwoordelijke", "khzs_privacy_adres", "khzs_privacy_email", "khzs_privacy_versie", "khzs_privacy_extra"):

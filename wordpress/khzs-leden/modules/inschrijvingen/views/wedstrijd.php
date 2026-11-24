@@ -38,6 +38,7 @@ $vast = $d && !$staf && ($d->geweigerd || $d->gefinaliseerd);
     </div>
     <?php if ($d && $d->gefinaliseerd && !$d->geweigerd): ?><div class="melding success" style="margin:.6rem 0 0">🔒 Je inschrijving is gefinaliseerd door je trainer<?= $staf ? '' : '. Wijzigen kan enkel nog via je trainer' ?>.</div><?php endif; ?>
     <?php if ($d && $d->geweigerd): ?><div class="melding error" style="margin:.6rem 0 0">⛔ Deelname geweigerd door de club<?= $d->weigerreden ? ': ' . e($d->weigerreden) : '' ?></div><?php endif; ?>
+    <?php if (!$vast): ?><p class="help" style="margin:.4rem 0 0">Je keuze wordt meteen bewaard. ‘Interesse’ betekent: misschien, hou me op de hoogte.</p><?php endif; ?>
     <?php if ($w->status === W_CONCEPT): ?><p class="help">Inschrijven op nummers kan zodra het sportsecretariaat de inschrijvingen opent. Met ‘Interesse’ of ‘Ik doe mee’ krijg je dan een melding.</p><?php endif; ?>
   </form>
   <?php if ($staf): ?>
@@ -94,9 +95,21 @@ $vast = $d && !$staf && ($d->geweigerd || $d->gefinaliseerd);
     <?php endforeach; ?>
     <?php if (!$programma): ?><div class="leeg">Geen nummers voor deze leeftijd/geslacht in deze wedstrijd.</div><?php endif; ?>
     <?php if ($mag_wijzigen && $programma && (!($d && $d->gefinaliseerd) || $staf)): ?>
-    <div class="vaste-actie"><span class="klein" style="flex:1">Huidig: <?= count($bestaande) ?> nummer(s)<?= $staf ? ' · ' . e(euro($totaal)) : '' ?></span><button>Bewaren</button></div>
+    <div class="vaste-actie"><span class="klein" style="flex:1" aria-live="polite">Gekozen: <b data-aantal><?= count($bestaande) ?></b> nummer(s)<?= $staf ? ' · ' . e(euro($totaal)) : '' ?> <b data-niet-bewaard hidden>· nog niet bewaard</b></span><button>Bewaren</button></div>
     <?php endif; ?>
   </form>
+<script>
+// Teller in de Bewaar-balk telt mee bij het aanvinken, en toont of er nog iets te bewaren is.
+document.querySelectorAll(".vaste-actie [data-aantal]").forEach(function (b) {
+  const f = b.closest("form"), vinkjes = f.querySelectorAll('input[name="nummer[]"]'), rest = f.querySelector("[data-niet-bewaard]");
+  const stand = () => Array.from(vinkjes, v => v.checked ? 1 : 0).join("");
+  const begin = stand();
+  f.addEventListener("change", function () {
+    b.textContent = f.querySelectorAll('input[name="nummer[]"]:checked').length;
+    rest.hidden = stand() === begin;
+  });
+});
+</script>
 <?php elseif (!$zwemmers): ?>
   <div class="leeg">Nog geen zwemmer gekoppeld. <a href="<?= esc_url(app_url('zwemmers/nieuw/')) ?>">Voeg een zwemmer toe</a>.</div>
 <?php endif; ?>

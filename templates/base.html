@@ -37,7 +37,7 @@
 <main class="{% block mainklasse %}{% endblock %}">
   {% for m in messages %}<div class="melding {{ m.tags }}">{{ m }}</div>{% endfor %}
   {% for l in ploegbeslissingen %}<div class="melding {% if l.status == 'afgekeurd' %}error{% else %}success{% endif %}">{{ l.zwemmer.voornaam }}: {% if l.status == 'afgekeurd' %}aanvraag voor {{ l.ploeg }} afgekeurd{% else %}zit nu in {{ l.ploeg }}{% endif %}. <a href="{% url 'zwemmer' l.zwemmer.pk %}">Bekijk</a></div>{% endfor %}
-  {% if privacy_lezen and p != 'privacy' %}<div class="melding info">Lees hoe de club met je gegevens omgaat, en bevestig dat je akkoord gaat. <a href="{% url 'privacy' %}">Privacyverklaring</a></div>{% endif %}
+  {% if privacy_lezen and p != 'privacy' %}<div class="melding info kort"><span>Bevestig de privacyverklaring van de club.</span> <a class="knop mini" href="{% url 'privacy' %}">Lezen</a></div>{% endif %}
   {% for a in rolbeslissingen %}<div class="melding {% if a.status == 'afgekeurd' %}error{% else %}success{% endif %}">{{ a.beslissing }} <a href="{% url 'mijn_rollen' %}">Mijn rollen</a></div>{% endfor %}
   {% block inhoud %}{% endblock %}
 </main>
