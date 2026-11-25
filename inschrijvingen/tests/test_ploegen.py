@@ -111,6 +111,15 @@ class PloegenTest(TestCase):
             self.assertContains(r, "A-groep")
             self.assertContains(r, "B-groep")
 
+    def test_ploegpagina_toont_de_ploeg(self):
+        # Vroeger overschreef base.html de variabele p: geen naam, altijd 'gearchiveerd', geen trainers.
+        PloegLid.objects.create(zwemmer=self.lien, ploeg=self.a, status=PloegLid.GOEDGEKEURD)
+        self.client.force_login(self.ouder)
+        r = self.client.get(f"/ploegen/{self.a.pk}/")
+        self.assertContains(r, "<h1>A-groep</h1>", html=False)
+        self.assertNotContains(r, "gearchiveerd")
+        self.assertContains(r, "Trainers: Tom")
+
     def test_wie_hoort_bij_een_ploeg(self):
         """Basis voor de latere communicatie per ploeg."""
         PloegLid.objects.create(zwemmer=self.lien, ploeg=self.a, status=PloegLid.GOEDGEKEURD)
