@@ -16,20 +16,20 @@
   <link rel="stylesheet" href="{% static 'app.css' %}">
 </head>
 <body>
-{% with p=request.resolver_match.url_name %}
+{% with pagina=request.resolver_match.url_name %}
 <header class="kop">
   <a class="logo" href="{% url 'start' %}"><span class="logo-badge"><img src="{% static 'img/logo.png' %}" alt="Hasseltse Zwemvereniging Spartacus"></span><span class="logo-tekst">KHZS Leden</span></a>
   <button type="button" class="thema-knop" id="thema" title="Licht / donker / automatisch" aria-label="Thema wisselen"></button>
   {% if user.is_authenticated %}
   <nav>
-    {% if not zonder_wedstrijden %}<a href="{% url 'wedstrijden' %}" class="{% if p in 'wedstrijden wedstrijd nakijken instellingen upload' %}actief{% endif %}">Wedstrijden</a>{% endif %}
-    <a href="{% url 'zwemmers' %}" class="{% if p in 'zwemmers zwemmer zwemmer_nieuw' %}actief{% endif %}">{% if is_staf %}Zwemmers{% else %}Mijn zwemmers{% endif %}</a>
-    {% if ziet_ploegen %}<a href="{% url 'ploegen' %}" class="{% if p in 'ploegen ploeg' %}actief{% endif %}">Ploegen{% if open_ploegaanvragen %} <span class="badge wacht" title="Ploegaanvragen">{{ open_ploegaanvragen }}</span>{% endif %}</a>{% endif %}
-    {% if is_rolbeheerder %}<a href="{% url 'gebruikers' %}" class="{% if p == 'gebruikers' %}actief{% endif %}">Gebruikers{% if open_rolaanvragen %} <span class="badge wacht" title="Rolaanvragen">{{ open_rolaanvragen }}</span>{% endif %}</a>{% endif %}
-    {% if is_beheerder %}<a href="{% url 'backups' %}" class="{% if p == 'backups' %}actief{% endif %}">Backup</a><a href="/beheer/">Beheer</a>{% endif %}
-    <a href="{% url 'uitleg' %}" class="{% if p == 'uitleg' %}actief{% endif %}">Uitleg</a>
+    {% if not zonder_wedstrijden %}<a href="{% url 'wedstrijden' %}" class="{% if pagina in 'wedstrijden wedstrijd nakijken instellingen upload' %}actief{% endif %}">Wedstrijden</a>{% endif %}
+    <a href="{% url 'zwemmers' %}" class="{% if pagina in 'zwemmers zwemmer zwemmer_nieuw' %}actief{% endif %}">{% if is_staf %}Zwemmers{% else %}Mijn zwemmers{% endif %}</a>
+    {% if ziet_ploegen %}<a href="{% url 'ploegen' %}" class="{% if pagina in 'ploegen ploeg' %}actief{% endif %}">Ploegen{% if open_ploegaanvragen %} <span class="badge wacht" title="Ploegaanvragen">{{ open_ploegaanvragen }}</span>{% endif %}</a>{% endif %}
+    {% if is_rolbeheerder %}<a href="{% url 'gebruikers' %}" class="{% if pagina == 'gebruikers' %}actief{% endif %}">Gebruikers{% if open_rolaanvragen %} <span class="badge wacht" title="Rolaanvragen">{{ open_rolaanvragen }}</span>{% endif %}</a>{% endif %}
+    {% if is_beheerder %}<a href="{% url 'backups' %}" class="{% if pagina == 'backups' %}actief{% endif %}">Backup</a><a href="/beheer/">Beheer</a>{% endif %}
+    <a href="{% url 'uitleg' %}" class="{% if pagina == 'uitleg' %}actief{% endif %}">Uitleg</a>
     {% if webshop %}<a href="{{ webshop }}" target="_blank" rel="noopener">Webshop ↗</a>{% endif %}
-    <a href="{% url 'meldingen' %}" class="{% if p == 'meldingen' %}actief{% endif %}" title="Meldingen">🔔</a>
+    <a href="{% url 'meldingen' %}" class="{% if pagina == 'meldingen' %}actief{% endif %}" title="Meldingen">🔔</a>
     <form method="post" action="{% url 'logout' %}" style="display:inline">{% csrf_token %}<button class="mini secundair">Afmelden</button></form>
   </nav>
   {% endif %}
@@ -37,23 +37,23 @@
 <main class="{% block mainklasse %}{% endblock %}">
   {% for m in messages %}<div class="melding {{ m.tags }}">{{ m }}</div>{% endfor %}
   {% for l in ploegbeslissingen %}<div class="melding {% if l.status == 'afgekeurd' %}error{% else %}success{% endif %}">{{ l.zwemmer.voornaam }}: {% if l.status == 'afgekeurd' %}aanvraag voor {{ l.ploeg }} afgekeurd{% else %}zit nu in {{ l.ploeg }}{% endif %}. <a href="{% url 'zwemmer' l.zwemmer.pk %}">Bekijk</a></div>{% endfor %}
-  {% if privacy_lezen and p != 'privacy' %}<div class="melding info kort"><span>Bevestig de privacyverklaring van de club.</span> <a class="knop mini" href="{% url 'privacy' %}">Lezen</a></div>{% endif %}
+  {% if privacy_lezen and pagina != 'privacy' %}<div class="melding info kort"><span>Bevestig de privacyverklaring van de club.</span> <a class="knop mini" href="{% url 'privacy' %}">Lezen</a></div>{% endif %}
   {% for a in rolbeslissingen %}<div class="melding {% if a.status == 'afgekeurd' %}error{% else %}success{% endif %}">{{ a.beslissing }} <a href="{% url 'mijn_rollen' %}">Mijn rollen</a></div>{% endfor %}
   {% block inhoud %}{% endblock %}
 </main>
 {% if user.is_authenticated %}
 <nav class="tabbalk">
-  {% if not zonder_wedstrijden %}<a href="{% url 'wedstrijden' %}" class="{% if p in 'wedstrijden wedstrijd nakijken instellingen upload' %}actief{% endif %}">
+  {% if not zonder_wedstrijden %}<a href="{% url 'wedstrijden' %}" class="{% if pagina in 'wedstrijden wedstrijd nakijken instellingen upload' %}actief{% endif %}">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Wedstrijden</a>{% endif %}
-  <a href="{% url 'zwemmers' %}" class="{% if p in 'zwemmers zwemmer zwemmer_nieuw' %}actief{% endif %}">
+  <a href="{% url 'zwemmers' %}" class="{% if pagina in 'zwemmers zwemmer zwemmer_nieuw' %}actief{% endif %}">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>{% if is_staf %}Zwemmers{% else %}Profiel{% endif %}</a>
-  {% if ziet_ploegen %}<a href="{% url 'ploegen' %}" class="{% if p in 'ploegen ploeg' %}actief{% endif %}">
+  {% if ziet_ploegen %}<a href="{% url 'ploegen' %}" class="{% if pagina in 'ploegen ploeg' %}actief{% endif %}">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="9" r="2.5"/><circle cx="17" cy="9" r="2.5"/><circle cx="12" cy="7" r="2.5"/><path d="M2 19c0-3 2-5 5-5M22 19c0-3-2-5-5-5M7 20c0-3 2-5 5-5s5 2 5 5"/></svg>Ploegen</a>{% endif %}
-  {% if is_rolbeheerder %}<a href="{% url 'gebruikers' %}" class="{% if p == 'gebruikers' %}actief{% endif %}">
+  {% if is_rolbeheerder %}<a href="{% url 'gebruikers' %}" class="{% if pagina == 'gebruikers' %}actief{% endif %}">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 20c0-3 3-5 7-5s7 2 7 5M16 14c3 0 6 1.5 6 4.5"/></svg>Gebruikers</a>{% endif %}
-  <a href="{% url 'uitleg' %}" class="{% if p == 'uitleg' %}actief{% endif %}">
+  <a href="{% url 'uitleg' %}" class="{% if pagina == 'uitleg' %}actief{% endif %}">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4z" fill="currentColor"/></svg>Uitleg</a>
-  <a href="{% url 'meldingen' %}" class="{% if p == 'meldingen' %}actief{% endif %}">
+  <a href="{% url 'meldingen' %}" class="{% if pagina == 'meldingen' %}actief{% endif %}">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>Meldingen</a>
   <a href="#" onclick="document.getElementById('afmelden').submit();return false">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>Afmelden</a>
